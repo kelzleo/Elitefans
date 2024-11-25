@@ -1,0 +1,218 @@
+.roboto-slab p {
+    font-family: "Roboto Slab", serif;
+    font-optical-sizing: auto;
+    font-weight: light;
+    font-style: normal;
+  }
+
+  p{
+    font-size: 11pt !important;
+    line-height: 30px;
+    margin: 15px 0;
+    /*color: gray !important;*/
+    font-weight: 400;
+    font-family: 'Roboto Slab', serif !important;
+    text-align: justify !important;
+  }
+  h1{
+    font-weight: 400;
+    font-family: 'Roboto Slab', serif !important;
+    text-align: justify !important;
+    color: black !important;
+  }
+  h2{
+    font-weight: 400;
+    font-family: 'Roboto Slab', serif !important;
+    text-align: justify !important;
+    color: black !important;
+  }
+
+
+.sign-options {
+    display: flex;
+    flex-direction: column;
+    margin: 20px;
+    padding: 20px;
+}
+
+/* Center the form horizontally and make it responsive */
+.login-form {
+    width: 100%;  /* Makes the form take full width of its container */
+    max-width: 350px;  /* Sets a maximum width for the form */
+    margin: 0 auto;  /* This will center the form horizontally */
+    text-align: center;
+    box-sizing: border-box; /* Ensures padding doesn't affect the width calculation */
+}
+
+/* Style the input fields */
+.login-form input {
+    width: 100%;  /* Makes input fields take full width of the form */
+    padding: 12px;
+    margin: 10px 0;  /* Space between inputs */
+    font-size: 1rem;
+    box-sizing: border-box; /* Ensures padding doesn't affect the width calculation */
+}
+
+/* Style the submit button */
+.button-login {
+    width: auto;  /* Makes the button only as wide as needed */
+    padding: 10px 20px;  /* Button padding */
+    font-size: 1rem;
+    background-color: #FF007F;
+    color: white;
+    border: none;
+    cursor: pointer;
+    margin: 10px 0;  /* Adds space above and below the button */
+    display: inline-block; /* Makes sure button is aligned with its content */
+}
+
+/* Button hover effect */
+.button-login:hover {
+    background-color: red;
+}
+
+.a-sign{
+    width: auto;  /* Makes the button only as wide as needed */
+    padding: 10px 20px;  /* Button padding */
+    font-size: 1rem;
+    background-color: #FF007F;
+    color: white;
+    border: none;
+    cursor: pointer;
+    margin: 10px 0;  /* Adds space above and below the button */
+    display: inline-block; /* Makes sure button is aligned with its content */
+}
+ a{
+    text-decoration: none;
+}
+.signup-options{
+    margin: 10px;
+    padding: 10px;
+}
+
+.g-sign{
+    margin: 30px;
+}
+
+.signup-form{
+    display: flex;
+    flex-direction: column;
+    padding: 10px;
+    margin: 10px;
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.signup-form input{
+    padding: 10px;
+    margin: 10px 0;  /* Space between inputs */
+    font-size: 1rem;
+    box-sizing: border-box; /* Ensures padding doesn't affect the width calculation */
+}
+
+.button-signup{
+    width: auto;  /* Makes the button only as wide as needed */
+    padding: 10px 20px;  /* Button padding */
+    font-size: 1rem;
+    background-color: #FF007F;
+    color: white;
+    border: none;
+    cursor: pointer;
+    margin: 10px 0;  /* Adds space above and below the button */
+    display: inline-block; /* Makes sure button is aligned with its content */
+
+
+}
+
+.button-signup:hover{
+    background-color: red;
+}
+/* Mobile-first approach */
+
+/* Overall container styling */
+.verify-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    background: linear-gradient(to right, #f7a1d3, #ffd1dc); /* Soft pink gradient background */
+    
+    color: #333;
+    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+/* Header styling */
+.verify-container h1 {
+    font-size: 1.8em;
+    color: #fff; /* White text for contrast */
+    font-weight: bold;
+    margin-bottom: 15px;
+    letter-spacing: 1px;
+}
+
+/* Paragraph styling */
+.verify-container p {
+    font-size: 1em;
+    color: #f3f3f3;
+    margin-bottom: 20px;
+    font-weight: 500;
+}
+
+/* Button styling */
+.verify-container .btn {
+    padding: 12px 25px;
+    background-color: #ff70a6; /* Soft pink color */
+    color: #fff;
+    text-decoration: none;
+    border-radius: 30px;
+    font-size: 1em;
+    font-weight: bold;
+    transition: background-color 0.3s, transform 0.2s;
+}
+
+/* Button hover effect */
+.verify-container .btn:hover {
+    background-color: #ff3e75; /* Darker pink on hover */
+    transform: translateY(-5px); /* Lift effect on hover */
+}
+
+/* Optional: Add a soft shadow to the button for a more "elevated" look */
+.verify-container .btn {
+    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Tablet and larger screen responsiveness (above 600px) */
+@media (min-width: 601px) {
+    .verify-container h1 {
+        font-size: 2em; /* Larger header size for bigger screens */
+    }
+
+    .verify-container p {
+        font-size: 1.1em; /* Slightly larger text for bigger screens */
+    }
+
+    .verify-container .btn {
+        padding: 15px 30px; /* Larger button padding for larger screens */
+    }
+}
+
+/* Desktop and larger screen responsiveness (above 1024px) */
+@media (min-width: 1024px) {
+    .verify-container h1 {
+        font-size: 2.5em; /* Larger font for very large screens */
+    }
+
+    .verify-container p {
+        font-size: 1.3em; /* Adjust font size for readability on larger screens */
+    }
+
+    .verify-container .btn {
+        padding: 18px 35px; /* Even larger button size for desktop */
+    }
+}
+
+
+
