@@ -1,0 +1,16 @@
+<h1 class="edit-profile-title">Edit Profile</h1>
+
+<form class="edit-profile-form" action="/profile/edit" method="POST" enctype="multipart/form-data">
+    <label class="edit-profile-label" for="profileName">Profile Name:</label>
+    <input class="edit-profile-input" type="text" id="profileName" name="profileName" value="<%= user.profileName %>">
+
+    <label class="edit-profile-label" for="bio">Bio:</label>
+    <textarea class="edit-profile-textarea" id="bio" name="bio"><%= user.bio %></textarea>
+
+    <label class="edit-profile-label" for="profilePicture">Profile Picture:</label>
+    <input class="edit-profile-input" type="file" id="profilePicture" name="profilePicture">
+
+    <button class="edit-profile-button" type="submit">Save Changes</button>
+</form>
+
+

@@ -1,0 +1,19 @@
+<h1>Admin Dashboard</h1>
+
+<h2>Creator Requests</h2>
+<% if (creatorRequests.length > 0) { %>
+    <ul>
+        <% creatorRequests.forEach(user => { %>
+            <li>
+                <strong><%= user.username %></strong> (<%= user.email %>)
+                <form action="/admin/approve/<%= user._id %>" method="POST" style="display:inline;">
+                    <button type="submit">Approve</button>
+                </form>
+            </li>
+        <% }) %>
+    </ul>
+<% } else { %>
+    <p>No creator requests at the moment.</p>
+<% } %>
+
+<a href="/profile">Back to Profile</a>

@@ -1,0 +1,15 @@
+<h1>Sign up to support your favorite creators</h1>
+
+<% if (errorMessage) { %>
+    <div class="error-message">
+        <%= errorMessage %>
+    </div>
+<% } %>
+
+<form action="/signup" method="POST" class="signup-form">
+    <h2>Create Your Account</h2>
+    <input type="text" name="username" placeholder="Username" required>
+    <input type="email" name="email" placeholder="Email" required>
+    <input type="password" name="password" placeholder="Password" required>
+    <button type="submit" class="button-signup">Sign Up</button>
+</form>
