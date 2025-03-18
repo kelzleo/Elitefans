@@ -36,7 +36,7 @@ router.post('/signup', async (req, res) => {
         await newUser.save();
 
         // Send verification email
-        const verificationLink = `http://localhost:4000/verify/${verificationToken}`;
+        const verificationLink = `https://onlyaccess.onrender.com/verify/${verificationToken}`;
         await sendEmail(
             email,
             'Verify Your Email',
