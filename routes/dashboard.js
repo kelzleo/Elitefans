@@ -91,6 +91,7 @@ router.post('/bank-details', authCheck, async (req, res) => {
 });
 
 // POST /dashboard/withdraw - IMMEDIATE withdrawal (no 24-hour delay)
+// POST /dashboard/withdraw
 router.post('/withdraw', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
@@ -118,12 +119,22 @@ router.post('/withdraw', authCheck, async (req, res) => {
     const fee = amount * 0.25;
     const payoutAmount = amount - fee;
 
-    // Convert bank name to a bank code (example helper)
+    // Convert bank name to a bank code
     const bankCode = mapBankNameToCode(currentUser.bankName);
     const accountNumber = currentUser.accountNumber;
 
     // Attempt immediate transfer
-    const transferResponse = await transferToBank(bankCode, accountNumber, payoutAmount);
+    let transferResponse;
+    try {
+      transferResponse = await transferToBank(bankCode, accountNumber, payoutAmount);
+      console.log('Full transferResponse object:', transferResponse);
+    } catch (err) {
+      // This catch block fires if transferToBank throws an error
+      console.error('transferToBank threw an error:', err);
+      return res.status(500).json({ message: 'Error calling transferToBank.', error: err.message });
+    }
+
+    // If we got here, transferToBank did not throw
     if (transferResponse.status === 'success') {
       // Subtract the entire requested amount from totalEarnings
       currentUser.totalEarnings -= amount;
@@ -131,12 +142,13 @@ router.post('/withdraw', authCheck, async (req, res) => {
 
       return res.json({ message: 'Withdrawal successful!' });
     } else {
-      // If the transfer fails, do not remove from totalEarnings
-      return res.status(500).json({ message: 'Transfer failed.' });
+      // If the transfer fails (status !== 'success'), do not remove from totalEarnings
+      console.error('Flutterwave transfer failed:', transferResponse);
+      return res.status(500).json({ message: 'Transfer failed.', data: transferResponse });
     }
   } catch (err) {
     console.error('Withdraw error:', err);
-    return res.status(500).json({ message: 'Error processing withdrawal.' });
+    return res.status(500).json({ message: 'Error processing withdrawal.', error: err.message });
   }
 });
 
