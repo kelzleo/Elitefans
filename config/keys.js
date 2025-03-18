@@ -20,7 +20,5 @@ module.exports = {
     // Use the provided cookie key or generate one if not set
     cookieKey: process.env.COOKIE_KEY || generateCookieKey(),
   },
-  googleCloud: {
-    keyFilePath: process.env.GOOGLE_CLOUD_KEY_FILE_PATH,
-  },
+ 
 };

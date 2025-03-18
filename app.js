@@ -1,4 +1,9 @@
+/**
+ * app.js
+ */
 require('dotenv').config();
+const fs = require('fs');
+const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
 const expressLayouts = require('express-ejs-layouts');
@@ -28,16 +33,25 @@ const notificationsRoute = require('./routes/notifications');
 const postsRoute = require('./routes/posts');
 const dashboardRoutes = require('./routes/dashboard');
 
-// Import Google Cloud SDK
+/**
+ * 1) Decode Base64 Google Cloud credentials (if present)
+ *    and set GOOGLE_APPLICATION_CREDENTIALS to a temp file.
+ */
+if (process.env.GCLOUD_CREDS_BASE64) {
+  console.log('Decoding Base64 GCP credentials...');
+  const decoded = Buffer.from(process.env.GCLOUD_CREDS_BASE64, 'base64').toString('utf8');
+  const credsPath = path.join('/tmp', 'google.json');
+  fs.writeFileSync(credsPath, decoded, 'utf8');
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = credsPath;
+}
+
+// Now import the Google Cloud Storage library
 const { Storage } = require('@google-cloud/storage');
 
 // Set BASE_URL from environment (should match your Render URL)
 const baseUrl = process.env.BASE_URL || 'http://localhost:4000';
 const redirectUrl = `${baseUrl}/profile/verify-payment`;
 console.log(`\u{1F30D} Redirect URL: ${redirectUrl}`);
-
-// Set Google Cloud credentials path dynamically
-process.env.GOOGLE_APPLICATION_CREDENTIALS = keys.googleCloud.keyFilePath;
 
 // Initialize Google Cloud Storage
 const storage = new Storage();
@@ -46,7 +60,7 @@ console.log('Google Cloud credentials loaded successfully.');
 // Initialize Express app
 const app = express();
 
-// Tell Express to trust the first proxy (e.g., Render, Heroku) for secure cookies
+// Tell Express to trust the first proxy (e.g., Render) for secure cookies
 app.set('trust proxy', 1);
 
 // MongoDB connection using environment variable for URI
@@ -116,10 +130,7 @@ app.get('/storage-example', async (req, res) => {
     const projectId = await storage.getProjectId();
     console.log(`Google Cloud project ID: ${projectId}`);
     const [buckets] = await storage.getBuckets();
-    console.log(
-      'Buckets retrieved:',
-      buckets.length > 0 ? buckets : 'No buckets found'
-    );
+    console.log('Buckets retrieved:', buckets.length > 0 ? buckets : 'No buckets found');
     res.json({ buckets });
   } catch (err) {
     console.error('Error in /storage-example route:', err);
