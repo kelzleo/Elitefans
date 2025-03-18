@@ -34,11 +34,10 @@ const { Storage } = require('@google-cloud/storage');
 // Set BASE_URL from environment (should match your Render URL)
 const baseUrl = process.env.BASE_URL || 'http://localhost:4000';
 const redirectUrl = `${baseUrl}/profile/verify-payment`;
-console.log(`🌍 Redirect URL: ${redirectUrl}`);
+console.log(`\u{1F30D} Redirect URL: ${redirectUrl}`);
 
 // Set Google Cloud credentials path dynamically
 process.env.GOOGLE_APPLICATION_CREDENTIALS = keys.googleCloud.keyFilePath;
-
 
 // Initialize Google Cloud Storage
 const storage = new Storage();
@@ -47,6 +46,9 @@ console.log('Google Cloud credentials loaded successfully.');
 // Initialize Express app
 const app = express();
 
+// Tell Express to trust the first proxy (e.g., Render, Heroku) for secure cookies
+app.set('trust proxy', 1);
+
 // MongoDB connection using environment variable for URI
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -54,8 +56,8 @@ mongoose
     useUnifiedTopology: true,
     serverSelectionTimeoutMS: 30000,
   })
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err));
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => console.error('MongoDB connection error:', err));
 
 // Middleware setup
 app.use(expressLayouts);
@@ -70,7 +72,10 @@ app.use(
     secret: keys.session.cookieKey,
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 24 * 60 * 60 * 1000 },
+    cookie: {
+      secure: process.env.NODE_ENV === 'production',
+      maxAge: 24 * 60 * 60 * 1000,
+    },
   })
 );
 
@@ -82,8 +87,8 @@ app.use(passport.session());
 app.use(flash());
 app.use((req, res, next) => {
   res.locals.success_msg = req.flash('success_msg');
-  res.locals.error_msg   = req.flash('error_msg');
-  res.locals.error       = req.flash('error');
+  res.locals.error_msg = req.flash('error_msg');
+  res.locals.error = req.flash('error');
   res.locals.currentUser = req.user;
   next();
 });
@@ -111,7 +116,10 @@ app.get('/storage-example', async (req, res) => {
     const projectId = await storage.getProjectId();
     console.log(`Google Cloud project ID: ${projectId}`);
     const [buckets] = await storage.getBuckets();
-    console.log('Buckets retrieved:', buckets.length > 0 ? buckets : 'No buckets found');
+    console.log(
+      'Buckets retrieved:',
+      buckets.length > 0 ? buckets : 'No buckets found'
+    );
     res.json({ buckets });
   } catch (err) {
     console.error('Error in /storage-example route:', err);
