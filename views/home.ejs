@@ -1,69 +1,267 @@
-<div class="home-container">
-    <h1>Welcome to Your Home Page, <%= user.username %>!</h1>
-    <p>Email: <%= user.email %></p>
-    
-    <!-- Search Form -->
-    <form action="/home/search" method="GET" class="search-form">
-        <input type="text" name="query" placeholder="Search for creators..." required>
-        <button type="submit">Search</button>
-    </form>
+<!-- home.ejs -->
+<!-- Pink Search Form (GET /home with ?query=...) -->
+<form class="search-form" action="/home" method="GET">
+  <input
+    type="text"
+    name="query"
+    placeholder="Search creators..."
+    value="<%= search || '' %>"
+  />
+  <button type="submit">Search</button>
+</form>
 
-    <a href="/profile" class="home-profile-link">Go to Profile</a>
-    <a href="/logout" class="home-logout-link">Log out</a>
-    
-    <!-- Display search results here -->
-    <div class="search-results">
-        <% if (creators && creators.length > 0) { %>
-            <h2>Search Results for "<%= search %>":</h2>
-            <ul>
-                <% creators.forEach(creator => { %>
-                    <!-- Updated link to view other user's profile -->
-                    <li><a href="/profile/view/<%= creator._id %>"><%= creator.username %></a></li>
-                <% }) %>
-            </ul>
-        <% } else if (creators && creators.length === 0) { %>
-            <p>No creators found matching "<%= search %>."</p>
-        <% } else { %>
-            <p>No search results to display.</p>
+<% if (search && search.length > 0) { %>
+  <!-- We are in "search mode" => Show matching creators -->
+  <h1>Search Results for "<%= search %>"</h1>
+
+  <% if (creators && creators.length > 0) { %>
+    <% creators.forEach(creator => { %>
+      <div class="creator-result">
+        <!-- Display small circular avatar -->
+        <img
+          src="<%= creator.profilePicture || '/uploads/default-profile-picture.jpg' %>"
+          alt="<%= creator.username %>"
+          class="creator-profile-pic"
+          style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;"
+        />
+        <!-- Link to the creator's profile page -->
+        <a href="/profile/view/<%= creator._id %>">
+          <strong><%= creator.username %></strong>
+        </a>
+        <!-- Optionally show profileName or other info -->
+        <% if (creator.profileName) { %>
+          <p>Profile Name: <%= creator.profileName %></p>
         <% } %>
-    </div>
+      </div>
+    <% }); %>
+  <% } else { %>
+    <p>No matching creators found.</p>
+  <% } %>
 
-    <!-- New Section: Subscribed Creators' Posts -->
-    <div class="subscribed-content">
-        <h2>Your Subscribed Creators' Posts</h2>
-        <% if (subscribedCreators && subscribedCreators.length > 0) { %>
-            <% subscribedCreators.forEach(creator => { %>
-                <div class="creator-section">
-                    <h3>
-                        <a href="/profile/view/<%= creator._id %>">
-                            <%= creator.username %>
-                        </a>'s Posts
-                    </h3>
-                    <% if (creator.uploadedContent && creator.uploadedContent.length > 0) { %>
-                        <div class="creator-posts">
-                            <% creator.uploadedContent.forEach(post => { %>
-                                <div class="post-item">
-                                    <% if (post.type === 'image') { %>
-                                        <img src="<%= post.filename %>" alt="Post Image">
-                                    <% } else if (post.type === 'video') { %>
-                                        <video controls>
-                                            <source src="<%= post.filename %>" type="video/mp4">
-                                            Your browser does not support the video tag.
-                                        </video>
-                                    <% } %>
-                                    <% if (post.writeUp) { %>
-                                        <p class="post-writeup"><%= post.writeUp %></p>
-                                    <% } %>
-                                </div>
-                            <% }); %>
-                        </div>
-                    <% } else { %>
-                        <p>No posts yet.</p>
-                    <% } %>
+<% } else { %>
+  <!-- We are in "feed mode" => Show subscribed posts -->
+  <div class="feed-container">
+    <% if (posts && posts.length > 0) { %>
+      <% posts.forEach(post => { %>
+        <div class="post-card">
+          <div class="post-header">
+            <img
+              src="<%= post.creator.profilePicture || '/uploads/default-profile-picture.jpg' %>"
+              alt="<%= post.creator.username %> profile"
+              class="creator-profile-pic"
+            />
+            <!-- Clickable creator name -->
+            <a href="/profile/view/<%= post.creator._id %>" class="creator-name">
+              <%= post.creator.username %>
+            </a>
+          </div>
+          <div class="post-body">
+            <!-- IMAGE POST -->
+            <% if (post.type === 'image') { %>
+              <% if (post.special && post.locked) { %>
+                <!-- Locked image: show a placehold.co image -->
+                <div class="locked-image-container" style="position: relative;">
+                  <img
+                    src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Content"
+                    alt="Locked Image"
+                    class="post-image"
+                  />
+                  <div
+                    class="unlock-overlay"
+                    style="
+                      position: absolute;
+                      top: 0; left: 0; right: 0; bottom: 0;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      background: rgba(0,0,0,0.5);
+                      color: white;
+                      font-size: 1.2em;
+                    "
+                  >
+                    <div>Pay to unlock</div>
+                    <button
+                      class="unlock-button"
+                      data-content-id="<%= post._id %>"
+                      data-creator-id="<%= post.creator._id %>"
+                      style="margin-top: 10px; padding: 8px 16px;"
+                    >
+                      Unlock
+                    </button>
+                  </div>
                 </div>
-            <% }); %>
-        <% } else { %>
-            <p>You are not subscribed to any creators yet.</p>
-        <% } %>
-    </div>
-</div>
+              <% } else { %>
+                <!-- Unlocked or non-special image -->
+                <img
+                  src="<%= post.contentUrl %>"
+                  alt="Post Image"
+                  class="post-image"
+                />
+              <% } %>
+
+            <!-- VIDEO POST -->
+            <% } else if (post.type === 'video') { %>
+              <% if (post.special && post.locked) { %>
+                <!-- Locked video: show a placeholder image -->
+                <div class="locked-video-container" style="position: relative;">
+                  <img
+                    src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Video"
+                    alt="Locked Video"
+                    class="post-image"
+                  />
+                  <div
+                    class="unlock-overlay"
+                    style="
+                      position: absolute;
+                      top: 0; left: 0; right: 0; bottom: 0;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      background: rgba(0,0,0,0.5);
+                      color: white;
+                      font-size: 1.2em;
+                    "
+                  >
+                    <div>Pay to unlock</div>
+                    <button
+                      class="unlock-button"
+                      data-content-id="<%= post._id %>"
+                      data-creator-id="<%= post.creator._id %>"
+                      style="margin-top: 10px; padding: 8px 16px;"
+                    >
+                      Unlock
+                    </button>
+                  </div>
+                </div>
+              <% } else { %>
+                <!-- Unlocked or non-special video -->
+                <video controls class="post-video">
+                  <source src="<%= post.contentUrl %>" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+              <% } %>
+
+            <!-- TEXT POST ONLY -->
+            <% } else if (post.type === 'text') { %>
+              <p class="post-text"><%= post.writeUp %></p>
+            <% } %>
+
+            <!-- SHOW THE CREATOR'S WRITE-UP FOR ANY POST TYPE -->
+            <!-- If you want the write-up always visible, do this check -->
+            <% if (post.writeUp && post.type !== 'text') { %>
+              <p class="post-text" style="margin-top: 10px;">
+                 <%= post.writeUp %>
+              </p>
+            <% } %>
+          </div>
+          <div class="post-footer">
+            <!-- Like Button -->
+            <button class="like-button" data-post-id="<%= post._id %>">
+              Like (<span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>)
+            </button>
+            <!-- Comments -->
+            <div class="comments">
+              <% if (post.comments && post.comments.length > 0) { %>
+                <% post.comments.forEach(comment => { %>
+                  <div class="comment">
+                    <strong><%= comment.user.username %>:</strong> <%= comment.text %>
+                  </div>
+                <% }); %>
+              <% } %>
+            </div>
+            <!-- Comment form -->
+            <form class="comment-form" data-post-id="<%= post._id %>">
+              <input type="text" name="comment" placeholder="Add a comment">
+              <button type="submit">Comment</button>
+            </form>
+          </div>
+        </div>
+      <% }); %>
+    <% } else { %>
+      <p>No posts available.</p>
+    <% } %>
+  </div>
+<% } %>
+
+<!-- Like/Comment/Unlock JS -->
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Like Button
+    document.querySelectorAll('.like-button').forEach(button => {
+      button.addEventListener('click', async function() {
+        const postId = this.dataset.postId;
+        try {
+          const res = await fetch('/profile/posts/' + postId + '/like', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            this.querySelector('.like-count').textContent = data.likes;
+          } else {
+            alert(data.message);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('An error occurred while liking the post.');
+        }
+      });
+    });
+
+    // Comment Form
+    document.querySelectorAll('.comment-form').forEach(form => {
+      form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const postId = this.dataset.postId;
+        const commentText = this.comment.value.trim();
+        if (!commentText) return;
+        try {
+          const res = await fetch('/profile/posts/' + postId + '/comment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: commentText })
+          });
+          if (res.ok) {
+            location.reload();
+          } else {
+            const data = await res.json();
+            alert(data.message);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('An error occurred while submitting your comment.');
+        }
+      });
+    });
+
+    // Unlock Button
+    document.querySelectorAll('.unlock-button').forEach(button => {
+      button.addEventListener('click', async function() {
+        const contentId = this.dataset.contentId;
+        const creatorId = this.dataset.creatorId;
+        const originalText = this.textContent;
+        this.textContent = 'Processing...';
+        this.disabled = true;
+        try {
+          const response = await fetch('/profile/unlock-special-content', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contentId, creatorId })
+          });
+          const result = await response.json();
+          if (res.ok && result.status === 'success' && result.data.paymentLink) {
+            window.location.href = result.data.paymentLink;
+          } else {
+            alert(result.message || 'Failed to initialize payment');
+            this.textContent = originalText;
+            this.disabled = false;
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('An error occurred while processing your request');
+          this.textContent = originalText;
+          this.disabled = false;
+        }
+      });
+    });
+  });
+</script>

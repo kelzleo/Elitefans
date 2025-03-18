@@ -1,0 +1,33 @@
+<div class="chat-list-container">
+  <h2>Your Chats</h2>
+  <% if (chats.length > 0) { %>
+    <% chats.forEach(function(chat) { 
+         // For a one-on-one conversation, find the other participant:
+         let otherParticipant = chat.participants.find(p => p._id.toString() !== currentUser._id.toString());
+         // Get a preview from the last message, if available:
+         let lastMessage = (chat.messages && chat.messages.length > 0)
+                           ? chat.messages[chat.messages.length - 1].text
+                           : 'No messages yet.';
+    %>
+      <div class="chat-item">
+        <!-- Link to the individual chat using the chat's ID -->
+        <a href="/chat/<%= chat._id %>">
+          <h3>
+            <% if (otherParticipant) { %>
+              <% if (otherParticipant.profileName) { %>
+                <%= otherParticipant.profileName %> - <%= otherParticipant.username %>
+              <% } else { %>
+                <%= otherParticipant.username %>
+              <% } %>
+            <% } else { %>
+              Group Chat
+            <% } %>
+          </h3>
+          <p class="chat-preview"><%= lastMessage %></p>
+        </a>
+      </div>
+    <% }); %>
+  <% } else { %>
+    <p>You have no conversations yet.</p>
+  <% } %>
+</div>

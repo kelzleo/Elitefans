@@ -1,0 +1,26 @@
+<!-- views/notifications.ejs -->
+<div class="notifications-container">
+  <h1 class="notifications-title">Notifications</h1>
+
+  <% if (notifications && notifications.length > 0) { %>
+    <ul class="notifications-list">
+      <% notifications.forEach(notif => { %>
+        <li class="notification-item">
+          <% if (notif.type === 'new_post') { %>
+            <!-- Updated the link to /posts instead of /post -->
+            New <a href="/posts/<%= notif.postId %>">post</a> from
+            <a href="/profile/view/<%= notif.creatorId %>"><%= notif.creatorName %></a>!
+          <% } else { %>
+            <span class="notif-message"><%= notif.message %></span>
+          <% } %>
+
+          <span class="notif-time">
+            <%= new Date(notif.createdAt).toLocaleString() %>
+          </span>
+        </li>
+      <% }); %>
+    </ul>
+  <% } else { %>
+    <p>No notifications yet.</p>
+  <% } %>
+</div>

@@ -11,7 +11,7 @@ const subscriptionBundleSchema = new mongoose.Schema({
     },
     duration: {
         type: String,
-        enum: ['1 month', '3 months', '6 months', '1 year'], // Subscription duration options
+        enum: ['1 day','1 month', '3 months', '6 months', '1 year'], // Subscription duration options
         required: true, // Must be one of the specified options
     },
     description: {

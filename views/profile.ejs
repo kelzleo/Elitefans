@@ -1,252 +1,439 @@
+<!-- profile.ejs -->
 <div class="profile-container">
-    <h1 class="pro-welcome-message">Welcome, <%= user.username %></h1>
-    <a class="home-page-link" href="/home">Home</a>
-    <p class="pro-email">Email: <%= user.email %></p>
-  
-    <% if (user.profileName) { %>
-      <p class="profile-name">Profile Name: <%= user.profileName %></p>
-    <% } %>
-  
-    <% if (user.bio) { %>
-      <p class="bio">Bio: <%= user.bio %></p>
-    <% } %>
-  
-    <% if (user.profilePicture) { %>
-      <img class="profile-picture" src="<%= user.profilePicture %>" alt="Profile Picture">
-    <% } else { %>
-      <img class="profile-picture" src="/uploads/default-profile-picture.jpg" alt="Default Profile Picture">
-    <% } %>
-  
-    <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-      <!-- Creator viewing their own profile -->
-      <a class="pro-edit-profile-link" href="/profile/edit">Edit Profile</a>
-      <h2 class="pro-settings-title">Settings</h2>
-      <a class="pro-settings-link" href="/settings">Go to Settings</a>
-  
-      <% if (currentUser.role === 'creator') { %>
-        <!-- Upload Content Section -->
-        <h3>Upload Content</h3>
-        <form action="/profile/uploadContent" method="POST" enctype="multipart/form-data">
-          <label for="contentImage">Upload Image</label>
-          <input type="file" name="contentImage" accept="image/*">
-          <label for="contentVideo">Upload Video</label>
-          <input type="file" name="contentVideo" accept="video/*">
-          <label for="writeUp">Write-up / Caption</label>
-          <textarea name="writeUp" id="writeUp"></textarea>
-          <button type="submit">Upload</button>
-        </form>
-  
-        <!-- Creator's Uploaded Content -->
-        <% if (user.uploadedContent && user.uploadedContent.length > 0) { %>
-          <div class="uploaded-content">
-            <h2>Your Uploaded Content</h2>
-            <div class="uploaded-content-list">
-              <% user.uploadedContent.forEach(content => { %>
-                <div class="post-card">
-                  <% if (content.type === 'image') { %>
-                    <img src="<%= content.filename %>" alt="Uploaded Image" class="uploaded-image">
-                  <% } else if (content.type === 'video') { %>
-                    <video controls class="uploaded-video">
-                      <source src="<%= content.filename %>" type="video/mp4">
+  <h1 class="pro-welcome-message">Welcome, <%= user.username %></h1>
+  <a class="home-page-link" href="/home">Home</a>
+  <% if (currentUser && currentUser.role === 'admin') { %>
+    <a class="admin-dashboard-link" href="/admin">Admin Dashboard</a>
+  <% } %>
+  <p class="pro-email">Email: <%= user.email %></p>
+
+  <% if (user.profileName) { %>
+    <p class="profile-name">Profile Name: <%= user.profileName %></p>
+  <% } %>
+  <% if (user.bio) { %>
+    <p class="bio">Bio: <%= user.bio %></p>
+  <% } %>
+  <% if (user.profilePicture) { %>
+    <img class="profile-picture" src="<%= user.profilePicture %>" alt="Profile Picture">
+  <% } else { %>
+    <img class="profile-picture" src="/uploads/default-profile-picture.jpg" alt="Default Profile Picture">
+  <% } %>
+
+  <!-- If the logged-in user is the profile owner -->
+  <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+    <a class="pro-edit-profile-link" href="/profile/edit">Edit Profile</a>
+    
+    <% if (currentUser.role === 'creator') { %>
+      <!-- Upload Content Section -->
+      <h3>Upload Content</h3>
+      <form action="/profile/uploadContent" method="POST" enctype="multipart/form-data">
+        <label for="contentImage">Upload Image</label>
+        <input type="file" name="contentImage" accept="image/*">
+        <label for="contentVideo">Upload Video</label>
+        <input type="file" name="contentVideo" accept="video/*">
+        <label for="writeUp">Write-up / Caption</label>
+        <textarea name="writeUp" id="writeUp"></textarea>
+        <label for="special">Mark as Special Content?</label>
+        <input type="checkbox" name="special" value="true">
+        <label for="unlockPrice">Unlock Price (NGN):</label>
+        <input type="number" name="unlockPrice" id="unlockPrice" min="0">
+        <button type="submit">Upload</button>
+      </form>
+
+      <!-- Creator's Posts -->
+      <% if (posts && posts.length > 0) { %>
+        <div class="posts-section">
+          <h2>Your Posts</h2>
+          <div class="posts-list">
+            <% posts.forEach(post => { %>
+              <div class="post-card">
+                <!-- Owner always sees real content -->
+                <a href="/posts/<%= post._id %>">
+                  <% if (post.type === 'image') { %>
+                    <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image">
+                  <% } else if (post.type === 'video') { %>
+                    <video controls class="post-video">
+                      <source src="<%= post.contentUrl %>" type="video/mp4">
                       Your browser does not support the video tag.
                     </video>
-                  <% } else if (content.type === 'text') { %>
-                    <p class="text-only-post"><%= content.writeUp %></p>
+                  <% } else if (post.type === 'text') { %>
+                    <p class="post-text"><%= post.writeUp %></p>
                   <% } %>
-                  <!-- Display caption (write-up) for media posts -->
-                  <% if ((content.type === 'image' || content.type === 'video') && content.writeUp) { %>
-                    <p class="content-writeUp"><%= content.writeUp %></p>
+                  <% if (post.writeUp && post.type !== 'text') { %>
+                    <p class="post-writeUp"><%= post.writeUp %></p>
                   <% } %>
-                  <!-- Delete post button -->
-                  <form action="/profile/delete-post/<%= content._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');">
-                    <button type="submit" class="delete-post-btn">Delete Post</button>
-                  </form>
-                </div>
-              <% }); %>
-            </div>
-          </div>
-        <% } else { %>
-          <p>You have not uploaded any content yet.</p>
-        <% } %>
-  
-        <!-- Create Subscription Bundle Section -->
-        <h3>Create Subscription Bundle</h3>
-        <form action="/profile/create-bundle" method="POST">
-          <label for="bundlePrice">Bundle Price:</label>
-          <input type="number" name="price" id="bundlePrice">
-          <label for="bundleDuration">Bundle Duration:</label>
-          <input type="text" name="duration" id="bundleDuration">
-          <label for="bundleDescription">Bundle Description:</label>
-          <textarea name="description" id="bundleDescription"></textarea>
-          <button type="submit">Create Bundle</button>
-        </form>
-  
-        <!-- Subscription Bundles -->
-        <% if (bundles && bundles.length > 0) { %>
-          <div class="subscription-bundles">
-            <h2>Your Subscription Bundles</h2>
-            <ul class="bundles-list">
-              <% bundles.forEach(bundle => { %>
-                <li class="bundle-item">
-                  <p>Price: <%= bundle.price %></p>
-                  <p>Duration: <%= bundle.duration %></p>
-                  <p>Description: <%= bundle.description %></p>
-                </li>
-              <% }); %>
-            </ul>
-          </div>
-        <% } else { %>
-          <p>No subscription bundles available.</p>
-        <% } %>
-      <% } %>
-    <% } else { %>
-      <!-- Viewer (non-creator or creator viewing someone else's profile) -->
-      <% if (isSubscribed) { %>
-        <form action="/profile/unsubscribe/<%= user._id %>" method="POST">
-          <button type="submit" class="unsubscribe-btn">Unsubscribe</button>
-        </form>
-  
-        <!-- Subscriber Content -->
-        <% if (user.uploadedContent && user.uploadedContent.length > 0) { %>
-          <div class="uploaded-content">
-            <h2><%= user.username %>'s Uploaded Content</h2>
-            <div class="uploaded-content-list">
-              <% user.uploadedContent.forEach(content => { %>
-                <div class="post-card">
-                  <% if (content.type === 'image') { %>
-                    <img src="<%= content.filename %>" alt="Uploaded Image" class="uploaded-image">
-                  <% } else if (content.type === 'video') { %>
-                    <video controls class="uploaded-video">
-                      <source src="<%= content.filename %>" type="video/mp4">
-                      Your browser does not support the video tag.
-                    </video>
-                  <% } else if (content.type === 'text') { %>
-                    <p class="text-only-post"><%= content.writeUp %></p>
-                  <% } %>
-                  <% if ((content.type === 'image' || content.type === 'video') && content.writeUp) { %>
-                    <p class="content-writeUp"><%= content.writeUp %></p>
+                </a>
+                
+                <% if (post.special) { %>
+                  <p class="special-indicator">
+                    Special Content - Unlock Price: ₦<%= post.unlockPrice %>
+                  </p>
+                <% } %>
+                <!-- Delete post button -->
+                <form
+                  action="/profile/delete-post/<%= post._id %>"
+                  method="POST"
+                  onsubmit="return confirm('Are you sure you want to delete this post?');"
+                >
+                  <button type="submit" class="delete-post-btn">Delete Post</button>
+                </form>
+
+                <!-- Like button -->
+                <button class="like-button" data-post-id="<%= post._id %>">
+                  Like (<span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>)
+                </button>
+
+                <!-- Comments -->
+                <div class="comments">
+                  <% if (post.comments && post.comments.length > 0) { %>
+                    <% post.comments.forEach(comment => { %>
+                      <div class="comment">
+                        <strong><%= comment.user.username %>:</strong> <%= comment.text %>
+                      </div>
+                    <% }); %>
                   <% } %>
                 </div>
-              <% }); %>
-            </div>
+                <!-- Comment form -->
+                <form class="comment-form" data-post-id="<%= post._id %>">
+                  <input type="text" name="comment" placeholder="Add a comment">
+                  <button type="submit">Comment</button>
+                </form>
+              </div>
+            <% }); %>
           </div>
-        <% } %>
-  
-        <!-- Subscription Bundles -->
-        <% if (bundles && bundles.length > 0) { %>
-          <div class="subscription-bundles">
-            <h2><%= user.username %>'s Subscription Bundles</h2>
-            <ul class="bundles-list">
-              <% bundles.forEach(bundle => { %>
-                <li class="bundle-item">
-                  <p>Price: <%= bundle.price %></p>
-                  <p>Duration: <%= bundle.duration %></p>
-                  <p>Description: <%= bundle.description %></p>
-                  <form action="/profile/subscribe" method="POST">
-                    <input type="hidden" name="creatorId" value="<%= user._id %>">
-                    <input type="hidden" name="bundleId" value="<%= bundle._id %>">
-                    <button type="submit" class="subscribe-btn">Subscribe</button>
-                  </form>
-                </li>
-              <% }); %>
-            </ul>
-          </div>
-        <% } else { %>
-          <p>No subscription bundles available.</p>
-        <% } %>
+        </div>
       <% } else { %>
-        <p>You must subscribe to view this creator's content.</p>
-        <% if (bundles && bundles.length > 0) { %>
-          <div class="subscription-bundles">
-            <h2><%= user.username %>'s Subscription Bundles</h2>
-            <ul class="bundles-list">
-              <% bundles.forEach(bundle => { %>
-                <li class="bundle-item">
-                  <p>Price: <%= bundle.price %></p>
-                  <p>Duration: <%= bundle.duration %></p>
-                  <p>Description: <%= bundle.description %></p>
-                  <form action="/profile/subscribe" method="POST">
-                    <input type="hidden" name="creatorId" value="<%= user._id %>">
-                    <input type="hidden" name="bundleId" value="<%= bundle._id %>">
-                    <button type="submit" class="subscribe-btn">Subscribe</button>
-                  </form>
-                </li>
-              <% }); %>
-            </ul>
-          </div>
-        <% } else { %>
-          <p>No subscription bundles available.</p>
-        <% } %>
+        <p>You have not uploaded any posts yet.</p>
+      <% } %>
+
+      <!-- Create Subscription Bundle Section -->
+      <h3>Create Subscription Bundle</h3>
+      <form action="/profile/create-bundle" method="POST">
+        <label for="bundlePrice">Bundle Price (NGN):</label>
+        <input type="number" name="price" id="bundlePrice" min="0" required>
+      
+        <label for="bundleDuration">Bundle Duration:</label>
+        <select name="duration" id="bundleDuration" required>
+          <option value="" disabled selected>-- Select Duration --</option>
+          <option value="1 day">1 day</option>
+          <option value="1 month">1 month</option>
+          <option value="3 months">3 months</option>
+          <option value="6 months">6 months</option>
+          <option value="1 year">1 year</option>
+        </select>
+      
+        <label for="bundleDescription">Bundle Description:</label>
+        <textarea name="description" id="bundleDescription" required></textarea>
+      
+        <button type="submit">Create Bundle</button>
+      </form>
+
+      <!-- Subscription Bundles -->
+      <% if (bundles && bundles.length > 0) { %>
+        <div class="subscription-bundles">
+          <h2>Your Subscription Bundles</h2>
+          <ul class="bundles-list">
+            <% bundles.forEach(bundle => { %>
+              <li class="bundle-item">
+                <p>Price: <%= bundle.price %></p>
+                <p>Duration: <%= bundle.duration %></p>
+                <p>Description: <%= bundle.description %></p>
+              </li>
+            <% }); %>
+          </ul>
+        </div>
+      <% } else { %>
+        <p>No subscription bundles available.</p>
       <% } %>
     <% } %>
-  
-    <a class="pro-logout-link" href="/logout">Log out</a>
-  </div>
-  
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Find all subscription forms
-      const subscriptionForms = document.querySelectorAll('form[action="/profile/subscribe"]');
-      
-      subscriptionForms.forEach(form => {
-        form.addEventListener('submit', async function(e) {
-          e.preventDefault(); // Prevent traditional form submission
-          
-          // Get the submit button
-          const submitButton = form.querySelector('button[type="submit"]');
-          const originalText = submitButton.textContent;
-          submitButton.textContent = 'Processing...';
-          submitButton.disabled = true;
-  
-          try {
-            // Create FormData from the form
-            const formData = new FormData(form);
-            const data = {
-              creatorId: formData.get('creatorId'),
-              bundleId: formData.get('bundleId')
-            };
-  
-            // Send POST request
-            const response = await fetch('/profile/subscribe', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify(data)
-            });
-  
-            // Check if the response is valid and contains the paymentLink
-            const result = await response.json();
-            console.log('Subscription Response:', result);
-  
-            if (response.ok && result.status === 'success' && result.data && result.data.paymentLink) {
-              console.log('Redirecting to payment link:', result.data.paymentLink);
-  
-              // Show the loading sign
-              submitButton.textContent = 'Redirecting...';
-              submitButton.disabled = true;
-  
-              // Ensure the payment link is a fully qualified URL (including protocol)
-              const paymentLink = result.data.paymentLink.startsWith('http')
-                ? result.data.paymentLink
-                : window.location.origin + result.data.paymentLink;
-  
-              // Redirect to the payment page
-              window.location.href = paymentLink;
-            } else {
-              // Reset button state if no valid payment link is found
-              submitButton.textContent = originalText;
-              submitButton.disabled = false;
-              alert(result.message || 'Failed to initialize payment');
-            }
-          } catch (error) {
-            console.error('Error:', error);
-            submitButton.textContent = originalText;
-            submitButton.disabled = false;
-            alert('An error occurred while processing your request');
+
+  <% } else { %>
+    <!-- Viewer (non-owner) profile view -->
+    <% if (isSubscribed) { %>
+      <!-- The user is subscribed, so show all posts. BUT special posts still require purchase to see the real URL. -->
+      <form action="/profile/unsubscribe/<%= user._id %>" method="POST">
+        <button type="submit" class="unsubscribe-btn">Unsubscribe</button>
+      </form>
+
+      <% if (posts && posts.length > 0) { %>
+        <div class="posts-section">
+          <h2><%= user.username %>'s Posts</h2>
+          <div class="posts-list">
+            <% posts.forEach(post => { %>
+              <div class="post-card">
+                <a href="/posts/<%= post._id %>">
+                  <% if (post.special) {
+                       // Check if user purchased
+                       const hasPurchased = currentUser.purchasedContent &&
+                         currentUser.purchasedContent.some(
+                           p => p.contentId.toString() === post._id.toString()
+                         );
+                  %>
+                    <% if (!hasPurchased) { %>
+                      <!-- LOCKED SPECIAL CONTENT -->
+                      <div class="locked-content-container" style="position: relative;">
+                        <% if (post.type === 'image') { %>
+                          <img
+                            src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Content"
+                            alt="Locked Image"
+                            class="post-image"
+                          />
+                        <% } else if (post.type === 'video') { %>
+                          <img
+                            src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Video"
+                            alt="Locked Video"
+                            class="post-image"
+                          />
+                        <% } else if (post.type === 'text') { %>
+                          <!-- If you want locked text hidden, you can remove this line or show partial text -->
+                          <p class="post-text"><%= post.writeUp %></p>
+                        <% } %>
+
+                        <!-- Optional caption, if you want it always visible -->
+                        <% if (post.writeUp && post.type !== 'text') { %>
+                          <p class="post-writeUp"><%= post.writeUp %></p>
+                        <% } %>
+
+                        <!-- Unlock overlay -->
+                        <div
+                          class="unlock-overlay"
+                          style="
+                            position: absolute;
+                            top: 0; left: 0; right: 0; bottom: 0;
+                            display: flex;
+                            flex-direction: column;
+                            align-items: center;
+                            justify-content: center;
+                            background: rgba(0,0,0,0.5);
+                            color: white;
+                            font-size: 1.2em;
+                          "
+                        >
+                          <div>Pay to unlock (₦<%= post.unlockPrice %>)</div>
+                          <button
+                            class="unlock-button"
+                            data-content-id="<%= post._id %>"
+                            data-creator-id="<%= user._id %>"
+                            style="margin-top: 10px; padding: 8px 16px;"
+                          >
+                            Unlock
+                          </button>
+                        </div>
+                      </div>
+                    <% } else { %>
+                      <!-- UNLOCKED SPECIAL CONTENT -->
+                      <% if (post.type === 'image') { %>
+                        <img src="<%= post.contentUrl %>" alt="Special Content" class="post-image" />
+                      <% } else if (post.type === 'video') { %>
+                        <video controls class="post-video">
+                          <source src="<%= post.contentUrl %>" type="video/mp4">
+                          Your browser does not support the video tag.
+                        </video>
+                      <% } else if (post.type === 'text') { %>
+                        <p class="post-text"><%= post.writeUp %></p>
+                      <% } %>
+                      <% if (post.writeUp && post.type !== 'text') { %>
+                        <p class="post-writeUp"><%= post.writeUp %></p>
+                      <% } %>
+                    <% } %>
+
+                  <% } else { %>
+                    <!-- NON-SPECIAL CONTENT (visible to subscribed user) -->
+                    <% if (post.type === 'image') { %>
+                      <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image">
+                    <% } else if (post.type === 'video') { %>
+                      <video controls class="post-video">
+                        <source src="<%= post.contentUrl %>" type="video/mp4">
+                        Your browser does not support the video tag.
+                      </video>
+                    <% } else if (post.type === 'text') { %>
+                      <p class="post-text"><%= post.writeUp %></p>
+                    <% } %>
+                    <% if (post.writeUp && post.type !== 'text') { %>
+                      <p class="post-writeUp"><%= post.writeUp %></p>
+                    <% } %>
+                  <% } %>
+                </a>
+                <!-- Like button -->
+                <button class="like-button" data-post-id="<%= post._id %>">
+                  Like (<span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>)
+                </button>
+                <!-- Comments -->
+                <div class="comments">
+                  <% if (post.comments && post.comments.length > 0) { %>
+                    <% post.comments.forEach(comment => { %>
+                      <div class="comment">
+                        <strong><%= comment.user.username %>:</strong> <%= comment.text %>
+                      </div>
+                    <% }); %>
+                  <% } %>
+                </div>
+                <!-- Comment form -->
+                <form class="comment-form" data-post-id="<%= post._id %>">
+                  <input type="text" name="comment" placeholder="Add a comment">
+                  <button type="submit">Comment</button>
+                </form>
+              </div>
+            <% }); %>
+          </div>
+        </div>
+      <% } else { %>
+        <p>No posts to show.</p>
+      <% } %>
+
+      <!-- Chat Link: only for subscribed users -->
+      <div class="chat-link-container" style="margin-top: 20px;">
+        <a class="chat-link" href="/chat?creatorId=<%= user._id %>">
+          Chat with <%= user.username %>
+        </a>
+      </div>
+
+    <% } else { %>
+      <!-- Not subscribed => No posts => No real URL for non-special or special content -->
+      <p>You must subscribe to view this creator's content.</p>
+      <% if (bundles && bundles.length > 0) { %>
+        <div class="subscription-bundles">
+          <h2><%= user.username %>'s Subscription Bundles</h2>
+          <ul class="bundles-list">
+            <% bundles.forEach(bundle => { %>
+              <li class="bundle-item">
+                <p>Price: <%= bundle.price %></p>
+                <p>Duration: <%= bundle.duration %></p>
+                <p>Description: <%= bundle.description %></p>
+                <form action="/profile/subscribe" method="POST">
+                  <input type="hidden" name="creatorId" value="<%= user._id %>">
+                  <input type="hidden" name="bundleId" value="<%= bundle._id %>">
+                  <button type="submit" class="subscribe-btn">Subscribe</button>
+                </form>
+              </li>
+            <% }); %>
+          </ul>
+        </div>
+      <% } else { %>
+        <p>No subscription bundles available.</p>
+      <% } %>
+    <% } %>
+  <% } %>
+
+  <a class="pro-logout-link" href="/logout">Log out</a>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Unlock special content functionality
+    const unlockButtons = document.querySelectorAll('.unlock-button');
+    unlockButtons.forEach(button => {
+      button.addEventListener('click', async function() {
+        const contentId = this.dataset.contentId;
+        const creatorId = this.dataset.creatorId;
+        const originalText = this.textContent;
+        this.textContent = 'Processing...';
+        this.disabled = true;
+        try {
+          const response = await fetch('/profile/unlock-special-content', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ contentId, creatorId })
+          });
+          const result = await response.json();
+          console.log('Unlock Payment Response:', result);
+          if (response.ok && result.status === 'success' && result.data.paymentLink) {
+            window.location.href = result.data.paymentLink;
+          } else {
+            alert(result.message || 'Failed to initialize payment');
+            this.textContent = originalText;
+            this.disabled = false;
           }
-        });
+        } catch (error) {
+          console.error('Error:', error);
+          alert('An error occurred while processing your request');
+          this.textContent = originalText;
+          this.disabled = false;
+        }
       });
     });
-  </script>
-  
+
+    // Like button functionality
+    document.querySelectorAll('.like-button').forEach(button => {
+      button.addEventListener('click', async function () {
+        const postId = this.dataset.postId;
+        try {
+          const res = await fetch('/profile/posts/' + postId + '/like', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            this.querySelector('.like-count').textContent = data.likes;
+          } else {
+            alert(data.message);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('An error occurred while liking the post.');
+        }
+      });
+    });
+
+    // Comment form functionality
+    document.querySelectorAll('.comment-form').forEach(form => {
+      form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        const postId = this.dataset.postId;
+        const commentText = this.comment.value.trim();
+        if (!commentText) return;
+        try {
+          const res = await fetch('/profile/posts/' + postId + '/comment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: commentText })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            location.reload();
+          } else {
+            alert(data.message);
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('An error occurred while submitting your comment.');
+        }
+      });
+    });
+
+    // Subscription button functionality using AJAX
+    const subscriptionForms = document.querySelectorAll('form[action="/profile/subscribe"]');
+    subscriptionForms.forEach(form => {
+      form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const submitButton = form.querySelector('button[type="submit"]');
+        const originalText = submitButton.textContent;
+        submitButton.textContent = 'Processing...';
+        submitButton.disabled = true;
+        try {
+          const formData = new FormData(form);
+          const data = {
+            creatorId: formData.get('creatorId'),
+            bundleId: formData.get('bundleId')
+          };
+          const response = await fetch('/profile/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
+          });
+          const result = await response.json();
+          if (response.ok && result.status === 'success' && result.data.paymentLink) {
+            submitButton.textContent = 'Redirecting...';
+            window.location.href = result.data.paymentLink;
+          } else {
+            submitButton.textContent = originalText;
+            submitButton.disabled = false;
+            alert(result.message || 'Failed to initialize payment');
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          submitButton.textContent = originalText;
+          submitButton.disabled = false;
+          alert('An error occurred while processing your subscription');
+        }
+      });
+    });
+  });
+</script>

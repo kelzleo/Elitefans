@@ -1,14 +1,19 @@
+// uploadroute.js
 const express = require('express');
 const multer = require('multer');
 const path = require('path');
-const { bucket, generateSignedUrl } = require('../utilis/cloudStorage'); // Import bucket and generateSignedUrl
+const { bucket } = require('../utilis/cloudStorage');
+const Post = require('../models/Post'); // Import the new Post model
 
 const router = express.Router();
 
 // Initialize multer to store files in memory
 const upload = multer({ storage: multer.memoryStorage() });
 
-// Upload route to handle file upload - Ensure only creators can upload content
+/**
+ * Upload route: Only creators are allowed to upload content.
+ * This route now creates new Post documents with the special flag and unlockPrice.
+ */
 router.post(
   '/upload',
   (req, res, next) => {
@@ -20,73 +25,102 @@ router.post(
     }
     next();
   },
+  // Accept image and video uploads (you can add more fields if needed)
   upload.fields([
     { name: 'contentImage', maxCount: 1 },
     { name: 'contentVideo', maxCount: 1 },
   ]),
   async (req, res) => {
+    // Ensure there is either a file or text provided
     if (
       (!req.files || (!req.files.contentImage && !req.files.contentVideo)) &&
-      !req.body.writeUp // Optionally allow text-only posts if desired
+      !req.body.writeUp
     ) {
       return res.status(400).send('No files or text content provided.');
     }
 
     try {
-      const uploadedFiles = [];
-      const filesToUpload = req.files || {};
-
-      // Check if there's a write-up (text) sent along with the post
-      // This text will be attached to each uploaded file (or used alone in a text-only post)
+      const postsToCreate = [];
       const writeUp = req.body.writeUp || '';
+      // Convert the special checkbox value to boolean
+      const isSpecial = Boolean(req.body.special);
+      const unlockPrice = req.body.unlockPrice ? Number(req.body.unlockPrice) : undefined;
 
-      // Process each uploaded file (if any)
-      for (const field in filesToUpload) {
-        const file = filesToUpload[field][0]; // Get the file from multer
-        // Create a unique blob name for the file
-        const blobName = `uploads/${field}/${Date.now()}_${path.basename(file.originalname)}`;
-        const blob = bucket.file(blobName);
-        const blobStream = blob.createWriteStream({
-          resumable: false,
-          contentType: file.mimetype,
-        });
+      console.log("Received special flag:", req.body.special, "Parsed as:", isSpecial);
 
-        await new Promise((resolve, reject) => {
-          blobStream
-            .on('finish', async () => {
-              // Instead of generating a signed URL here,
-              // store the blob name so that you can generate a fresh signed URL later.
-              uploadedFiles.push({
-                type: field === 'contentImage' ? 'image' : 'video',
-                filename: blobName, // store the blob name (file path)
-                writeUp, // attach the provided text write-up
-              });
-              resolve();
-            })
-            .on('error', (err) => {
-              console.error('Error uploading file:', err);
-              reject(err);
-            })
-            .end(file.buffer);
-        });
+      // Process image files if available
+      if (req.files.contentImage) {
+        for (const file of req.files.contentImage) {
+          const blobName = `uploads/image/${Date.now()}_${path.basename(file.originalname)}`;
+          const blob = bucket.file(blobName);
+          const blobStream = blob.createWriteStream({
+            resumable: false,
+            contentType: file.mimetype,
+          });
+
+          await new Promise((resolve, reject) => {
+            blobStream.on('finish', resolve);
+            blobStream.on('error', reject);
+            blobStream.end(file.buffer);
+          });
+
+          postsToCreate.push({
+            creator: req.user._id,
+            contentUrl: blobName,
+            type: 'image',
+            writeUp,
+            special: isSpecial,
+            unlockPrice: isSpecial ? unlockPrice : undefined,
+          });
+        }
       }
 
-      // If there is no file uploaded but there is a text write-up, allow a text-only post.
-      if (uploadedFiles.length === 0 && writeUp) {
-        uploadedFiles.push({
+      // Process video files if available
+      if (req.files.contentVideo) {
+        for (const file of req.files.contentVideo) {
+          const blobName = `uploads/video/${Date.now()}_${path.basename(file.originalname)}`;
+          const blob = bucket.file(blobName);
+          const blobStream = blob.createWriteStream({
+            resumable: false,
+            contentType: file.mimetype,
+          });
+
+          await new Promise((resolve, reject) => {
+            blobStream.on('finish', resolve);
+            blobStream.on('error', reject);
+            blobStream.end(file.buffer);
+          });
+
+          postsToCreate.push({
+            creator: req.user._id,
+            contentUrl: blobName,
+            type: 'video',
+            writeUp,
+            special: isSpecial,
+            unlockPrice: isSpecial ? unlockPrice : undefined,
+          });
+        }
+      }
+
+      // Allow a text-only post if no files were uploaded
+      if (postsToCreate.length === 0 && writeUp) {
+        postsToCreate.push({
+          creator: req.user._id,
+          contentUrl: '', // No file associated
           type: 'text',
-          filename: '', // no file
           writeUp,
+          special: isSpecial,
+          unlockPrice: isSpecial ? unlockPrice : undefined,
         });
       }
 
-      // Save the uploaded file information (and text) to the user object (assuming MongoDB)
-      // Here we assume req.user is a Mongoose document.
-      const user = req.user;
-      user.uploadedContent = [...(user.uploadedContent || []), ...uploadedFiles];
-      await user.save(); // Save updated user to the database
+      // Create new Post documents in the database
+      for (const postData of postsToCreate) {
+        const Post = new Post(postData);
+        await Post.save();
+      }
 
-      res.status(200).json({ message: 'Content uploaded successfully.', uploadedFiles });
+      res.status(200).json({ message: 'Content uploaded successfully.', posts: postsToCreate });
     } catch (error) {
       console.error('Error uploading content:', error);
       res.status(500).send('Error uploading content.');

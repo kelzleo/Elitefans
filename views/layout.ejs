@@ -1,20 +1,112 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-      <!-- Preconnect and font links -->
-      <link rel="preconnect" href="https://fonts.googleapis.com">
-      <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-      <link href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&display=swap" rel="stylesheet">
-      <link rel="stylesheet" href="/styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-    <title>app</title>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Roboto+Slab:wght@100..900&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- Font Awesome 6 (CDN) -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css"
+  integrity="sha512-ns8...someLongHash..."
+  crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <!-- Your main CSS file -->
+  <link rel="stylesheet" href="/styles.css" />
+
+  <title>APP</title>
 </head>
 <body>
-    <div class="container">
-        <%- body %>
+  <!-- Optional top nav (hidden on mobile via CSS or JavaScript) -->
+  
+
+  <!-- Main container for page content -->
+  <div class="container">
+    <%- body %>
+  </div>
+
+  <!-- Bottom nav bar -->
+  <!-- Bottom nav bar -->
+  <nav class="bottom-nav">
+    <a href="/home" class="nav-item">
+      <i class="fa-solid fa-home"></i>
+    </a>
+    <a href="/notifications" class="nav-item">
+      <i class="fa-solid fa-bell"></i>
+    </a>
+    <a href="/chats" class="nav-item">
+      <i class="fa-solid fa-comments"></i>
+    </a>
+    <!-- Trigger for profile menu -->
+    <a href="javascript:void(0)" class="nav-item profile-nav-trigger">
+      <i class="fa-solid fa-user"></i>
+    </a>
+  </nav>
+
+  <!-- Slide-Out Profile Menu -->
+  <aside class="profile-menu" id="profileMenu">
+    <div class="profile-menu-header">
+      <% if (currentUser) { %>
+        <img
+          src="<%= currentUser.profilePicture || '/uploads/default-profile-picture.jpg' %>"
+          alt="<%= currentUser.username %>"
+          class="profile-menu-avatar"
+        />
+        <span class="profile-menu-username"><%= currentUser.username %></span>
+      <% } else { %>
+        <img
+          src="/uploads/default-profile-picture.jpg"
+          alt="Guest avatar"
+          class="profile-menu-avatar"
+        />
+        <span class="profile-menu-username">Guest</span>
+      <% } %>
     </div>
-    
+
+    <ul class="profile-menu-links">
+      <li><a href="/profile">My Profile</a></li>
+      <li><a href="/bookmarks">Bookmarks</a></li>
+      <li><a href="/settings">Settings</a></li>
+      <li><a href="/dashboard">Dashboards</a></li>
+      <li><a href="">Subscriptions</a></li>
+      <li><a href="">Help and Support</a></li>
+      <li><a href="/purchase">Purchase</a></li>
+      <% if (currentUser) { %>
+        <li><a href="/logout">Logout</a></li>
+      <% } else { %>
+        <li><a href="/users/login">Login</a></li>
+      <% } %>
+    </ul>
+  </aside>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const profileNavTrigger = document.querySelector('.profile-nav-trigger');
+      const profileMenu = document.getElementById('profileMenu');
+
+      // 1) Toggle menu on icon click
+      profileNavTrigger.addEventListener('click', () => {
+        profileMenu.classList.toggle('open');
+      });
+
+      // 2) Close menu if clicking outside of it
+      document.addEventListener('click', (event) => {
+        // If the menu is open AND the click is outside the menu & the trigger...
+        if (
+          profileMenu.classList.contains('open') &&
+          !profileMenu.contains(event.target) && 
+          !profileNavTrigger.contains(event.target)
+        ) {
+          profileMenu.classList.remove('open');
+        }
+      });
+    });
+  </script>
 </body>
 </html>

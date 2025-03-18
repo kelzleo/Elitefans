@@ -6,10 +6,16 @@ process.env.GOOGLE_APPLICATION_CREDENTIALS = './google.json';
 
 // Initialize Google Cloud Storage client
 const storage = new Storage();
-const bucketName = 'kaccessfans'; // Your bucket name
+
+// Existing bucket for private content (e.g., posts)
+const bucketName = 'kaccessfans'; // Your original bucket name
 const bucket = storage.bucket(bucketName);
 
-// Function to generate a signed URL for a file
+// New public bucket for profile pictures
+const profileBucketName = 'my-public-profile-pictures'; // New bucket name for profile pictures
+const profileBucket = storage.bucket(profileBucketName);
+
+// Function to generate a signed URL for a file stored in the private content bucket
 const generateSignedUrl = async (filename) => {
   const options = {
     version: 'v4',
@@ -18,10 +24,7 @@ const generateSignedUrl = async (filename) => {
   };
 
   try {
-    const [url] = await storage
-      .bucket(bucketName)
-      .file(filename)
-      .getSignedUrl(options);
+    const [url] = await bucket.file(filename).getSignedUrl(options);
     return url;
   } catch (err) {
     console.error('Error generating signed URL:', err);
@@ -29,4 +32,4 @@ const generateSignedUrl = async (filename) => {
   }
 };
 
-module.exports = { storage, bucket, generateSignedUrl };
+module.exports = { storage, bucket, profileBucket, generateSignedUrl };

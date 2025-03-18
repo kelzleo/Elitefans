@@ -1,0 +1,160 @@
+<!-- views/dashboard.ejs -->
+<div class="dashboard-container">
+  <h1>Dashboard</h1>
+
+  <% if (role === 'creator') { %>
+    <h2>Creator Dashboard</h2>
+
+    <!-- Aggregated Stats from Transaction model -->
+    <div class="stats-container">
+      <p class="stat-item">Total Subscription Revenue: ₦<%= totalSubscription %></p>
+      <p class="stat-item">Total Special Content Revenue: ₦<%= totalSpecial %></p>
+      <p class="stat-item" style="margin-top: 10px;">
+        <strong>Total Revenue (aggregated):</strong> ₦<%= totalSubscription + totalSpecial %>
+      </p>
+    </div>
+
+    <!-- Real Available Balance from user doc (totalEarnings) -->
+    <p><strong>Your Available Balance:</strong> ₦<span id="availableBalance"><%= totalEarnings %></span></p>
+
+    <!-- Bank Details Form -->
+    <div class="bank-details-form">
+      <h3>Bank Details</h3>
+      <form id="bank-details-form">
+        <label for="bankName">Bank Name:</label>
+        <input type="text" id="bankName" name="bankName" placeholder="e.g. Access Bank" required>
+
+        <label for="accountNumber">Account Number:</label>
+        <input type="text" id="accountNumber" name="accountNumber" placeholder="e.g. 1234567890" required>
+
+        <button type="submit">Save Bank Details</button>
+      </form>
+      <p id="bank-details-msg"></p>
+    </div>
+
+    <!-- Withdraw Section -->
+    <div class="withdraw-section">
+      <h3>Withdraw</h3>
+      <p>Minimum withdrawable balance: ₦1000</p>
+
+      <!-- NEW: Prompt for user-chosen withdrawal amount -->
+      <label for="withdrawAmount">Withdrawal Amount (NGN):</label>
+      <input type="number" id="withdrawAmount" min="1000" step="100" />
+
+      <button id="withdraw-btn" disabled>Withdraw Now</button>
+      <p id="withdraw-msg"></p>
+    </div>
+
+    <!-- Transaction History -->
+    <h3 class="transaction-history-title">Transaction History</h3>
+    <ul class="transactions-list">
+      <% transactions.forEach(tx => { %>
+        <li>
+          <div class="transaction-date">
+            Date: <%= tx.createdAt.toLocaleString() %>
+          </div>
+          <p>From (User): <%= tx.user?.username || 'Unknown' %></p>
+          <p>Type: <%= tx.type %></p>
+          <p class="transaction-amount">Amount: ₦<%= tx.amount %></p>
+          <% if (tx.type === 'special') { %>
+            <p>Post: <%= tx.post?.writeUp || '(No caption)' %></p>
+          <% } else { %>
+            <p>Subscription Bundle: <%= tx.subscriptionBundle?.description || 'No description' %></p>
+          <% } %>
+        </li>
+      <% }) %>
+    </ul>
+
+  <% } else { %>
+    <h2>User Dashboard</h2>
+
+    <!-- Aggregated Stats (money spent) -->
+    <div class="stats-container">
+      <p class="stat-item">Total Spent on Subscriptions: ₦<%= totalSubscription %></p>
+      <p class="stat-item">Total Spent on Special Content: ₦<%= totalSpecial %></p>
+      <p class="stat-item" style="margin-top: 10px;">
+        <strong>Total Spent:</strong> ₦<%= totalSubscription + totalSpecial %>
+      </p>
+    </div>
+
+    <!-- Transaction History -->
+    <h3 class="transaction-history-title">Transaction History</h3>
+    <ul class="transactions-list">
+      <% transactions.forEach(tx => { %>
+        <li>
+          <div class="transaction-date">
+            Date: <%= tx.createdAt.toLocaleString() %>
+          </div>
+          <p>To (Creator): <%= tx.creator?.username || 'Unknown' %></p>
+          <p>Type: <%= tx.type %></p>
+          <p class="transaction-amount">Amount: ₦<%= tx.amount %></p>
+          <% if (tx.type === 'special') { %>
+            <p>Post: <%= tx.post?.writeUp || '(No caption)' %></p>
+          <% } else { %>
+            <p>Subscription Bundle: <%= tx.subscriptionBundle?.description || 'No description' %></p>
+          <% } %>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</div>
+
+<script>
+  // Enable or disable the Withdraw button based on availableBalance
+  const availableBalance = parseFloat(document.getElementById('availableBalance')?.innerText || 0);
+  const withdrawBtn = document.getElementById('withdraw-btn');
+  if (withdrawBtn && availableBalance >= 1000) {
+    withdrawBtn.disabled = false;
+  }
+
+  // Handle Bank Details Form
+  const bankForm = document.getElementById('bank-details-form');
+  if (bankForm) {
+    bankForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const bankName = document.getElementById('bankName').value;
+      const accountNumber = document.getElementById('accountNumber').value;
+
+      try {
+        const res = await fetch('/dashboard/bank-details', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ bankName, accountNumber })
+        });
+        const data = await res.json();
+        document.getElementById('bank-details-msg').innerText = data.message || 'Error';
+      } catch (error) {
+        console.error('Error saving bank details:', error);
+        document.getElementById('bank-details-msg').innerText = 'Error saving bank details.';
+      }
+    });
+  }
+
+  // Handle Withdraw
+  if (withdrawBtn) {
+    withdrawBtn.addEventListener('click', async () => {
+      // Get the typed amount
+      const amountInput = document.getElementById('withdrawAmount');
+      const withdrawAmount = parseFloat(amountInput.value);
+
+      try {
+        const res = await fetch('/dashboard/withdraw', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: withdrawAmount })
+        });
+        const data = await res.json();
+
+        document.getElementById('withdraw-msg').innerText = data.message || 'Error';
+
+        // If withdrawal is successful, reload to update the balance
+        if (data.message === 'Withdrawal successful!') {
+          setTimeout(() => location.reload(), 1500);
+        }
+      } catch (error) {
+        console.error('Error withdrawing:', error);
+        document.getElementById('withdraw-msg').innerText = 'Error withdrawing funds.';
+      }
+    });
+  }
+</script>

@@ -1,625 +1,1176 @@
+/********************************************
+ * BASE / GLOBAL STYLES
+ ********************************************/
+/* Basic usage of Roboto Slab */
 .roboto-slab p {
-    font-family: "Roboto Slab", serif;
-    font-optical-sizing: auto;
-    font-weight: light;
-    font-style: normal;
+  font-family: "Roboto Slab", serif;
+  font-optical-sizing: auto;
+  font-weight: light;
+  font-style: normal;
+}
+
+/* Global text styling */
+p {
+  font-size: 11pt !important;
+  line-height: 30px;
+  margin: 15px 0;
+  font-weight: 400;
+  font-family: 'Roboto Slab', serif !important;
+  text-align: justify !important;
+}
+h1, h2 {
+  font-weight: 400;
+  font-family: 'Roboto Slab', serif !important;
+  text-align: justify !important;
+  color: black !important;
+}
+
+/********************************************
+ * BODY / CONTAINER
+ ********************************************/
+body {
+  font-family: "Roboto Slab", serif;
+  background-color: #f7f7f7;
+  /* Make space for the bottom nav so content isn't hidden behind it */
+  margin-bottom: 60px;
+  /* If you want a top margin/padding, you can add it here */
+}
+
+/* Main container for your page content (if needed) */
+.container {
+  padding: 1rem;
+}
+
+/********************************************
+ * BOTTOM NAVIGATION
+ ********************************************/
+ .bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background-color: #ffffff;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.15);
+  z-index: 999; /* ensures the nav stays on top of other elements */
+}
+
+/* If you don't have text, you don't need a small font size here */
+.nav-item {
+  flex: 1;
+  text-align: center;
+  text-decoration: none;
+  color: #333;
+  /* font-size: 0.75rem; Remove or comment this out if no text */
+}
+
+/* Icons */
+.nav-item i {
+  display: block;
+  font-size: 1.4rem;
+  /* margin-bottom: 2px; Remove if no text label is underneath */
+}
+
+
+.nav-item.active {
+  color: #ff6f91; /* example highlight color */
+}
+
+/********************************************
+ * SLIDE-OUT PROFILE MENU
+ ********************************************/
+
+/* The slide-out container, hidden by default (right: -250px) */
+.profile-menu {
+  position: fixed;
+  top: 0;
+  right: -250px; /* Hide off-screen by default */
+  width: 250px;
+  height: 100vh;
+  background-color: #ffffff;
+  box-shadow: -2px 0 5px rgba(0,0,0,0.3);
+  transition: right 0.3s ease;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+}
+
+.profile-menu.open {
+  right: 0; /* Slide into view */
+}
+
+.profile-menu-header {
+  padding: 20px;
+  background-color: #f5f5f5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-menu-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.profile-menu-username {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.profile-menu-links {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex: 1;
+}
+
+.profile-menu-links li {
+  border-bottom: 1px solid #ddd;
+}
+
+.profile-menu-links li a {
+  display: block;
+  padding: 12px 16px;
+  text-decoration: none;
+  color: #333;
+  transition: background-color 0.3s;
+}
+
+.profile-menu-links li a:hover {
+  background-color: #f0f0f0;
+}
+
+/********************************************
+ * NOTIFICATIONS PAGE (mobile-first)
+ ********************************************/
+
+ .notifications-container {
+  /* On mobile, a bit of spacing, fluid width */
+  margin: 20px auto;
+  padding: 20px;
+  max-width: 95%;
+  background-color: #fff;
+  border: 1px solid #f8c8da; /* Pinkish border to match your theme */
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(248, 200, 218, 0.3); /* Subtle pink shadow */
+}
+
+.notifications-title {
+  font-size: 1.4rem;
+  color: #a83260; /* A pink/purple accent color */
+  text-align: center;
+  margin-bottom: 1rem;
+  font-family: "Roboto Slab", serif; /* Matches your global font */
+}
+
+.notifications-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.notification-item {
+  padding: 1rem;
+  border-bottom: 1px solid #f8c8da;
+  display: flex;
+  flex-direction: column; /* On mobile, stack message + time */
+  gap: 0.5rem;
+}
+
+.notif-message {
+  font-size: 0.95rem;
+  color: #444;
+  line-height: 1.2;
+}
+
+.notif-time {
+  font-size: 0.8rem;
+  color: #999;
+}
+
+/********************************************
+ * DESKTOP MEDIA QUERY
+ ********************************************/
+@media (min-width: 768px) {
+  .notifications-container {
+    max-width: 700px; /* Constrain width on tablets/desktops */
   }
 
-  p{
-    font-size: 11pt !important;
-    line-height: 30px;
-    margin: 15px 0;
-    /*color: gray !important;*/
-    font-weight: 400;
-    font-family: 'Roboto Slab', serif !important;
-    text-align: justify !important;
-  }
-  h1{
-    font-weight: 400;
-    font-family: 'Roboto Slab', serif !important;
-    text-align: justify !important;
-    color: black !important;
-  }
-  h2{
-    font-weight: 400;
-    font-family: 'Roboto Slab', serif !important;
-    text-align: justify !important;
-    color: black !important;
+  .notification-item {
+    /* On bigger screens, place message & time in one row */
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
   }
 
+  .notif-message {
+    font-size: 1rem;
+  }
 
+  .notif-time {
+    font-size: 0.85rem;
+  }
+}
+
+
+/********************************************
+ * LOGIN / SIGNUP FORMS
+ ********************************************/
 .sign-options {
-    display: flex;
-    flex-direction: column;
-    margin: 20px;
-    padding: 20px;
+  display: flex;
+  flex-direction: column;
+  margin: 20px;
+  padding: 20px;
 }
 
 /* Center the form horizontally and make it responsive */
 .login-form {
-    width: 100%;  /* Makes the form take full width of its container */
-    max-width: 350px;  /* Sets a maximum width for the form */
-    margin: 0 auto;  /* This will center the form horizontally */
-    text-align: center;
-    box-sizing: border-box; /* Ensures padding doesn't affect the width calculation */
+  width: 100%;
+  max-width: 350px;
+  margin: 0 auto;
+  text-align: center;
+  box-sizing: border-box;
 }
 
 /* Style the input fields */
 .login-form input {
-    width: 100%;  /* Makes input fields take full width of the form */
-    padding: 12px;
-    margin: 10px 0;  /* Space between inputs */
-    font-size: 1rem;
-    box-sizing: border-box; /* Ensures padding doesn't affect the width calculation */
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  font-size: 1rem;
+  box-sizing: border-box;
 }
 
 /* Style the submit button */
 .button-login {
-    width: auto;  /* Makes the button only as wide as needed */
-    padding: 10px 20px;  /* Button padding */
-    font-size: 1rem;
-    background-color: #FF007F;
-    color: white;
-    border: none;
-    cursor: pointer;
-    margin: 10px 0;  /* Adds space above and below the button */
-    display: inline-block; /* Makes sure button is aligned with its content */
+  width: auto;
+  padding: 10px 20px;
+  font-size: 1rem;
+  background-color: #FF007F;
+  color: white;
+  border: none;
+  cursor: pointer;
+  margin: 10px 0;
+  display: inline-block;
 }
-
-/* Button hover effect */
 .button-login:hover {
-    background-color: red;
+  background-color: red;
 }
 
-.a-sign{
-    width: auto;  /* Makes the button only as wide as needed */
-    padding: 10px 20px;  /* Button padding */
-    font-size: 1rem;
-    background-color: #FF007F;
-    color: white;
-    border: none;
-    cursor: pointer;
-    margin: 10px 0;  /* Adds space above and below the button */
-    display: inline-block; /* Makes sure button is aligned with its content */
-}
- a{
-    text-decoration: none;
-}
-.signup-options{
-    margin: 10px;
-    padding: 10px;
+.a-sign {
+  width: auto;
+  padding: 10px 20px;
+  font-size: 1rem;
+  background-color: #FF007F;
+  color: white;
+  border: none;
+  cursor: pointer;
+  margin: 10px 0;
+  display: inline-block;
 }
 
-.g-sign{
-    margin: 30px;
+a {
+  text-decoration: none;
 }
 
-.signup-form{
-    display: flex;
-    flex-direction: column;
-    padding: 10px;
-    margin: 10px;
-    text-align: center;
-    box-sizing: border-box;
+.signup-options {
+  margin: 10px;
+  padding: 10px;
 }
 
-.signup-form input{
-    padding: 10px;
-    margin: 10px 0;  /* Space between inputs */
-    font-size: 1rem;
-    box-sizing: border-box; /* Ensures padding doesn't affect the width calculation */
+.g-sign {
+  margin: 30px;
 }
 
-.button-signup{
-    width: auto;  /* Makes the button only as wide as needed */
-    padding: 10px 20px;  /* Button padding */
-    font-size: 1rem;
-    background-color: #FF007F;
-    color: white;
-    border: none;
-    cursor: pointer;
-    margin: 10px 0;  /* Adds space above and below the button */
-    display: inline-block; /* Makes sure button is aligned with its content */
-
-
+.signup-form {
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  margin: 10px;
+  text-align: center;
+  box-sizing: border-box;
 }
 
-.button-signup:hover{
-    background-color: red;
+.signup-form input {
+  padding: 10px;
+  margin: 10px 0;
+  font-size: 1rem;
+  box-sizing: border-box;
 }
-/* Mobile-first approach */
 
-/* Overall container styling */
+.button-signup {
+  width: auto;
+  padding: 10px 20px;
+  font-size: 1rem;
+  background-color: #FF007F;
+  color: white;
+  border: none;
+  cursor: pointer;
+  margin: 10px 0;
+  display: inline-block;
+}
+.button-signup:hover {
+  background-color: red;
+}
+
+/********************************************
+ * VERIFICATION PAGE
+ ********************************************/
 .verify-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    height: 100vh;
-    background: linear-gradient(to right, #f7a1d3, #ffd1dc); /* Soft pink gradient background */
-    
-    color: #333;
-    text-align: center;
-    padding: 20px;
-    box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  background: linear-gradient(to right, #f7a1d3, #ffd1dc);
+  color: #333;
+  text-align: center;
+  padding: 20px;
+  box-sizing: border-box;
 }
 
-/* Header styling */
 .verify-container h1 {
-    font-size: 1.8em;
-    color: #fff; /* White text for contrast */
-    font-weight: bold;
-    margin-bottom: 15px;
-    letter-spacing: 1px;
+  font-size: 1.8em;
+  color: #fff;
+  font-weight: bold;
+  margin-bottom: 15px;
+  letter-spacing: 1px;
 }
 
-/* Paragraph styling */
 .verify-container p {
-    font-size: 1em;
-    color: #f3f3f3;
-    margin-bottom: 20px;
-    font-weight: 500;
+  font-size: 1em;
+  color: #f3f3f3;
+  margin-bottom: 20px;
+  font-weight: 500;
 }
 
 /* Button styling */
 .verify-container .btn {
-    padding: 12px 25px;
-    background-color: #ff70a6; /* Soft pink color */
-    color: #fff;
-    text-decoration: none;
-    border-radius: 30px;
-    font-size: 1em;
-    font-weight: bold;
-    transition: background-color 0.3s, transform 0.2s;
+  padding: 12px 25px;
+  background-color: #ff70a6;
+  color: #fff;
+  text-decoration: none;
+  border-radius: 30px;
+  font-size: 1em;
+  font-weight: bold;
+  transition: background-color 0.3s, transform 0.2s;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
 }
-
-/* Button hover effect */
 .verify-container .btn:hover {
-    background-color: #ff3e75; /* Darker pink on hover */
-    transform: translateY(-5px); /* Lift effect on hover */
-}
-
-/* Optional: Add a soft shadow to the button for a more "elevated" look */
-.verify-container .btn {
-    box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+  background-color: #ff3e75;
+  transform: translateY(-5px);
 }
 
 /* Tablet and larger screen responsiveness (above 600px) */
 @media (min-width: 601px) {
-    .verify-container h1 {
-        font-size: 2em; /* Larger header size for bigger screens */
-    }
-
-    .verify-container p {
-        font-size: 1.1em; /* Slightly larger text for bigger screens */
-    }
-
-    .verify-container .btn {
-        padding: 15px 30px; /* Larger button padding for larger screens */
-    }
+  .verify-container h1 {
+    font-size: 2em;
+  }
+  .verify-container p {
+    font-size: 1.1em;
+  }
+  .verify-container .btn {
+    padding: 15px 30px;
+  }
 }
 
-/* Desktop and larger screen responsiveness (above 1024px) */
+/* Desktop (above 1024px) */
 @media (min-width: 1024px) {
-    .verify-container h1 {
-        font-size: 2.5em; /* Larger font for very large screens */
-    }
-
-    .verify-container p {
-        font-size: 1.3em; /* Adjust font size for readability on larger screens */
-    }
-
-    .verify-container .btn {
-        padding: 18px 35px; /* Even larger button size for desktop */
-    }
+  .verify-container h1 {
+    font-size: 2.5em;
+  }
+  .verify-container p {
+    font-size: 1.3em;
+  }
+  .verify-container .btn {
+    padding: 18px 35px;
+  }
 }
 
+/********************************************
+ * PROFILE PAGE
+ ********************************************/
 profile-container {
-    max-width: 800px;
-    margin: 40px auto;
-    padding: 20px;
-    background-color: #fff0f0; /* Pastel pink background */
-    border: 1px solid #ff99cc; /* Pastel pink border */
-    box-shadow: 0 0 10px rgba(255, 153, 204, 0.5); /* Soft pink shadow */
-    border-radius: 10px;
+  max-width: 800px;
+  margin: 40px auto;
+  padding: 20px;
+  background-color: #fff0f0;
+  border: 1px solid #ff99cc;
+  box-shadow: 0 0 10px rgba(255, 153, 204, 0.5);
+  border-radius: 10px;
 }
 
 /* Welcome Message */
-
 .pro-welcome-message {
-    font-size: 36px;
-    color: #ff69b4; /* Bright pink */
-    margin-bottom: 10px;
-    text-align: center;
+  font-size: 36px;
+  color: #ff69b4;
+  margin-bottom: 10px;
+  text-align: center;
 }
 
 /* Email and Profile Info */
-
-.pro-email {
-    font-size: 18px;
-    color: #666;
-    margin-bottom: 20px;
-}
-
-.profile-name {
-    font-size: 18px;
-    color: #666;
-    margin-bottom: 20px;
-}
-
+.pro-email,
+.profile-name,
 .bio {
-    font-size: 18px;
-    color: #666;
-    margin-bottom: 20px;
-}
-
-/* Profile Picture */
-
-.profile-picture {
-    width: 100%;
-    height: 300px;
-    object-fit: cover;
-    border-radius: 10px;
-    margin-bottom: 20px;
-    box-shadow: 0 0 10px rgba(255, 153, 204, 0.5); /* Soft pink shadow */
+  font-size: 18px;
+  color: #666;
+  margin-bottom: 20px;
 }
 
 /* Admin Options */
-
 .pro-admin-options {
-    margin-top: 20px;
-    background-color: #fff0f0; /* Pastel pink background */
-    padding: 20px;
-    border: 1px solid #ff99cc; /* Pastel pink border */
-    box-shadow: 0 0 10px rgba(255, 153, 204, 0.5); /* Soft pink shadow */
-    border-radius: 10px;
+  margin-top: 20px;
+  background-color: #fff0f0;
+  padding: 20px;
+  border: 1px solid #ff99cc;
+  box-shadow: 0 0 10px rgba(255, 153, 204, 0.5);
+  border-radius: 10px;
 }
-
 .pro-admin-title {
-    font-size: 24px;
-    color: #ff69b4; /* Bright pink */
-    margin-bottom: 10px;
+  font-size: 24px;
+  color: #ff69b4;
+  margin-bottom: 10px;
 }
 
 /* Settings */
-
 .pro-settings-title {
-    font-size: 24px;
-    color: #ff69b4; /* Bright pink */
-    margin-bottom: 10px;
+  font-size: 24px;
+  color: #ff69b4;
+  margin-bottom: 10px;
 }
 
 /* Links */
-
-.pro-edit-profile-link {
-    font-size: 18px;
-    color: #337ab7;
-    text-decoration: none;
-    margin-top: 20px;
-    display: block;
-}
-
-.pro-edit-profile-link:hover {
-    color: #23527c;
-}
-
+.pro-edit-profile-link,
 .pro-logout-link {
-    font-size: 18px;
-    color: #337ab7;
-    text-decoration: none;
-    margin-top: 10px;
-    display: block;
+  font-size: 18px;
+  color: #337ab7;
+  text-decoration: none;
+  margin-top: 20px;
+  display: inline-block;
+  background-color: #ff99cc;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  color: #fff;
+  margin-bottom: 10px;
 }
-
+.pro-edit-profile-link:hover,
 .pro-logout-link:hover {
-    color: #23527c;
+  background-color: #ff69b4;
 }
 
-/* Desktop version (min-width: 992px) */
-
+/* Desktop (min-width: 992px) */
 @media only screen and (min-width: 992px) {
-    .profile-container {
-        padding: 40px;
-        margin: 40px;
-    }
-
-    .pro-welcome-message {
-        font-size: 36px;
-    }
-
-    .pro-email {
-        font-size: 20px;
-    }
-
-    .profile-name {
-        font-size: 20px;
-    }
-
-    .bio {
-        font-size: 20px;
-    }
-
-    .profile-picture {
-        width: 100%;
-        height: 300px;
-    }
-
-    .pro-admin-title {
-        font-size: 30px;
-    }
-
-    .pro-admin-item a {
-        font-size: 20px;
-    }
-
-    .pro-settings-title {
-        font-size: 30px;
-    }
-
-    .pro-settings-link {
-        font-size: 20px;
-    }
-
-    .pro-edit-profile-link {
-        font-size: 20px;
-    }
-
-    .pro-logout-link {
-        font-size: 20px;
-    }
+  .profile-container {
+    padding: 40px;
+    margin: 40px;
+  }
+  .pro-welcome-message {
+    font-size: 36px;
+  }
+  .pro-email,
+  .profile-name,
+  .bio {
+    font-size: 20px;
+  }
+  .profile-picture {
+    width: 100%;
+    height: 300px;
+  }
+  .pro-admin-title {
+    font-size: 30px;
+  }
+  .pro-settings-title {
+    font-size: 30px;
+  }
+  .pro-edit-profile-link,
+  .pro-logout-link {
+    font-size: 20px;
+  }
 }
 
-/* Add some feminine touches */
-
+/* Additional feminine touches */
 .pro-welcome-message {
-    text-align: center;
-    font-style: italic;
+  text-align: center;
+  font-style: italic;
 }
-
 .profile-picture {
-    border: 5px solid #ff99cc; /* Pastel pink border */
+  border: 5px solid #ff99cc;
 }
-
-.pro-admin-options {
-    background-color: #fff0f0; /* Soft pink background */
-    padding: 20px;
-    border: 1px solid #ff99cc; /* Pastel pink border */
-}
-
+.pro-admin-options,
 .pro-settings-options {
-    background-color: #fff0f0; /* Soft pink background */
-    padding: 20px;
-    border: 1px solid #ff99cc; /* Pastel pink border */
+  background-color: #fff0f0;
+  padding: 20px;
+  border: 1px solid #ff99cc;
 }
 
-/* Button styles */
-
-.pro-edit-profile-link {
-    background-color: #ff99cc; /* Pastel pink background */
-    color: #fff;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-.pro-edit-profile-link:hover {
-    background-color: #ff69b4; /* Bright pink background */
-}
-
-.pro-logout-link {
-    background-color: #ff99cc; /* Pastel pink background */
-    color: #fff;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-}
-
-.pro-logout-link:hover {
-    background-color: #ff69b4; /* Bright pink background */
-}
-
-/* Mobile view (max-width: 767px) */
-
+/********************************************
+ * EDIT PROFILE PAGE
+ ********************************************/
 .edit-profile-title {
-    font-size: 24px;
-    color: #ff69b4; /* Bright pink */
-    margin-bottom: 10px;
-    text-align: center;
+  font-size: 24px;
+  color: #ff69b4;
+  margin-bottom: 10px;
+  text-align: center;
 }
-
 .edit-profile-form {
-    padding: 20px;
-    background-color: #fff0f0; /* Soft pink background */
-    border: 1px solid #ff99cc; /* Pastel pink border */
-    box-shadow: 0 0 10px rgba(255, 153, 204, 0.5); /* Soft pink shadow */
-    border-radius: 10px;
+  padding: 20px;
+  background-color: #fff0f0;
+  border: 1px solid #ff99cc;
+  box-shadow: 0 0 10px rgba(255, 153, 204, 0.5);
+  border-radius: 10px;
 }
-
 .edit-profile-label {
-    font-size: 16px;
-    color: #666;
-    margin-bottom: 5px;
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 5px;
 }
-
 .edit-profile-input {
-    width: 100%;
-    height: 30px;
-    margin-bottom: 20px;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+  width: 100%;
+  height: 30px;
+  margin-bottom: 20px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
 }
-
 .edit-profile-textarea {
-    width: 100%;
-    height: 100px;
-    margin-bottom: 20px;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 5px;
+  width: 100%;
+  height: 100px;
+  margin-bottom: 20px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
 }
-
 .edit-profile-button {
-    background-color: #ff99cc; /* Pastel pink background */
-    color: #fff;
-    padding: 10px 20px;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
+  background-color: #ff99cc;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
 }
-
 .edit-profile-button:hover {
-    background-color: #ff69b4; /* Bright pink background */
+  background-color: #ff69b4;
 }
 
 /* Tablet view (min-width: 768px) */
-
 @media only screen and (min-width: 768px) {
-    .edit-profile-form {
-        padding: 30px;
-    }
-
-    .edit-profile-label {
-        font-size: 18px;
-    }
-
-    .edit-profile-input {
-        height: 35px;
-    }
-
-    .edit-profile-textarea {
-        height: 120px;
-    }
-
-    .edit-profile-button {
-        padding: 12px 25px;
-    }
+  .edit-profile-form {
+    padding: 30px;
+  }
+  .edit-profile-label {
+    font-size: 18px;
+  }
+  .edit-profile-input {
+    height: 35px;
+  }
+  .edit-profile-textarea {
+    height: 120px;
+  }
+  .edit-profile-button {
+    padding: 12px 25px;
+  }
 }
 
-/* Desktop view (min-width: 992px) */
-
+/* Desktop (min-width: 992px) */
 @media only screen and (min-width: 992px) {
-    .edit-profile-form {
-        padding: 40px;
-        max-width: 600px;
-        margin: 40px auto;
-    }
-
-    .edit-profile-label {
-        font-size: 20px;
-    }
-
-    .edit-profile-input {
-        height: 40px;
-    }
-
-    .edit-profile-textarea {
-        height: 150px;
-    }
-
-    .edit-profile-button {
-        padding: 15px 30px;
-    }
+  .edit-profile-form {
+    padding: 40px;
+    max-width: 600px;
+    margin: 40px auto;
+  }
+  .edit-profile-label {
+    font-size: 20px;
+  }
+  .edit-profile-input {
+    height: 40px;
+  }
+  .edit-profile-textarea {
+    height: 150px;
+  }
+  .edit-profile-button {
+    padding: 15px 30px;
+  }
 }
 
-/* Mobile-First Search Form */
+/********************************************
+ * SEARCH FORM
+ ********************************************/
 .search-form {
-    margin-top: 20px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    border: 2px solid #ff4081;  /* Soft pink border */
-    border-radius: 25px;  /* Rounded corners for a soft look */
-    background-color: #fff;  /* White background for contrast */
-    padding: 10px;
-    max-width: 90%;
-    margin-bottom: 30px;
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  border: 2px solid #ff4081;
+  border-radius: 25px;
+  background-color: #fff;
+  padding: 10px;
+  max-width: 90%;
+  margin-bottom: 30px;
 }
-
 .search-form input {
-    padding: 12px;
-    width: 70%;  /* Adjust width for small screens */
-    border: none;
-    border-radius: 20px;  /* Soft rounded edges */
-    font-size: 1rem;
-    color: #333;
-    background-color: #f9f9f9;  /* Light gray background for the input */
-    margin-right: 10px;  /* Space between input and button */
+  padding: 12px;
+  width: 70%;
+  border: none;
+  border-radius: 20px;
+  font-size: 1rem;
+  color: #333;
+  background-color: #f9f9f9;
+  margin-right: 10px;
 }
-
 .search-form button {
-    padding: 12px 20px;  /* Comfortable padding for the button */
-    font-size: 1rem;
-    background-color: #ff4081;  /* Feminine soft pink */
-    color: #fff;
-    border: none;
-    border-radius: 20px;  /* Rounded button */
-    cursor: pointer;
-    transition: background-color 0.3s ease;
+  padding: 12px 20px;
+  font-size: 1rem;
+  background-color: #ff4081;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
 }
-
 .search-form button:hover {
-    background-color: #e91e63;  /* Slightly darker pink on hover */
+  background-color: #e91e63;
 }
-
 .search-form button:active {
-    background-color: #c2185b;  /* Darker shade for active button */
+  background-color: #c2185b;
 }
 /* Desktop Styles */
 @media (min-width: 768px) {
-    .search-form {
-        max-width: 50%;  /* Adjust width for larger screens */
-        margin-top: 30px;
-    }
-
-    .search-form input {
-        width: 80%;  /* Input takes more space on desktop */
-    }
-
-    .search-form button {
-        padding: 14px 25px;  /* Slightly larger button */
-    }
+  .search-form {
+    max-width: 50%;
+    margin-top: 30px;
+  }
+  .search-form input {
+    width: 80%;
+  }
+  .search-form button {
+    padding: 14px 25px;
+  }
 }
 
-/* Mobile-first styles for post cards */
+/********************************************
+ * PROFILE PICTURE
+ ********************************************/
+.profile-picture {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #f8c8da;
+  margin-bottom: 10px;
+}
+
+/********************************************
+ * POST CARD STYLES
+ ********************************************/
 .post-card {
-    border: 1px solid #ddd;           /* Light gray border */
-    padding: 15px;                    /* Inner spacing */
-    margin: 15px 0;                   /* Vertical spacing between cards */
-    border-radius: 8px;               /* Rounded corners */
-    background-color: #fff;           /* White background */
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);  /* Subtle shadow for depth */
+  background-color: #fff;
+  border: 1px solid #f8c8da;
+  border-radius: 8px;
+  padding: 15px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 4px rgba(248, 200, 218, 0.3);
+  transition: box-shadow 0.3s;
+}
+.post-card:hover {
+  box-shadow: 0 4px 8px rgba(248, 200, 218, 0.4);
+}
+
+/* POST HEADER */
+.post-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.creator-profile-pic {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #f8c8da;
+  margin-right: 10px;
+}
+.creator-name {
+  font-size: 15px;
+  font-weight: bold;
+  color: #a83260;
+}
+
+/* POST BODY */
+.post-body {
+  margin-bottom: 10px;
+}
+.post-image,
+.post-video {
+  width: 100%;
+  border-radius: 5px;
+  object-fit: cover;
+  margin-bottom: 10px;
+}
+.post-text {
+  margin: 10px 0;
+  font-size: 14px;
+  color: #444;
+  line-height: 1.4;
+}
+
+/* POST FOOTER */
+.post-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.like-button {
+  background-color: #ff99cc;
+  color: #fff;
+  border: none;
+  padding: 8px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s;
+}
+.like-button:hover {
+  background-color: #ff69b4;
+}
+
+/* COMMENTS */
+.comments {
+  margin-top: 10px;
+}
+.comment {
+  margin-bottom: 6px;
+  font-size: 13px;
+  color: #555;
+}
+.comment strong {
+  margin-right: 4px;
+  color: #a83260;
+}
+
+/* COMMENT FORM */
+.comment-form {
+  display: flex;
+  margin-top: 6px;
+}
+.comment-form input[type="text"] {
+  flex: 1;
+  padding: 6px 8px;
+  font-size: 14px;
+  margin-right: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  outline: none;
+}
+.comment-form button {
+  background-color: #ff99cc;
+  color: #fff;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+.comment-form button:hover {
+  background-color: #ff69b4;
+}
+
+/* Tablet & Desktop (min-width: 768px) */
+@media (min-width: 768px) {
+  .profile-picture {
+    width: 100px;
+    height: 100px;
+    margin-bottom: 15px;
   }
-  
-  .post-card img,
-  .post-card video {
-    width: 100%;                      /* Full width */
-    border-radius: 4px;               /* Slight rounding on media */
-    margin-bottom: 10px;              /* Space below media */
+  .post-card {
+    max-width: 700px;
+    margin: 20px auto;
+    padding: 20px;
   }
-  
+  .creator-profile-pic {
+    width: 50px;
+    height: 50px;
+  }
+  .creator-name {
+    font-size: 16px;
+  }
+  .post-text {
+    font-size: 15px;
+  }
+  .like-button,
+  .comment-form button {
+    font-size: 15px;
+    padding: 10px 16px;
+  }
+}
+
+/********************************************
+ * POST ITEMS (e.g., text-only posts)
+ ********************************************/
+.post-item {
+  border: 1px solid #ddd;
+  padding: 10px;
+  margin: 15px 0;
+  border-radius: 8px;
+  background-color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+.post-item img,
+.post-item video {
+  width: 100%;
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+.post-writeup {
+  font-size: 14px;
+  font-weight: bold;
+  color: #444;
+  padding-top: 10px;
+  border-top: 1px solid #ddd;
+  margin-top: 10px;
+}
+
+/********************************************
+ * CREATOR SECTION HEADING
+ ********************************************/
+.creator-section h3 a {
+  text-decoration: none;
+  color: #a83260;
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+}
+
+/* Larger screens (min-width: 1024px) */
+@media (min-width: 1024px) {
+  .post-item {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    border: 1px solid #ccc;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  }
   .post-writeup {
-    font-size: 14px;                  /* Base font size for caption */
-    color: #444;                      /* Dark gray text */
-    padding-top: 10px;                /* Spacing above the caption */
-    border-top: 1px solid #ddd;       /* Separator line above the caption */
-    margin-top: 10px;                 /* Space between media and caption */
+    font-size: 16px;
   }
-  
-  /* Desktop styles using a media query */
-  @media (min-width: 1024px) {
-    .post-card {
-      max-width: 800px;              /* Constrain card width on larger screens */
-      margin: 20px auto;             /* Center card horizontally with extra spacing */
-      padding: 20px;                 /* Increase inner spacing */
-      border: 1px solid #ccc;        /* Slightly darker border */
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* More pronounced shadow */
-    }
-  
-    .post-writeup {
-      font-size: 16px;               /* Larger font size on desktop */
-    }
+  .creator-section h3 a {
+    font-size: 24px;
   }
-  
+}
+
+/********************************************
+ * CHAT CONTAINERS
+ ********************************************/
+/* Chat Container */
+.chat-container {
+  width: 90%;
+  max-width: 400px;
+  background: white;
+  border-radius: 15px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Chat Header */
+.chat-header {
+  background: linear-gradient(135deg, #ff85a2, #d16ba5);
+  color: white;
+  text-align: center;
+  padding: 15px;
+  font-weight: bold;
+  border-bottom: 2px solid #f8bbd0;
+  font-family: 'Playfair Display', serif;
+}
+.chat-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.chat-header p {
+  margin: 5px 0 0;
+  font-size: 12px;
+}
+
+/* Chat Window */
+.chat-window {
+  flex-grow: 1;
+  padding: 15px;
+  overflow-y: auto;
+  max-height: 400px;
+  background-color: #fff0f6;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Message Container */
+.message-container {
+  margin-bottom: 15px;
+  display: inline-block;
+  max-width: 80%;
+}
+.message-container.sent {
+  align-self: flex-end;
+  text-align: right;
+}
+.message-container.received {
+  align-self: flex-start;
+  text-align: left;
+}
+
+/* Message Bubble */
+.message {
+  padding: 10px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: bold;
+  word-wrap: break-word;
+}
+.message-container.sent .message {
+  background-color: #ff85a2;
+  color: white;
+}
+.message-container.received .message {
+  background-color: #f8bbd0;
+  color: #333;
+}
+
+/* Info Block (below message bubble) */
+.info {
+  margin-top: 5px;
+  font-size: 10px;
+  color: #555;
+}
+
+/* Message Form */
+.message-form {
+  display: flex;
+  padding: 10px;
+  background: white;
+  border-top: 1px solid #f8bbd0;
+}
+.message-form input {
+  flex-grow: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 25px;
+  font-size: 14px;
+  outline: none;
+  background: #fdf1f8;
+}
+.message-form button {
+  margin-left: 10px;
+  padding: 10px 15px;
+  background: #ff85a2;
+  color: white;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+.message-form button:hover {
+  background: #d16ba5;
+}
+
+/* Media Query (Tablets & Desktops) */
+@media (min-width: 768px) {
+  .chat-container {
+    max-width: 600px;
+  }
+  .chat-header h2 {
+    font-size: 22px;
+  }
+  .chat-window {
+    max-height: 500px;
+  }
+  .message {
+    font-size: 16px;
+  }
+  .message-form input {
+    font-size: 16px;
+  }
+  .message-form button {
+    padding: 12px 20px;
+    font-size: 16px;
+  }
+}
+
+/********************************************
+ * CHAT LIST
+ ********************************************/
+.chat-list-container {
+  width: 90%;
+  max-width: 400px;
+  margin: 20px auto;
+  padding: 15px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.chat-list-container h2 {
+  font-family: 'Playfair Display', serif;
+  font-size: 20px;
+  color: #d16ba5;
+  text-align: center;
+  margin-bottom: 15px;
+}
+.chat-item {
+  border-bottom: 1px solid #f8bbd0;
+  padding: 10px 0;
+}
+.chat-item a {
+  text-decoration: none;
+  display: block;
+  color: #333;
+  transition: background-color 0.3s;
+  padding: 5px;
+  border-radius: 5px;
+}
+.chat-item a:hover {
+  background-color: #fff0f6;
+}
+.chat-item h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 16px;
+  color: #a83260;
+  margin: 0 0 5px 0;
+}
+.chat-preview {
+  font-size: 14px;
+  color: #666;
+}
+/* Larger screens (tablets & desktops) */
+@media (min-width: 768px) {
+  .chat-list-container {
+    max-width: 600px;
+    padding: 20px;
+  }
+  .chat-list-container h2 {
+    font-size: 26px;
+    margin-bottom: 20px;
+  }
+  .chat-item h3 {
+    font-size: 20px;
+  }
+  .chat-preview {
+    font-size: 16px;
+  }
+}
+
+.dashboard-container {
+  max-width: 95%;
+  margin: 20px auto;
+  background-color: #ffe4e8; /* pastel pink box */
+  border-radius: 10px;
+  padding: 20px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+h1, h2, h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+  color: #c2185b; /* deeper pink text */
+}
+
+.stats-container {
+  background-color: #ffebf0;
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.stat-item {
+  margin-bottom: 10px;
+  font-weight: bold;
+}
+
+.transaction-history-title {
+  margin-top: 20px;
+  margin-bottom: 10px;
+}
+
+.transactions-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  background-color: #ffffff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.transactions-list li {
+  padding: 10px;
+  border-bottom: 1px solid #ffcdd2; /* soft pink border */
+}
+
+.transactions-list li:last-child {
+  border-bottom: none;
+}
+
+.transaction-date {
+  color: #777;
+  font-size: 0.9em;
+}
+
+.transaction-amount {
+  color: #c2185b;
+  font-weight: bold;
+}
+
+.separator {
+  margin: 10px 0;
+  border: 0;
+  border-top: 1px solid #ffcdd2;
+}
+
+/* New Classes for Bank Details & Withdraw Sections */
+.bank-details-form, .withdraw-section {
+  background-color: #ffebf0;
+  padding: 10px;
+  margin: 20px 0;
+  border-radius: 8px;
+}
+
+/* Input Fields */
+input {
+  display: block;
+  margin: 8px 0;
+  padding: 6px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Buttons */
+button {
+  padding: 8px 16px;
+  background-color: #c2185b;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* Media Queries for Larger Screens */
+@media (min-width: 768px) {
+  .dashboard-container {
+    max-width: 700px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .dashboard-container {
+    max-width: 900px;
+  }
+}
+

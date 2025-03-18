@@ -1,0 +1,85 @@
+<div class="chat-container">
+  <div class="chat-header">
+    <h2>Chat with <%= creator ? creator.username : 'Group Chat' %></h2>
+    <% if (creator) { %>
+      <p>
+        <% if (creator.isOnline) { %>
+          Available Now
+        <% } else if (creator.lastSeen) { %>
+          Last seen: <%= new Date(creator.lastSeen).toLocaleString('en-US', { weekday: 'long', hour: '2-digit', minute: '2-digit' }) %>
+        <% } else { %>
+          Offline
+        <% } %>
+      </p>
+    <% } else { %>
+      <p>Group Chat</p>
+    <% } %>
+  </div>
+  <div id="chatWindow" class="chat-window">
+    <% if (chat.messages && chat.messages.length > 0) { %>
+      <% chat.messages.forEach(function(message) { %>
+        <div class="message-container <%= message.sender.toString() === currentUser._id.toString() ? 'sent' : 'received' %>">
+          <div class="message">
+            <span class="text"><%= message.text %></span>
+          </div>
+          <div class="info">
+            <span class="time"><%= new Date(message.timestamp).toLocaleTimeString() %></span>
+            <% if (message.sender.toString() === currentUser._id.toString()) { %>
+              <span class="status"><%= message.read ? '✓✓' : '✓' %></span>
+            <% } %>
+          </div>
+        </div>
+      <% }); %>
+    <% } else { %>
+      <p>No messages yet. Start the conversation!</p>
+    <% } %>
+  </div>
+  <form id="messageForm" class="message-form">
+    <input type="hidden" id="chatId" value="<%= chat._id %>">
+    <input type="hidden" id="sender" value="<%= currentUser._id %>">
+    <input type="text" id="messageInput" placeholder="Type your message..." autocomplete="off" required>
+    <button type="submit">Send</button>
+  </form>
+</div>
+
+<!-- Socket.io Client -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+  const chatId = document.getElementById('chatId').value;
+  const sender = document.getElementById('sender').value;
+  
+  socket.emit('joinRoom', { chatId });
+  
+  document.getElementById('messageForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const messageInput = document.getElementById('messageInput');
+    const text = messageInput.value.trim();
+    if (text) {
+      socket.emit('sendMessage', { chatId, sender, text });
+      messageInput.value = '';
+    }
+  });
+  
+  socket.on('newMessage', function(message) {
+    const chatWindow = document.getElementById('chatWindow');
+    const container = document.createElement('div');
+    container.className = 'message-container ' + (message.sender === sender ? 'sent' : 'received');
+    
+    const bubble = document.createElement('div');
+    bubble.className = 'message';
+    bubble.innerHTML = `<span class="text">${message.text}</span>`;
+    
+    const info = document.createElement('div');
+    info.className = 'info';
+    info.innerHTML = `<span class="time">${new Date(message.timestamp).toLocaleTimeString()}</span>`;
+    if (message.sender === sender) {
+      info.innerHTML += `<span class="status">${message.read ? '✓✓' : '✓'}</span>`;
+    }
+    
+    container.appendChild(bubble);
+    container.appendChild(info);
+    chatWindow.appendChild(container);
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  });
+</script>
