@@ -3,15 +3,14 @@ const express = require('express');
 const router = express.Router();
 const Transaction = require('../models/Transaction');
 const User = require('../models/users');
-const WithdrawalRequest = require('../models/WithdrawalRequest'); 
-const { transferToBank } = require('../utilis/flutter'); // The new transfer function
+const { transferToBank } = require('../utilis/flutter'); // The Flutterwave transfer function
 
 function authCheck(req, res, next) {
   if (!req.user) return res.redirect('/');
   next();
 }
 
-// GET /dashboard
+// GET /dashboard - your existing code for showing stats
 router.get('/', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
@@ -28,21 +27,20 @@ router.get('/', authCheck, async (req, res) => {
         .populate('post', 'writeUp')
         .populate('subscriptionBundle', 'description price');
 
-      // Sum amounts by type (for display only)
+      // Sum amounts by type
       for (const tx of transactions) {
         if (tx.type === 'subscription') totalSubscription += tx.amount;
         else if (tx.type === 'special') totalSpecial += tx.amount;
       }
 
       // Render the creator dashboard
-      // We'll also pass `totalEarnings` from the user doc (the actual available balance)
       res.render('dashboard', {
         user: currentUser,
         role: 'creator',
         transactions,
         totalSubscription,
         totalSpecial,
-        totalEarnings: currentUser.totalEarnings // The real available balance
+        totalEarnings: currentUser.totalEarnings
       });
     } else {
       // Normal user => money spent
@@ -72,8 +70,7 @@ router.get('/', authCheck, async (req, res) => {
   }
 });
 
-// POST /dashboard/bank-details
-// Save/Update creator's bank info
+// POST /dashboard/bank-details - your existing code for saving bank info
 router.post('/bank-details', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
@@ -93,8 +90,7 @@ router.post('/bank-details', authCheck, async (req, res) => {
   }
 });
 
-// POST /dashboard/withdraw
-// Let a creator withdraw if totalEarnings >= 1000
+// POST /dashboard/withdraw - IMMEDIATE withdrawal (no 24-hour delay)
 router.post('/withdraw', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
@@ -107,53 +103,52 @@ router.post('/withdraw', authCheck, async (req, res) => {
       return res.status(400).json({ message: 'Please add your bank details first.' });
     }
 
-    // Validate withdrawal amount
+    // Requested withdrawal amount from the client
     const { amount } = req.body;
     if (!amount || amount < 1000) {
       return res.status(400).json({ message: 'Withdrawal amount must be at least 1000.' });
     }
 
+    // Ensure user has enough funds
     if (amount > currentUser.totalEarnings) {
       return res.status(400).json({ message: 'Insufficient balance to withdraw that amount.' });
     }
 
-    // Create a pending request first (before deducting from balance)
-    const processTime = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    
-    const withdrawal = await WithdrawalRequest.create({
-      user: currentUser._id,
-      amount,
-      status: 'pending',
-      processAt: processTime
-    });
+    // Deduct platform fee (example 25%)
+    const fee = amount * 0.25;
+    const payoutAmount = amount - fee;
 
-    if (!withdrawal) {
-      return res.status(500).json({ message: 'Failed to create withdrawal request.' });
+    // Convert bank name to a bank code (example helper)
+    const bankCode = mapBankNameToCode(currentUser.bankName);
+    const accountNumber = currentUser.accountNumber;
+
+    // Attempt immediate transfer
+    const transferResponse = await transferToBank(bankCode, accountNumber, payoutAmount);
+    if (transferResponse.status === 'success') {
+      // Subtract the entire requested amount from totalEarnings
+      currentUser.totalEarnings -= amount;
+      await currentUser.save();
+
+      return res.json({ message: 'Withdrawal successful!' });
+    } else {
+      // If the transfer fails, do not remove from totalEarnings
+      return res.status(500).json({ message: 'Transfer failed.' });
     }
-
-    // Only deduct from totalEarnings if WithdrawalRequest creation succeeds
-    currentUser.totalEarnings -= amount;
-    await currentUser.save();
-
-    return res.json({ message: 'Withdrawal requested. Funds will be transferred in 24 hours.' });
   } catch (err) {
     console.error('Withdraw error:', err);
     return res.status(500).json({ message: 'Error processing withdrawal.' });
   }
 });
 
-/**
- * Example helper to map bank name to bank code
- * In production, store these in a DB or a static dictionary
- */
+// Example helper to map bank names to codes
 function mapBankNameToCode(bankName) {
   const bankMap = {
     'Access Bank': '044',
     'GTBank': '058',
     'Zenith Bank': '057',
     'First Bank': '011',
-    'Sterling Bank': '232'
-    // ... add more as needed
+    'Sterling Bank': '232',
+    // Add more if needed
   };
   return bankMap[bankName] || '044'; // default to Access if unknown
 }
