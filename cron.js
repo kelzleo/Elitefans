@@ -1,7 +1,6 @@
 // cron.js
 require('dotenv').config();
 const mongoose = require('mongoose');
-const cron = require('node-cron');
 const WithdrawalRequest = require('./models/WithdrawalRequest');
 const User = require('./models/users');
 const { transferToBank } = require('./utilis/flutter');
@@ -16,9 +15,7 @@ mongoose
   .then(() => console.log("Connected to MongoDB"))
   .catch((err) => console.error("MongoDB connection error:", err));
 
-
-// Run every 10 minutes (adjust as needed)
-cron.schedule('*/10 * * * *', async () => {
+async function processWithdrawals() {
   console.log('Checking pending withdrawals...');
   try {
     const now = new Date();
@@ -40,7 +37,7 @@ cron.schedule('*/10 * * * *', async () => {
       const fee = req.amount * 0.25;
       const payoutAmount = req.amount - fee;
 
-      // Use the user’s stored bank info
+      // Use the user’s stored bank info (make sure mapBankNameToCode is defined)
       const bankCode = mapBankNameToCode(user.bankName);
       const accountNumber = user.accountNumber;
 
@@ -62,6 +59,24 @@ cron.schedule('*/10 * * * *', async () => {
       }
     }
   } catch (error) {
-    console.error('Error in cron job:', error);
+    console.error('Error in withdrawal processing:', error);
+  } finally {
+    process.exit(0); // Exit after processing
   }
-});
+}
+
+// Helper function (ensure you define this appropriately)
+function mapBankNameToCode(bankName) {
+  const bankMap = {
+    'Access Bank': '044',
+    'GTBank': '058',
+    'Zenith Bank': '057',
+    'First Bank': '011',
+    'Sterling Bank': '232'
+    // ... add more as needed
+  };
+  return bankMap[bankName] || '044';
+}
+
+// Run the process once
+processWithdrawals();
