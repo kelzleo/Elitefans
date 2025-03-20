@@ -149,7 +149,6 @@
             <% } %>
 
             <!-- SHOW THE CREATOR'S WRITE-UP FOR ANY POST TYPE -->
-            <!-- If you want the write-up always visible, do this check -->
             <% if (post.writeUp && post.type !== 'text') { %>
               <p class="post-text" style="margin-top: 10px;">
                  <%= post.writeUp %>
@@ -248,7 +247,9 @@
             body: JSON.stringify({ contentId, creatorId })
           });
           const result = await response.json();
-          if (res.ok && result.status === 'success' && result.data.paymentLink) {
+
+          // FIX: use response.ok instead of res.ok
+          if (response.ok && result.status === 'success' && result.data.paymentLink) {
             window.location.href = result.data.paymentLink;
           } else {
             alert(result.message || 'Failed to initialize payment');

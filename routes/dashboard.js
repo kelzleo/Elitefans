@@ -10,7 +10,7 @@ function authCheck(req, res, next) {
   next();
 }
 
-// GET /dashboard - your existing code for showing stats
+// GET /dashboard
 router.get('/', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
@@ -20,7 +20,7 @@ router.get('/', authCheck, async (req, res) => {
     let totalSpecial = 0;
 
     if (currentUser.role === 'creator') {
-      // Fetch transactions where this user is the "creator"
+      // Transactions where this user is the "creator"
       transactions = await Transaction.find({ creator: currentUser._id })
         .sort({ createdAt: -1 })
         .populate('user', 'username')
@@ -70,28 +70,37 @@ router.get('/', authCheck, async (req, res) => {
   }
 });
 
-// POST /dashboard/bank-details - your existing code for saving bank info
-router.post('/bank-details', authCheck, async (req, res) => {
+/**
+ * POST /dashboard/add-bank
+ * Adds a new bank to the user's array of banks
+ */
+router.post('/add-bank', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
     if (currentUser.role !== 'creator') {
-      return res.status(403).json({ message: 'Only creators can update bank details.' });
+      return res.status(403).json({ message: 'Only creators can add banks.' });
     }
 
     const { bankName, accountNumber } = req.body;
-    currentUser.bankName = bankName;
-    currentUser.accountNumber = accountNumber;
+    if (!bankName || !accountNumber) {
+      return res.status(400).json({ message: 'Please provide bank name and account number.' });
+    }
+
+    // Push a new bank object to the array
+    currentUser.banks.push({ bankName, accountNumber });
     await currentUser.save();
 
-    res.json({ message: 'Bank details saved successfully!' });
+    res.json({ message: 'Bank added successfully!' });
   } catch (error) {
-    console.error('Error saving bank details:', error);
-    res.status(500).json({ message: 'Error saving bank details.' });
+    console.error('Error adding bank:', error);
+    res.status(500).json({ message: 'Error adding bank.' });
   }
 });
 
-// POST /dashboard/withdraw - IMMEDIATE withdrawal (no 24-hour delay)
-// POST /dashboard/withdraw
+/**
+ * POST /dashboard/withdraw
+ * Let a creator withdraw to a chosen bank
+ */
 router.post('/withdraw', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
@@ -99,50 +108,51 @@ router.post('/withdraw', authCheck, async (req, res) => {
       return res.status(403).json({ message: 'Only creators can withdraw funds.' });
     }
 
-    // Check bank details
-    if (!currentUser.bankName || !currentUser.accountNumber) {
-      return res.status(400).json({ message: 'Please add your bank details first.' });
-    }
+    const { amount, bankId } = req.body; // bankId is the index or _id from the user’s banks array
 
-    // Requested withdrawal amount from the client
-    const { amount } = req.body;
+    // Validate the requested withdrawal amount
     if (!amount || amount < 1000) {
       return res.status(400).json({ message: 'Withdrawal amount must be at least 1000.' });
     }
 
-    // Ensure user has enough funds
     if (amount > currentUser.totalEarnings) {
       return res.status(400).json({ message: 'Insufficient balance to withdraw that amount.' });
     }
 
-    // Deduct platform fee (example 25%)
+    // Find the chosen bank
+    const chosenBank = currentUser.banks.id(bankId); // if bankId is an ObjectId
+    if (!chosenBank) {
+      return res.status(400).json({ message: 'Invalid bank selection.' });
+    }
+
+    // Deduct 25% fee
     const fee = amount * 0.25;
     const payoutAmount = amount - fee;
 
-    // Convert bank name to a bank code
-    const bankCode = mapBankNameToCode(currentUser.bankName);
-    const accountNumber = currentUser.accountNumber;
+    // Convert bank name to code
+    const bankCode = mapBankNameToCode(chosenBank.bankName);
 
     // Attempt immediate transfer
     let transferResponse;
     try {
-      transferResponse = await transferToBank(bankCode, accountNumber, payoutAmount);
+      transferResponse = await transferToBank(bankCode, chosenBank.accountNumber, payoutAmount);
       console.log('Full transferResponse object:', transferResponse);
     } catch (err) {
-      // This catch block fires if transferToBank throws an error
-      console.error('transferToBank threw an error:', err);
-      return res.status(500).json({ message: 'Error calling transferToBank.', error: err.message });
+      console.error('transferToBank error:', err);
+      return res.status(500).json({
+        message: 'Error calling transferToBank.',
+        error: err.message
+      });
     }
 
-    // If we got here, transferToBank did not throw
     if (transferResponse.status === 'success') {
-      // Subtract the entire requested amount from totalEarnings
+      // On success, subtract from totalEarnings
       currentUser.totalEarnings -= amount;
       await currentUser.save();
 
       return res.json({ message: 'Withdrawal successful!' });
     } else {
-      // If the transfer fails (status !== 'success'), do not remove from totalEarnings
+      // If the transfer fails
       console.error('Flutterwave transfer failed:', transferResponse);
       return res.status(500).json({ message: 'Transfer failed.', data: transferResponse });
     }
@@ -152,16 +162,45 @@ router.post('/withdraw', authCheck, async (req, res) => {
   }
 });
 
-// Example helper to map bank names to codes
+/**
+ * Helper function: map bankName to bankCode
+ */
 function mapBankNameToCode(bankName) {
+  // Extended dictionary of ~40 banks in Nigeria (example)
   const bankMap = {
     'Access Bank': '044',
-    'GTBank': '058',
-    'Zenith Bank': '057',
-    'First Bank': '011',
+    'ALAT by Wema': '035',
+    'Citibank Nigeria': '023',
+    'Ecobank Nigeria': '050',
+    'Fidelity Bank': '070',
+    'First Bank of Nigeria': '011',
+    'First City Monument Bank (FCMB)': '214',
+    'Globus Bank': '103',
+    'Guaranty Trust Bank (GTBank)': '058',
+    'Heritage Bank': '030',
+    'Jaiz Bank': '301',
+    'Keystone Bank': '082',
+    'Kuda Bank': '50211',
+    'Moniepoint Microfinance Bank': '50515',
+    'OPay': '100', // or sometimes '999991' or '999992'—varies
+    'Palmpay': '999992', // approximate
+    'Parallex Bank': '526',
+    'Polaris Bank': '076',
+    'PremiumTrust Bank': '50746',
+    'Providus Bank': '101',
+    'Stanbic IBTC Bank': '221',
+    'Standard Chartered Bank': '068',
     'Sterling Bank': '232',
-    // Add more if needed
+    'SunTrust Bank': '100',
+    'Titan Trust Bank': '102',
+    'Union Bank of Nigeria': '032',
+    'United Bank for Africa (UBA)': '033',
+    'Unity Bank': '215',
+    'Wema Bank': '035',
+    'Zenith Bank': '057',
+    // ... add more if needed
   };
+
   return bankMap[bankName] || '044'; // default to Access if unknown
 }
 

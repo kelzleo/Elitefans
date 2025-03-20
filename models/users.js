@@ -108,20 +108,22 @@ const userSchema = new mongoose.Schema({
     default: 0,
   },
 
-  // NEW FIELDS FOR BANK DETAILS AND EARNINGS
-  bankName: {
-    type: String,
-    default: ''
-  },
-  accountNumber: {
-    type: String,
-    default: ''
-  },
+  
+ 
   // Track how much the creator has earned from subs + special content
   totalEarnings: {
     type: Number,
     default: 0
-  }
+  },
+  banks: [
+    {
+      _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
+      bankName: { type: String, required: true },
+      accountNumber: { type: String, required: true },
+      // optionally store the bank code if you want to skip mapping:
+      // bankCode: { type: String, default: '' }
+    }
+  ],
 });
 
 // Pre-save middleware to handle subscriber count updates if needed
