@@ -811,6 +811,28 @@ profile-container {
   }
 }
 
+.post-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem; /* spacing between buttons */
+  margin-top: 0.5rem;
+}
+
+.comment-info {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.tip-button .tip-count {
+  margin-left: 0.2rem;
+}
+
+.comments {
+  margin-top: 1rem;
+}
+
+
 /********************************************
  * POST ITEMS (e.g., text-only posts)
  ********************************************/

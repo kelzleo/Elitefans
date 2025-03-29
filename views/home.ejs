@@ -17,18 +17,15 @@
   <% if (creators && creators.length > 0) { %>
     <% creators.forEach(creator => { %>
       <div class="creator-result">
-        <!-- Display small circular avatar -->
         <img
           src="<%= creator.profilePicture || '/uploads/default-profile-picture.jpg' %>"
           alt="<%= creator.username %>"
           class="creator-profile-pic"
           style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;"
         />
-        <!-- Link to the creator's profile page -->
         <a href="/profile/view/<%= creator._id %>">
           <strong><%= creator.username %></strong>
         </a>
-        <!-- Optionally show profileName or other info -->
         <% if (creator.profileName) { %>
           <p>Profile Name: <%= creator.profileName %></p>
         <% } %>
@@ -39,7 +36,7 @@
   <% } %>
 
 <% } else { %>
-  <!-- We are in "feed mode" => Show subscribed posts -->
+  <!-- Feed mode: show subscribed posts -->
   <div class="feed-container">
     <% if (posts && posts.length > 0) { %>
       <% posts.forEach(post => { %>
@@ -50,7 +47,6 @@
               alt="<%= post.creator.username %> profile"
               class="creator-profile-pic"
             />
-            <!-- Clickable creator name -->
             <a href="/profile/view/<%= post.creator._id %>" class="creator-name">
               <%= post.creator.username %>
             </a>
@@ -59,7 +55,6 @@
             <!-- IMAGE POST -->
             <% if (post.type === 'image') { %>
               <% if (post.special && post.locked) { %>
-                <!-- Locked image: show a placehold.co image -->
                 <div class="locked-image-container" style="position: relative;">
                   <img
                     src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Content"
@@ -92,18 +87,14 @@
                   </div>
                 </div>
               <% } else { %>
-                <!-- Unlocked or non-special image -->
                 <img
                   src="<%= post.contentUrl %>"
                   alt="Post Image"
                   class="post-image"
                 />
               <% } %>
-
-            <!-- VIDEO POST -->
             <% } else if (post.type === 'video') { %>
               <% if (post.special && post.locked) { %>
-                <!-- Locked video: show a placeholder image -->
                 <div class="locked-video-container" style="position: relative;">
                   <img
                     src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Video"
@@ -136,46 +127,53 @@
                   </div>
                 </div>
               <% } else { %>
-                <!-- Unlocked or non-special video -->
                 <video controls class="post-video">
                   <source src="<%= post.contentUrl %>" type="video/mp4">
                   Your browser does not support the video tag.
                 </video>
               <% } %>
-
-            <!-- TEXT POST ONLY -->
             <% } else if (post.type === 'text') { %>
               <p class="post-text"><%= post.writeUp %></p>
             <% } %>
-
-            <!-- SHOW THE CREATOR'S WRITE-UP FOR ANY POST TYPE -->
             <% if (post.writeUp && post.type !== 'text') { %>
-              <p class="post-text" style="margin-top: 10px;">
-                 <%= post.writeUp %>
-              </p>
+              <p class="post-text" style="margin-top: 10px;"><%= post.writeUp %></p>
             <% } %>
           </div>
-          <div class="post-footer">
+          <!-- Post Actions: Like, Comment, Tip -->
+          <div class="post-actions">
             <!-- Like Button -->
             <button class="like-button" data-post-id="<%= post._id %>">
-              Like (<span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>)
+              <i class="fa-solid fa-heart"></i>
+              <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
             </button>
-            <!-- Comments -->
-            <div class="comments">
-              <% if (post.comments && post.comments.length > 0) { %>
-                <% post.comments.forEach(comment => { %>
-                  <div class="comment">
-                    <strong><%= comment.user.username %>:</strong> <%= comment.text %>
-                  </div>
-                <% }); %>
-              <% } %>
-            </div>
-            <!-- Comment form -->
-            <form class="comment-form" data-post-id="<%= post._id %>">
-              <input type="text" name="comment" placeholder="Add a comment">
-              <button type="submit">Comment</button>
-            </form>
+            <!-- Comment Info -->
+            <span class="comment-info">
+              <i class="fa-solid fa-comment"></i>
+              <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+            </span>
+            <!-- Tip Button (only if viewer isn't the creator) -->
+            <% if (currentUser._id.toString() !== post.creator._id.toString()) { %>
+              <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= post.creator._id %>">
+                <i class="fa-solid fa-gift"></i>
+                Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+              </button>
+            <% } %>
           </div>
+          <!-- Comments Section -->
+          <div class="comments">
+            <% if (post.comments && post.comments.length > 0) { %>
+              <% post.comments.forEach(comment => { %>
+                <div class="comment">
+                  <strong><%= comment.user.username %>:</strong> <%= comment.text %>
+                </div>
+              <% }); %>
+            <% } %>
+          </div>
+          <!-- Comment Form -->
+          <form class="comment-form" data-post-id="<%= post._id %>">
+            <input type="text" name="comment" placeholder="Add a comment">
+            <button type="submit">Comment</button>
+          </form>
         </div>
       <% }); %>
     <% } else { %>
@@ -184,10 +182,10 @@
   </div>
 <% } %>
 
-<!-- Like/Comment/Unlock JS -->
+<!-- JavaScript for Like, Comment, Unlock, and Tip functionality -->
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // Like Button
+    // Like Button Functionality
     document.querySelectorAll('.like-button').forEach(button => {
       button.addEventListener('click', async function() {
         const postId = this.dataset.postId;
@@ -206,7 +204,7 @@
       });
     });
 
-    // Comment Form
+    // Comment Form Functionality
     document.querySelectorAll('.comment-form').forEach(form => {
       form.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -232,7 +230,7 @@
       });
     });
 
-    // Unlock Button
+    // Unlock Button Functionality
     document.querySelectorAll('.unlock-button').forEach(button => {
       button.addEventListener('click', async function() {
         const contentId = this.dataset.contentId;
@@ -247,8 +245,6 @@
             body: JSON.stringify({ contentId, creatorId })
           });
           const result = await response.json();
-
-          // FIX: use response.ok instead of res.ok
           if (response.ok && result.status === 'success' && result.data.paymentLink) {
             window.location.href = result.data.paymentLink;
           } else {
@@ -259,6 +255,40 @@
         } catch (error) {
           console.error('Error:', error);
           alert('An error occurred while processing your request');
+          this.textContent = originalText;
+          this.disabled = false;
+        }
+      });
+    });
+
+    // Tip Button Functionality
+    document.querySelectorAll('.tip-button').forEach(button => {
+      button.addEventListener('click', async function() {
+        const tipAmount = prompt("Enter tip amount in NGN:");
+        if (!tipAmount) return;
+        const postId = this.dataset.postId;
+        const creatorId = this.dataset.creatorId;
+        const originalText = this.textContent;
+        this.textContent = 'Processing...';
+        this.disabled = true;
+        try {
+          const response = await fetch('/profile/posts/' + postId + '/tip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipAmount })
+          });
+          const result = await response.json();
+          console.log('Tip Payment Response:', result);
+          if (response.ok && result.status === 'success' && result.data.paymentLink) {
+            window.location.href = result.data.paymentLink;
+          } else {
+            alert(result.message || 'Failed to initialize tip payment');
+            this.textContent = originalText;
+            this.disabled = false;
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('An error occurred while processing your tip');
           this.textContent = originalText;
           this.disabled = false;
         }

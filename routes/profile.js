@@ -507,6 +507,7 @@ router.post('/posts/:postId/tip', authCheck, async (req, res) => {
 });
 
 // In profile.js, add:
+// Verify tip payment route
 router.get('/verify-tip-payment', async (req, res) => {
   try {
     const { transaction_id, status, tx_ref } = req.query;
@@ -527,12 +528,18 @@ router.get('/verify-tip-payment', async (req, res) => {
     ) {
       // Find the user with the pending tip transaction
       const user = await User.findOne({ 'pendingTransactions.tx_ref': tx_ref });
-      if (!user) return res.redirect('/profile?tipPayment=error');
+      if (!user) {
+        console.error('No user found with that tip transaction reference');
+        return res.redirect('/profile?tipPayment=error');
+      }
 
       const pendingTx = user.pendingTransactions.find(
         (tx) => tx.tx_ref === tx_ref && tx.type === 'tip'
       );
-      if (!pendingTx) return res.redirect('/profile?tipPayment=error');
+      if (!pendingTx) {
+        console.error('No pending tip transaction found for this user');
+        return res.redirect('/profile?tipPayment=error');
+      }
 
       // Check that the amounts match
       if (Number(pendingTx.amount) !== Number(paymentResponse.data.amount)) {
@@ -540,30 +547,41 @@ router.get('/verify-tip-payment', async (req, res) => {
         return res.redirect('/profile?tipPayment=error');
       }
 
-      // Update creator's earnings
+      // 1) Update creator's earnings
       const creator = await User.findById(pendingTx.creatorId);
       if (creator) {
         creator.totalEarnings += pendingTx.amount;
         await creator.save();
       }
 
-      // Record the tip transaction (assuming you have a Transaction model)
-      await Transaction.create({
+      // 2) Create a Transaction record
+      const newTransaction = await Transaction.create({
         user: user._id,
         creator: pendingTx.creatorId,
         post: pendingTx.postId,
         type: 'tip',
         amount: pendingTx.amount,
-        description: 'Tip payment'
+        description: 'Tip payment',
       });
 
-      // Remove the pending tip transaction
+      console.log('Created tip transaction:', newTransaction);
+
+      // 3) Update the post’s totalTips
+      const post = await Post.findById(pendingTx.postId);
+      if (post) {
+        post.totalTips += pendingTx.amount;
+        await post.save();
+        console.log(`Updated post ${post._id} totalTips to ${post.totalTips}`);
+      }
+
+      // 4) Remove the pending tip transaction
       await User.findByIdAndUpdate(user._id, {
-        $pull: { pendingTransactions: { tx_ref } }
+        $pull: { pendingTransactions: { tx_ref } },
       });
 
       return res.redirect('/profile?tipPayment=success');
     } else {
+      console.error('Tip payment verification failed or not successful');
       return res.redirect('/profile?tipPayment=failed');
     }
   } catch (error) {
@@ -571,7 +589,6 @@ router.get('/verify-tip-payment', async (req, res) => {
     return res.redirect('/profile?tipPayment=error');
   }
 });
-
 
 // Toggle Like a post
 router.post('/posts/:postId/like', authCheck, async (req, res) => {

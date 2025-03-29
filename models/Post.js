@@ -17,6 +17,8 @@ const postSchema = new Schema({
   unlockPrice: { type: Number },
   likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
   comments: [commentSchema],
+  // NEW FIELD: total tips accumulated on this post
+  totalTips: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
 });
 

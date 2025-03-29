@@ -69,19 +69,21 @@
                     Special Content - Unlock Price: ₦<%= post.unlockPrice %>
                   </p>
                 <% } %>
-                <!-- Delete post button -->
-                <form
-                  action="/profile/delete-post/<%= post._id %>"
-                  method="POST"
-                  onsubmit="return confirm('Are you sure you want to delete this post?');"
-                >
-                  <button type="submit" class="delete-post-btn">Delete Post</button>
-                </form>
 
-                <!-- Like button -->
-                <button class="like-button" data-post-id="<%= post._id %>">
-                  Like (<span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>)
-                </button>
+                <!-- Action Buttons (Like, Comment) -->
+                <div class="post-actions">
+                  <!-- Like -->
+                  <button class="like-button" data-post-id="<%= post._id %>">
+                    <i class="fa-solid fa-heart"></i>
+                    <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
+                  </button>
+
+                  <!-- Comment count icon (optional) -->
+                  <span class="comment-info">
+                    <i class="fa-solid fa-comment"></i>
+                    <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+                  </span>
+                </div>
 
                 <!-- Comments -->
                 <div class="comments">
@@ -97,6 +99,15 @@
                 <form class="comment-form" data-post-id="<%= post._id %>">
                   <input type="text" name="comment" placeholder="Add a comment">
                   <button type="submit">Comment</button>
+                </form>
+
+                <!-- Delete post button -->
+                <form
+                  action="/profile/delete-post/<%= post._id %>"
+                  method="POST"
+                  onsubmit="return confirm('Are you sure you want to delete this post?');"
+                >
+                  <button type="submit" class="delete-post-btn">Delete Post</button>
                 </form>
               </div>
             <% }); %>
@@ -145,7 +156,6 @@
       <% } else { %>
         <p>No subscription bundles available.</p>
       <% } %>
-
     <% } %>
 
   <% } else { %>
@@ -252,17 +262,31 @@
                     <% } %>
                   <% } %>
                 </a>
-                <!-- Like button -->
-                <button class="like-button" data-post-id="<%= post._id %>">
-                  Like (<span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>)
-                </button>
-                <!-- Tip button (only show if the viewer is not the creator) -->
-                <% if (currentUser._id.toString() !== user._id.toString()) { %>
-                  <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
-                    Tip
+
+                <!-- Post Actions (Like, Comment, Tip) -->
+                <div class="post-actions">
+                  <!-- Like -->
+                  <button class="like-button" data-post-id="<%= post._id %>">
+                    <i class="fa-solid fa-heart"></i>
+                    <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
                   </button>
-                <% } %>
-                <!-- Comments -->
+
+                  <!-- (Optional) Show total comments -->
+                  <span class="comment-info">
+                    <i class="fa-solid fa-comment"></i>
+                    <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+                  </span>
+
+                  <!-- Tip (only if viewer != creator) -->
+                  <% if (currentUser._id.toString() !== user._id.toString()) { %>
+                    <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
+                      <i class="fa-solid fa-gift"></i>
+                      Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+                    </button>
+                  <% } %>
+                </div>
+
+                <!-- Comments below the actions -->
                 <div class="comments">
                   <% if (post.comments && post.comments.length > 0) { %>
                     <% post.comments.forEach(comment => { %>
@@ -365,6 +389,7 @@
           const res = await fetch('/profile/posts/' + postId + '/like', { method: 'POST' });
           const data = await res.json();
           if (res.ok) {
+            // Update like count
             this.querySelector('.like-count').textContent = data.likes;
           } else {
             alert(data.message);
