@@ -228,11 +228,73 @@ async function transferToBank(bankCode, accountNumber, amount, reference = `WITH
     throw error;
   }
 }
+// In flutter.js, add this new function:
+async function initializeTipPayment(userId, creatorId, postId, amount) {
+  try {
+    const user = await require('../models/users').findById(userId);
+    const creator = await require('../models/users').findById(creatorId);
+    // Generate a transaction reference for tip
+    const tx_ref = `TIP_${Date.now()}_${userId}_${postId}`;
+
+    const payload = {
+      tx_ref,
+      amount,
+      currency: "NGN",
+      redirect_url: `${process.env.BASE_URL}/profile/verify-tip-payment`,
+      customer: {
+        email: user.email,
+        name: user.username
+      },
+      meta: {
+        user_id: userId,
+        creator_id: creatorId,
+        post_id: postId,
+        type: 'tip'
+      },
+      customizations: {
+        title: "Tip Payment",
+        description: `Tip for ${creator.username}`
+      }
+    };
+
+    console.log("Initializing Tip Payment with payload:", payload);
+
+    const response = await fetch('https://api.flutterwave.com/v3/payments', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`
+      },
+      body: JSON.stringify(payload)
+    });
+
+    const data = await response.json();
+    console.log("Tip Payment initialization response:", data);
+
+    if (data.status === 'success') {
+      return {
+        status: 'success',
+        meta: {
+          authorization: {
+            payment_link: data.data.link,
+            transfer_reference: tx_ref
+          }
+        }
+      };
+    } else {
+      throw new Error(data.message || 'Failed to initialize tip payment');
+    }
+  } catch (error) {
+    console.error("Error initializing tip payment:", error);
+    throw error;
+  }
+}
 
 module.exports = {
   initializePayment,
   initializeSpecialPayment,
   verifyPayment,
-  // NEW export for withdrawal
-  transferToBank
+  transferToBank,
+  initializeTipPayment // NEW export for tip payments
 };
+

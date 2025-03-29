@@ -18,9 +18,10 @@ router.get('/', authCheck, async (req, res) => {
     let transactions = [];
     let totalSubscription = 0;
     let totalSpecial = 0;
+    let totalTips = 0; // New variable for tip earnings
 
     if (currentUser.role === 'creator') {
-      // Transactions where this user is the "creator"
+      // Fetch transactions where this user is the creator
       transactions = await Transaction.find({ creator: currentUser._id })
         .sort({ createdAt: -1 })
         .populate('user', 'username')
@@ -29,21 +30,27 @@ router.get('/', authCheck, async (req, res) => {
 
       // Sum amounts by type
       for (const tx of transactions) {
-        if (tx.type === 'subscription') totalSubscription += tx.amount;
-        else if (tx.type === 'special') totalSpecial += tx.amount;
+        if (tx.type === 'subscription') {
+          totalSubscription += tx.amount;
+        } else if (tx.type === 'special') {
+          totalSpecial += tx.amount;
+        } else if (tx.type === 'tip') { // Handle tip transactions
+          totalTips += tx.amount;
+        }
       }
 
-      // Render the creator dashboard
+      // Render the creator dashboard with tip earnings included
       res.render('dashboard', {
         user: currentUser,
         role: 'creator',
         transactions,
         totalSubscription,
         totalSpecial,
+        totalTips, // Pass total tips to the view
         totalEarnings: currentUser.totalEarnings
       });
     } else {
-      // Normal user => money spent
+      // Normal user dashboard remains unchanged
       transactions = await Transaction.find({ user: currentUser._id })
         .sort({ createdAt: -1 })
         .populate('creator', 'username')
@@ -51,11 +58,13 @@ router.get('/', authCheck, async (req, res) => {
         .populate('subscriptionBundle', 'description price');
 
       for (const tx of transactions) {
-        if (tx.type === 'subscription') totalSubscription += tx.amount;
-        else if (tx.type === 'special') totalSpecial += tx.amount;
+        if (tx.type === 'subscription') {
+          totalSubscription += tx.amount;
+        } else if (tx.type === 'special') {
+          totalSpecial += tx.amount;
+        }
       }
 
-      // Render the user dashboard
       res.render('dashboard', {
         user: currentUser,
         role: 'user',
@@ -69,6 +78,7 @@ router.get('/', authCheck, async (req, res) => {
     res.status(500).send('Error loading dashboard');
   }
 });
+
 
 /**
  * POST /dashboard/add-bank

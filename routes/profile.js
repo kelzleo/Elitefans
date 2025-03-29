@@ -445,6 +445,133 @@ router.get('/verify-special-payment', async (req, res) => {
   }
 });
 
+// for tip amounts
+router.post('/posts/:postId/tip', authCheck, async (req, res) => {
+  try {
+    const { tipAmount } = req.body;
+    const post = await Post.findById(req.params.postId);
+    if (!post) return res.status(404).json({ message: 'Post not found' });
+
+    const creatorId = post.creator; // the creator of the post
+
+    // Initialize tip payment using the new function
+    const paymentResponse = await flutter.initializeTipPayment(
+      req.user._id,
+      creatorId,
+      req.params.postId,
+      tipAmount
+    );
+
+    console.log('Tip payment initialization response:', paymentResponse);
+
+    if (
+      paymentResponse.status === 'success' &&
+      paymentResponse.meta &&
+      paymentResponse.meta.authorization
+    ) {
+      // Add a pending transaction for this tip
+      await User.findByIdAndUpdate(req.user._id, {
+        $push: {
+          pendingTransactions: {
+            tx_ref: paymentResponse.meta.authorization.transfer_reference,
+            creatorId,
+            postId: req.params.postId,
+            amount: tipAmount,
+            status: 'pending',
+            createdAt: new Date(),
+            type: 'tip'
+          }
+        }
+      });
+
+      return res.json({
+        status: 'success',
+        message: 'Tip payment initialized successfully',
+        data: {
+          paymentLink: paymentResponse.meta.authorization.payment_link
+        }
+      });
+    } else {
+      return res.status(400).json({
+        status: 'error',
+        message: paymentResponse.message || 'Payment initialization failed'
+      });
+    }
+  } catch (err) {
+    console.error('Error initializing tip payment:', err);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Error processing tip payment'
+    });
+  }
+});
+
+// In profile.js, add:
+router.get('/verify-tip-payment', async (req, res) => {
+  try {
+    const { transaction_id, status, tx_ref } = req.query;
+    if (status === 'cancelled') {
+      return res.redirect('/profile?tipPayment=cancelled');
+    }
+    if (!transaction_id || !tx_ref) {
+      return res.redirect('/profile?tipPayment=error');
+    }
+
+    const paymentResponse = await flutter.verifyPayment(transaction_id);
+    console.log('Tip Payment verification response:', paymentResponse);
+
+    if (
+      paymentResponse.status === 'success' &&
+      paymentResponse.data &&
+      paymentResponse.data.status === 'successful'
+    ) {
+      // Find the user with the pending tip transaction
+      const user = await User.findOne({ 'pendingTransactions.tx_ref': tx_ref });
+      if (!user) return res.redirect('/profile?tipPayment=error');
+
+      const pendingTx = user.pendingTransactions.find(
+        (tx) => tx.tx_ref === tx_ref && tx.type === 'tip'
+      );
+      if (!pendingTx) return res.redirect('/profile?tipPayment=error');
+
+      // Check that the amounts match
+      if (Number(pendingTx.amount) !== Number(paymentResponse.data.amount)) {
+        console.error('Tip amount mismatch');
+        return res.redirect('/profile?tipPayment=error');
+      }
+
+      // Update creator's earnings
+      const creator = await User.findById(pendingTx.creatorId);
+      if (creator) {
+        creator.totalEarnings += pendingTx.amount;
+        await creator.save();
+      }
+
+      // Record the tip transaction (assuming you have a Transaction model)
+      await Transaction.create({
+        user: user._id,
+        creator: pendingTx.creatorId,
+        post: pendingTx.postId,
+        type: 'tip',
+        amount: pendingTx.amount,
+        description: 'Tip payment'
+      });
+
+      // Remove the pending tip transaction
+      await User.findByIdAndUpdate(user._id, {
+        $pull: { pendingTransactions: { tx_ref } }
+      });
+
+      return res.redirect('/profile?tipPayment=success');
+    } else {
+      return res.redirect('/profile?tipPayment=failed');
+    }
+  } catch (error) {
+    console.error('Error verifying tip payment:', error);
+    return res.redirect('/profile?tipPayment=error');
+  }
+});
+
 
 // Toggle Like a post
 router.post('/posts/:postId/like', authCheck, async (req, res) => {

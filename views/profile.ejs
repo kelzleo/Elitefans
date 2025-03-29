@@ -145,12 +145,13 @@
       <% } else { %>
         <p>No subscription bundles available.</p>
       <% } %>
+
     <% } %>
 
   <% } else { %>
     <!-- Viewer (non-owner) profile view -->
     <% if (isSubscribed) { %>
-      <!-- The user is subscribed, so show all posts. BUT special posts still require purchase to see the real URL. -->
+      <!-- The user is subscribed, so show all posts. Special posts require purchase to see the real URL. -->
       <form action="/profile/unsubscribe/<%= user._id %>" method="POST">
         <button type="submit" class="unsubscribe-btn">Unsubscribe</button>
       </form>
@@ -185,11 +186,9 @@
                             class="post-image"
                           />
                         <% } else if (post.type === 'text') { %>
-                          <!-- If you want locked text hidden, you can remove this line or show partial text -->
                           <p class="post-text"><%= post.writeUp %></p>
                         <% } %>
 
-                        <!-- Optional caption, if you want it always visible -->
                         <% if (post.writeUp && post.type !== 'text') { %>
                           <p class="post-writeUp"><%= post.writeUp %></p>
                         <% } %>
@@ -236,7 +235,6 @@
                         <p class="post-writeUp"><%= post.writeUp %></p>
                       <% } %>
                     <% } %>
-
                   <% } else { %>
                     <!-- NON-SPECIAL CONTENT (visible to subscribed user) -->
                     <% if (post.type === 'image') { %>
@@ -258,6 +256,12 @@
                 <button class="like-button" data-post-id="<%= post._id %>">
                   Like (<span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>)
                 </button>
+                <!-- Tip button (only show if the viewer is not the creator) -->
+                <% if (currentUser._id.toString() !== user._id.toString()) { %>
+                  <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
+                    Tip
+                  </button>
+                <% } %>
                 <!-- Comments -->
                 <div class="comments">
                   <% if (post.comments && post.comments.length > 0) { %>
@@ -432,6 +436,40 @@
           submitButton.textContent = originalText;
           submitButton.disabled = false;
           alert('An error occurred while processing your subscription');
+        }
+      });
+    });
+
+    // Tip button functionality
+    document.querySelectorAll('.tip-button').forEach(button => {
+      button.addEventListener('click', async function() {
+        const tipAmount = prompt("Enter tip amount in NGN:");
+        if (!tipAmount) return;
+        const postId = this.dataset.postId;
+        const creatorId = this.dataset.creatorId;
+        const originalText = this.textContent;
+        this.textContent = 'Processing...';
+        this.disabled = true;
+        try {
+          const response = await fetch('/profile/posts/' + postId + '/tip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipAmount })
+          });
+          const result = await response.json();
+          console.log('Tip Payment Response:', result);
+          if (response.ok && result.status === 'success' && result.data.paymentLink) {
+            window.location.href = result.data.paymentLink;
+          } else {
+            alert(result.message || 'Failed to initialize tip payment');
+            this.textContent = originalText;
+            this.disabled = false;
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('An error occurred while processing your tip');
+          this.textContent = originalText;
+          this.disabled = false;
         }
       });
     });

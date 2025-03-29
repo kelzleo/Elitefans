@@ -9,10 +9,12 @@
     <div class="stats-container">
       <p class="stat-item">Total Subscription Revenue: ₦<%= totalSubscription %></p>
       <p class="stat-item">Total Special Content Revenue: ₦<%= totalSpecial %></p>
+      <p class="stat-item">Total Tips Received: ₦<%= totalTips %></p>
       <p class="stat-item" style="margin-top: 10px;">
-        <strong>Total Revenue (aggregated):</strong> ₦<%= totalSubscription + totalSpecial %>
+        <strong>Total Revenue (aggregated):</strong> ₦<%= totalSubscription + totalSpecial + totalTips %>
       </p>
     </div>
+    
 
     <!-- Real Available Balance -->
     <p><strong>Your Available Balance:</strong> ₦<span id="availableBalance"><%= totalEarnings %></span></p>
