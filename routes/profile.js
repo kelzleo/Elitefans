@@ -547,10 +547,10 @@ router.get('/verify-tip-payment', async (req, res) => {
         return res.redirect('/profile?tipPayment=error');
       }
 
-      // 1) Update creator's earnings
+      // 1) Update creator's earnings with explicit number conversion
       const creator = await User.findById(pendingTx.creatorId);
       if (creator) {
-        creator.totalEarnings += pendingTx.amount;
+        creator.totalEarnings = Number(creator.totalEarnings) + Number(pendingTx.amount);
         await creator.save();
       }
 
@@ -563,13 +563,12 @@ router.get('/verify-tip-payment', async (req, res) => {
         amount: pendingTx.amount,
         description: 'Tip payment',
       });
-
       console.log('Created tip transaction:', newTransaction);
 
-      // 3) Update the post’s totalTips
+      // 3) Update the post’s totalTips with explicit conversion
       const post = await Post.findById(pendingTx.postId);
       if (post) {
-        post.totalTips += pendingTx.amount;
+        post.totalTips = Number(post.totalTips) + Number(pendingTx.amount);
         await post.save();
         console.log(`Updated post ${post._id} totalTips to ${post.totalTips}`);
       }
@@ -589,6 +588,7 @@ router.get('/verify-tip-payment', async (req, res) => {
     return res.redirect('/profile?tipPayment=error');
   }
 });
+
 
 // Toggle Like a post
 router.post('/posts/:postId/like', authCheck, async (req, res) => {
