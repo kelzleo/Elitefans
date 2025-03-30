@@ -449,6 +449,9 @@ router.get('/verify-special-payment', async (req, res) => {
 router.post('/posts/:postId/tip', authCheck, async (req, res) => {
   try {
     const { tipAmount } = req.body;
+    // Convert tipAmount to a number
+    const numericTip = Number(tipAmount);
+    
     const post = await Post.findById(req.params.postId);
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
@@ -459,7 +462,7 @@ router.post('/posts/:postId/tip', authCheck, async (req, res) => {
       req.user._id,
       creatorId,
       req.params.postId,
-      tipAmount
+      numericTip
     );
 
     console.log('Tip payment initialization response:', paymentResponse);
@@ -469,14 +472,14 @@ router.post('/posts/:postId/tip', authCheck, async (req, res) => {
       paymentResponse.meta &&
       paymentResponse.meta.authorization
     ) {
-      // Add a pending transaction for this tip
+      // Add a pending transaction for this tip, storing the numeric value
       await User.findByIdAndUpdate(req.user._id, {
         $push: {
           pendingTransactions: {
             tx_ref: paymentResponse.meta.authorization.transfer_reference,
             creatorId,
             postId: req.params.postId,
-            amount: tipAmount,
+            amount: numericTip,
             status: 'pending',
             createdAt: new Date(),
             type: 'tip'
