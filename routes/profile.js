@@ -509,7 +509,7 @@ router.post('/posts/:postId/tip', authCheck, async (req, res) => {
   }
 });
 
-// In profile.js, add:
+
 // Verify tip payment route
 router.get('/verify-tip-payment', async (req, res) => {
   try {
@@ -550,14 +550,12 @@ router.get('/verify-tip-payment', async (req, res) => {
         return res.redirect('/profile?tipPayment=error');
       }
 
-      // 1) Update creator's earnings with explicit number conversion
-      const creator = await User.findById(pendingTx.creatorId);
-      if (creator) {
-        creator.totalEarnings = Number(creator.totalEarnings) + Number(pendingTx.amount);
-        await creator.save();
-      }
+      // 1) Update creator's earnings using atomic $inc operator
+      await User.findByIdAndUpdate(pendingTx.creatorId, {
+        $inc: { totalEarnings: Number(pendingTx.amount) }
+      });
 
-      // 2) Create a Transaction record
+      // 2) Create a Transaction record for the tip
       const newTransaction = await Transaction.create({
         user: user._id,
         creator: pendingTx.creatorId,
@@ -568,15 +566,17 @@ router.get('/verify-tip-payment', async (req, res) => {
       });
       console.log('Created tip transaction:', newTransaction);
 
-      // 3) Update the post’s totalTips with explicit conversion
-      const post = await Post.findById(pendingTx.postId);
-      if (post) {
-        post.totalTips = Number(post.totalTips) + Number(pendingTx.amount);
-        await post.save();
-        console.log(`Updated post ${post._id} totalTips to ${post.totalTips}`);
+      // 3) Update the post’s totalTips field using $inc
+      const updatedPost = await Post.findByIdAndUpdate(
+        pendingTx.postId,
+        { $inc: { totalTips: Number(pendingTx.amount) } },
+        { new: true }
+      );
+      if (updatedPost) {
+        console.log(`Updated post ${updatedPost._id} totalTips to ${updatedPost.totalTips}`);
       }
 
-      // 4) Remove the pending tip transaction
+      // 4) Remove the pending tip transaction from the user
       await User.findByIdAndUpdate(user._id, {
         $pull: { pendingTransactions: { tx_ref } },
       });
