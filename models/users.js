@@ -96,11 +96,12 @@ const userSchema = new mongoose.Schema({
     {
       tx_ref: { type: String, required: true },
       creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-      bundleId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionBundle', required: true },
+      bundleId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionBundle'},
+      postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
       amount: { type: Number, required: true },
       status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
       createdAt: { type: Date, default: Date.now },
-      type: { type: String, enum: ['special', 'subscription'], required: true }
+      type: { type: String, enum: ['special', 'subscription', 'tip'], required: true }
     }
   ],
   subscriberCount: {
