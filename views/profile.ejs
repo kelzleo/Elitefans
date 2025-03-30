@@ -70,22 +70,35 @@
                   </p>
                 <% } %>
 
-                <!-- Action Buttons (Like, Comment) -->
+                <!-- Post Actions: Like, Comment, Tip (tip count always displayed) -->
                 <div class="post-actions">
-                  <!-- Like -->
+                  <!-- Like Button -->
                   <button class="like-button" data-post-id="<%= post._id %>">
                     <i class="fa-solid fa-heart"></i>
                     <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
                   </button>
 
-                  <!-- Comment count icon (optional) -->
+                  <!-- Comment Info -->
                   <span class="comment-info">
                     <i class="fa-solid fa-comment"></i>
                     <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
                   </span>
+
+                  <!-- Tip Info: Always visible for creators -->
+                  <span class="tip-info">
+                    <i class="fa-solid fa-gift"></i>
+                    <span class="tip-count"><%= post.totalTips || 0 %></span>
+                  </span>
+
+                  <!-- If viewer is not the creator, show tip button -->
+                  <% if (currentUser._id.toString() !== user._id.toString()) { %>
+                    <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
+                      Tip
+                    </button>
+                  <% } %>
                 </div>
 
-                <!-- Comments -->
+                <!-- Comments Section -->
                 <div class="comments">
                   <% if (post.comments && post.comments.length > 0) { %>
                     <% post.comments.forEach(comment => { %>
@@ -95,13 +108,13 @@
                     <% }); %>
                   <% } %>
                 </div>
-                <!-- Comment form -->
+                <!-- Comment Form -->
                 <form class="comment-form" data-post-id="<%= post._id %>">
                   <input type="text" name="comment" placeholder="Add a comment">
                   <button type="submit">Comment</button>
                 </form>
 
-                <!-- Delete post button -->
+                <!-- Delete Post Button -->
                 <form
                   action="/profile/delete-post/<%= post._id %>"
                   method="POST"
@@ -156,12 +169,12 @@
       <% } else { %>
         <p>No subscription bundles available.</p>
       <% } %>
-    <% } %>
 
+    <% } %>
+  
   <% } else { %>
     <!-- Viewer (non-owner) profile view -->
     <% if (isSubscribed) { %>
-      <!-- The user is subscribed, so show all posts. Special posts require purchase to see the real URL. -->
       <form action="/profile/unsubscribe/<%= user._id %>" method="POST">
         <button type="submit" class="unsubscribe-btn">Unsubscribe</button>
       </form>
@@ -174,65 +187,43 @@
               <div class="post-card">
                 <a href="/posts/<%= post._id %>">
                   <% if (post.special) {
-                       // Check if user purchased
                        const hasPurchased = currentUser.purchasedContent &&
                          currentUser.purchasedContent.some(
                            p => p.contentId.toString() === post._id.toString()
                          );
                   %>
                     <% if (!hasPurchased) { %>
-                      <!-- LOCKED SPECIAL CONTENT -->
+                      <!-- Locked Special Content -->
                       <div class="locked-content-container" style="position: relative;">
                         <% if (post.type === 'image') { %>
-                          <img
-                            src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Content"
-                            alt="Locked Image"
-                            class="post-image"
-                          />
+                          <img src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Content" alt="Locked Image" class="post-image">
                         <% } else if (post.type === 'video') { %>
-                          <img
-                            src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Video"
-                            alt="Locked Video"
-                            class="post-image"
-                          />
+                          <img src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Video" alt="Locked Video" class="post-image">
                         <% } else if (post.type === 'text') { %>
                           <p class="post-text"><%= post.writeUp %></p>
                         <% } %>
-
                         <% if (post.writeUp && post.type !== 'text') { %>
                           <p class="post-writeUp"><%= post.writeUp %></p>
                         <% } %>
-
-                        <!-- Unlock overlay -->
-                        <div
-                          class="unlock-overlay"
-                          style="
-                            position: absolute;
-                            top: 0; left: 0; right: 0; bottom: 0;
-                            display: flex;
-                            flex-direction: column;
-                            align-items: center;
-                            justify-content: center;
-                            background: rgba(0,0,0,0.5);
-                            color: white;
-                            font-size: 1.2em;
-                          "
-                        >
+                        <div class="unlock-overlay" style="
+                          position: absolute;
+                          top: 0; left: 0; right: 0; bottom: 0;
+                          display: flex;
+                          flex-direction: column;
+                          align-items: center;
+                          justify-content: center;
+                          background: rgba(0,0,0,0.5);
+                          color: white;
+                          font-size: 1.2em;
+                        ">
                           <div>Pay to unlock (₦<%= post.unlockPrice %>)</div>
-                          <button
-                            class="unlock-button"
-                            data-content-id="<%= post._id %>"
-                            data-creator-id="<%= user._id %>"
-                            style="margin-top: 10px; padding: 8px 16px;"
-                          >
-                            Unlock
-                          </button>
+                          <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>" style="margin-top: 10px; padding: 8px 16px;">Unlock</button>
                         </div>
                       </div>
                     <% } else { %>
-                      <!-- UNLOCKED SPECIAL CONTENT -->
+                      <!-- Unlocked Special Content -->
                       <% if (post.type === 'image') { %>
-                        <img src="<%= post.contentUrl %>" alt="Special Content" class="post-image" />
+                        <img src="<%= post.contentUrl %>" alt="Special Content" class="post-image">
                       <% } else if (post.type === 'video') { %>
                         <video controls class="post-video">
                           <source src="<%= post.contentUrl %>" type="video/mp4">
@@ -246,7 +237,7 @@
                       <% } %>
                     <% } %>
                   <% } else { %>
-                    <!-- NON-SPECIAL CONTENT (visible to subscribed user) -->
+                    <!-- Non-special Content -->
                     <% if (post.type === 'image') { %>
                       <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image">
                     <% } else if (post.type === 'video') { %>
@@ -263,30 +254,31 @@
                   <% } %>
                 </a>
 
-                <!-- Post Actions (Like, Comment, Tip) -->
+                <!-- Post Actions: Like, Comment, Tip -->
                 <div class="post-actions">
-                  <!-- Like -->
                   <button class="like-button" data-post-id="<%= post._id %>">
                     <i class="fa-solid fa-heart"></i>
                     <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
                   </button>
-
-                  <!-- (Optional) Show total comments -->
                   <span class="comment-info">
                     <i class="fa-solid fa-comment"></i>
                     <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
                   </span>
-
-                  <!-- Tip (only if viewer != creator) -->
                   <% if (currentUser._id.toString() !== user._id.toString()) { %>
                     <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                       <i class="fa-solid fa-gift"></i>
                       Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
                     </button>
+                  <% } else { %>
+                    <!-- If viewer is creator, always show tip count -->
+                    <span class="tip-info">
+                      <i class="fa-solid fa-gift"></i>
+                      <span class="tip-count"><%= post.totalTips || 0 %></span>
+                    </span>
                   <% } %>
                 </div>
 
-                <!-- Comments below the actions -->
+                <!-- Comments Section -->
                 <div class="comments">
                   <% if (post.comments && post.comments.length > 0) { %>
                     <% post.comments.forEach(comment => { %>
@@ -296,7 +288,7 @@
                     <% }); %>
                   <% } %>
                 </div>
-                <!-- Comment form -->
+                <!-- Comment Form -->
                 <form class="comment-form" data-post-id="<%= post._id %>">
                   <input type="text" name="comment" placeholder="Add a comment">
                   <button type="submit">Comment</button>
@@ -317,7 +309,6 @@
       </div>
 
     <% } else { %>
-      <!-- Not subscribed => No posts => No real URL for non-special or special content -->
       <p>You must subscribe to view this creator's content.</p>
       <% if (bundles && bundles.length > 0) { %>
         <div class="subscription-bundles">
@@ -389,7 +380,6 @@
           const res = await fetch('/profile/posts/' + postId + '/like', { method: 'POST' });
           const data = await res.json();
           if (res.ok) {
-            // Update like count
             this.querySelector('.like-count').textContent = data.likes;
           } else {
             alert(data.message);

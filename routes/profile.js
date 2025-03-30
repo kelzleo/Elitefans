@@ -544,16 +544,18 @@ router.get('/verify-tip-payment', async (req, res) => {
         return res.redirect('/profile?tipPayment=error');
       }
 
+      console.log("Pending tip amount (before conversion):", pendingTx.amount, typeof pendingTx.amount);
       // Check that the amounts match
       if (Number(pendingTx.amount) !== Number(paymentResponse.data.amount)) {
         console.error('Tip amount mismatch');
         return res.redirect('/profile?tipPayment=error');
       }
 
-      // 1) Update creator's earnings using atomic $inc operator
+      // 1) Update creator's earnings using $inc
       await User.findByIdAndUpdate(pendingTx.creatorId, {
         $inc: { totalEarnings: Number(pendingTx.amount) }
       });
+      console.log("Creator earnings updated by:", Number(pendingTx.amount));
 
       // 2) Create a Transaction record for the tip
       const newTransaction = await Transaction.create({
@@ -561,12 +563,12 @@ router.get('/verify-tip-payment', async (req, res) => {
         creator: pendingTx.creatorId,
         post: pendingTx.postId,
         type: 'tip',
-        amount: pendingTx.amount,
+        amount: Number(pendingTx.amount),
         description: 'Tip payment',
       });
       console.log('Created tip transaction:', newTransaction);
 
-      // 3) Update the post’s totalTips field using $inc
+      // 3) Update the post’s totalTips using $inc and log the updated value
       const updatedPost = await Post.findByIdAndUpdate(
         pendingTx.postId,
         { $inc: { totalTips: Number(pendingTx.amount) } },
@@ -574,12 +576,15 @@ router.get('/verify-tip-payment', async (req, res) => {
       );
       if (updatedPost) {
         console.log(`Updated post ${updatedPost._id} totalTips to ${updatedPost.totalTips}`);
+      } else {
+        console.error("Failed to find/update the post with ID:", pendingTx.postId);
       }
 
-      // 4) Remove the pending tip transaction from the user
+      // 4) Remove the pending tip transaction
       await User.findByIdAndUpdate(user._id, {
-        $pull: { pendingTransactions: { tx_ref } },
+        $pull: { pendingTransactions: { tx_ref } }
       });
+      console.log("Pending tip transaction removed for tx_ref:", tx_ref);
 
       return res.redirect('/profile?tipPayment=success');
     } else {
@@ -591,6 +596,7 @@ router.get('/verify-tip-payment', async (req, res) => {
     return res.redirect('/profile?tipPayment=error');
   }
 });
+
 
 
 // Toggle Like a post
