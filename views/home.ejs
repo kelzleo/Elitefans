@@ -146,11 +146,11 @@
               <i class="fa-solid fa-heart"></i>
               <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
             </button>
-            <!-- Comment Info -->
-            <span class="comment-info">
+            <!-- Comment Icon (toggling comment form) -->
+            <button class="comment-icon" data-post-id="<%= post._id %>">
               <i class="fa-solid fa-comment"></i>
               <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-            </span>
+            </button>
             <!-- Tip Button (only if viewer isn't the creator) -->
             <% if (currentUser._id.toString() !== post.creator._id.toString()) { %>
               <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= post.creator._id %>">
@@ -169,11 +169,13 @@
               <% }); %>
             <% } %>
           </div>
-          <!-- Comment Form -->
-          <form class="comment-form" data-post-id="<%= post._id %>">
-            <input type="text" name="comment" placeholder="Add a comment">
-            <button type="submit">Comment</button>
-          </form>
+          <!-- Hidden Inline Comment Form Container -->
+          <div class="comment-form-container" style="display: none;">
+            <form class="comment-form" data-post-id="<%= post._id %>">
+              <input type="text" name="comment" placeholder="Write your comment...">
+              <button type="submit">Comment</button>
+            </form>
+          </div>
         </div>
       <% }); %>
     <% } else { %>
@@ -200,6 +202,30 @@
         } catch (error) {
           console.error('Error:', error);
           alert('An error occurred while liking the post.');
+        }
+      });
+    });
+
+    // Comment Icon Functionality: toggle the inline comment form
+    document.querySelectorAll('.comment-icon').forEach(button => {
+      button.addEventListener('click', function() {
+        const postId = this.dataset.postId;
+        const postCard = this.closest('.post-card');
+        if (!postCard) {
+          console.error("Could not find closest .post-card for post:", postId);
+          return;
+        }
+        const commentContainer = postCard.querySelector('.comment-form-container');
+        if (!commentContainer) {
+          console.error("No comment-form-container found in post-card for post:", postId);
+          return;
+        }
+        if (commentContainer.style.display === 'block') {
+          commentContainer.style.display = 'none';
+        } else {
+          commentContainer.style.display = 'block';
+          const input = commentContainer.querySelector('input[name="comment"]');
+          if (input) input.focus();
         }
       });
     });

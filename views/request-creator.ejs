@@ -1,0 +1,152 @@
+<!-- views/request-creator.ejs -->
+<div class="request-creator-container" style="max-width: 600px; margin: auto; padding: 20px;">
+  <h1>Request to Become a Creator</h1>
+  
+  <% if (requestPending) { %>
+    <p>Your creator request is currently being processed. Approval could take 24–72 hours.</p>
+  <% } else { %>
+    <p>Please fill in the details below. Your sensitive information will only be visible to our admin team.</p>
+  
+    <form id="creatorRequestForm" action="/request-creator" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 15px;">
+      <!-- BVN -->
+      <div>
+        <label for="bvn" style="display: block; margin-bottom: 5px;">BVN</label>
+        <input 
+          type="text" 
+          id="bvn" 
+          name="bvn" 
+          placeholder="Enter your BVN" 
+          required 
+          style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+        />
+      </div>
+
+      <!-- Full Name (as on official ID) -->
+      <div>
+        <label for="fullName" style="display: block; margin-bottom: 5px;">Full Name (as on official ID)</label>
+        <input 
+          type="text" 
+          id="fullName" 
+          name="fullName" 
+          placeholder="Enter your full name" 
+          required 
+          style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+        />
+      </div>
+
+      <!-- First Name -->
+      <div>
+        <label for="firstName" style="display: block; margin-bottom: 5px;">First Name</label>
+        <input 
+          type="text" 
+          id="firstName" 
+          name="firstName" 
+          placeholder="Enter your first name" 
+          required 
+          style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+        />
+      </div>
+
+      <!-- Passport Photograph -->
+      <div>
+        <label style="display: block; margin-bottom: 5px;">Passport Photograph</label>
+        <!-- Button to open the camera modal -->
+        <button type="button" id="openCameraModal" style="padding: 10px 20px;">Open Camera</button>
+        <!-- Preview of captured photo -->
+        <div id="capturedPhotoPreview" style="margin-top: 10px; display: none;">
+           <img id="capturedPhoto" src="" alt="Captured Photo" style="max-width: 100%; border: 1px solid #ccc;"/>
+           <button type="button" id="retakeButton" style="margin-top: 10px; padding: 10px 20px;">Retake Photo</button>
+        </div>
+        <!-- Hidden input to store the captured image as a base64 data URL -->
+        <input type="hidden" name="passportPhotoData" id="passportPhotoData" />
+        <p style="font-size: 0.9em; color: #666;">Capture a clear, passport-style photograph using your device camera.</p>
+      </div>
+
+      <!-- Submit Button -->
+      <button type="submit" style="padding: 10px 20px; background-color: #f00; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
+        Submit Creator Request
+      </button>
+    </form>
+  <% } %>
+</div>
+
+<!-- Modal for Camera Capture -->
+<div id="cameraModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 9999;">
+  <div style="background: #fff; padding: 20px; border-radius: 8px; text-align: center; width: 90%; max-width: 800px;">
+    <h2>Camera Capture</h2>
+    <video id="modalVideo" autoplay playsinline style="width: 100%; max-height: 70vh; border: 1px solid #ccc;"></video>
+    <br/>
+    <button type="button" id="captureButtonModal" style="padding: 10px 20px; margin-top: 10px;">Capture Photo</button>
+    <button type="button" id="closeCameraModal" style="padding: 10px 20px; margin-top: 10px;">Cancel</button>
+  </div>
+</div>
+
+<script>
+  // Elements from the main form
+  const openCameraModalButton = document.getElementById('openCameraModal');
+  const capturedPhotoPreview = document.getElementById('capturedPhotoPreview');
+  const capturedPhoto = document.getElementById('capturedPhoto');
+  const passportPhotoDataInput = document.getElementById('passportPhotoData');
+  const retakeButton = document.getElementById('retakeButton');
+
+  // Elements from the modal
+  const cameraModal = document.getElementById('cameraModal');
+  const modalVideo = document.getElementById('modalVideo');
+  const captureButtonModal = document.getElementById('captureButtonModal');
+  const closeCameraModal = document.getElementById('closeCameraModal');
+
+  let stream;
+
+  // Function to open the camera modal and start the webcam
+  function openCameraModalFunc() {
+    cameraModal.style.display = 'flex';
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(function(mediaStream) {
+          stream = mediaStream;
+          modalVideo.srcObject = stream;
+          modalVideo.play();
+        })
+        .catch(function(err) {
+          console.error("Error accessing the camera: ", err);
+          alert("Unable to access the camera. Please check your browser settings.");
+        });
+    } else {
+      alert("Your browser does not support webcam access.");
+    }
+  }
+
+  // Function to stop the webcam stream and close the modal
+  function closeCameraModalFunc() {
+    cameraModal.style.display = 'none';
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      stream = null;
+    }
+  }
+
+  openCameraModalButton.addEventListener('click', openCameraModalFunc);
+  closeCameraModal.addEventListener('click', closeCameraModalFunc);
+
+  captureButtonModal.addEventListener('click', function() {
+    // Create a canvas to capture the current frame
+    const canvas = document.createElement('canvas');
+    canvas.width = modalVideo.videoWidth || 300;
+    canvas.height = modalVideo.videoHeight || 225;
+    const context = canvas.getContext('2d');
+    context.drawImage(modalVideo, 0, 0, canvas.width, canvas.height);
+    // Convert the captured frame to a base64 data URL
+    const dataURL = canvas.toDataURL('image/png');
+    passportPhotoDataInput.value = dataURL;
+    // Display the captured image in the preview section
+    capturedPhoto.src = dataURL;
+    capturedPhotoPreview.style.display = 'block';
+    // Stop the camera and close the modal
+    closeCameraModalFunc();
+  });
+
+  // If user clicks "Retake Photo", open the modal again
+  retakeButton.addEventListener('click', function() {
+    openCameraModalFunc();
+  });
+</script>

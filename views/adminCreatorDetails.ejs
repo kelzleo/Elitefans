@@ -1,0 +1,17 @@
+<h1>Creator Details</h1>
+<div style="border: 1px solid #ccc; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+  <p><strong>Username:</strong> <%= creator.username %></p>
+  <p><strong>Email:</strong> <%= creator.email %></p>
+  <!-- Add additional creator details as needed -->
+  <p>
+    <strong>User Profile:</strong>
+    <a href="/profile/view/<%= creator._id %>?adminView=true" target="_blank">View Profile</a>
+  </p>
+</div>
+
+<h2>Creator's Content</h2>
+<p>
+  <a href="/profile/view/<%= creator._id %>?adminView=true" target="_blank">View All Content</a>
+</p>
+
+<a href="/admin/creator-requests">Back to Dashboard</a>

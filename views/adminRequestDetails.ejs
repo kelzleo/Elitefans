@@ -1,0 +1,31 @@
+<h1>Creator Request Details</h1>
+<div style="border: 1px solid #ccc; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+  <p><strong>User:</strong> <%= request.user.username %> (<%= request.user.email %>)</p>
+  <p><strong>BVN:</strong> <%= request.bvn %></p>
+  <p><strong>Full Name:</strong> <%= request.fullName %></p>
+  <p><strong>First Name:</strong> <%= request.firstName %></p>
+  <p><strong>Requested At:</strong> <%= request.requestedAt.toLocaleString() %></p>
+  <p>
+    <strong>Passport Photo:</strong>
+    <% if (signedUrl) { %>
+      <a href="<%= signedUrl %>" target="_blank">View Photo</a>
+    <% } else { %>
+      N/A
+    <% } %>
+  </p>
+  <p>
+    <strong>User Profile:</strong>
+    <a href="/profile/view/<%= request.user._id %>" target="_blank">View Profile</a>
+  </p>
+</div>
+
+<div>
+  <form action="/admin/approve/<%= request._id %>" method="POST" style="display:inline; margin-right: 10px;">
+    <button type="submit">Approve</button>
+  </form>
+  <form action="/admin/reject/<%= request._id %>" method="POST" style="display:inline;">
+    <button type="submit">Reject</button>
+  </form>
+</div>
+
+<a href="/admin/creator-requests">Back to Dashboard</a>

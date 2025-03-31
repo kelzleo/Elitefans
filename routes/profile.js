@@ -31,10 +31,11 @@ const authCheck = (req, res, next) => {
  * Helper to process post URLs:
  * For special posts, only generate the signed URL if:
  * - The current user is the owner, OR
- * - The current user has purchased/unlocked the content.
+ * - The current user has purchased/unlocked the content, OR
+ * - adminView is true (admin sees all content)
  * Otherwise, set a locked placeholder.
  */
-const processPostUrls = async (posts, currentUser, ownerUser) => {
+const processPostUrls = async (posts, currentUser, ownerUser, adminView = false) => {
   for (const post of posts) {
     if (post.special) {
       const isOwner =
@@ -46,9 +47,9 @@ const processPostUrls = async (posts, currentUser, ownerUser) => {
           (p) => p.contentId.toString() === post._id.toString()
         );
       console.log(
-        `Processing special post ${post._id}: isOwner=${isOwner}, hasPurchased=${hasPurchased}`
+        `Processing special post ${post._id}: isOwner=${isOwner}, hasPurchased=${hasPurchased}, adminView=${adminView}`
       );
-      if (isOwner || hasPurchased) {
+      if (adminView || isOwner || hasPurchased) {
         if (!post.contentUrl.startsWith('http')) {
           post.contentUrl = await generateSignedUrl(post.contentUrl);
           console.log(`Generated signed URL for special post ${post._id}`);
@@ -68,15 +69,15 @@ const processPostUrls = async (posts, currentUser, ownerUser) => {
   }
 };
 
-// Load profile page (owner's own profile)
+// Owner's profile route
 router.get('/', authCheck, async (req, res) => {
   try {
     console.log('Loading profile for owner...');
     const user = await User.findById(req.user._id);
-    const posts = await Post.find({ creator: req.user._id }).populate(
-      'comments.user',
-      'username'
-    );
+    // Add sort({ createdAt: -1 }) to get latest posts first
+    const posts = await Post.find({ creator: req.user._id })
+      .populate('comments.user', 'username')
+      .sort({ createdAt: -1 });
     console.log('Posts loaded:', posts);
 
     // Process posts for special content
@@ -100,7 +101,6 @@ router.get('/', authCheck, async (req, res) => {
 });
 
 // View another user's profile
-// View another user's profile
 router.get('/view/:id', authCheck, async (req, res) => {
   try {
     const ownerUser = await User.findById(req.params.id);
@@ -123,25 +123,25 @@ router.get('/view/:id', authCheck, async (req, res) => {
     const bundles = await SubscriptionBundle.find({ creatorId: req.params.id });
 
     let posts = [];
+    // Check if adminView is requested by an admin
+    const adminView = req.query.adminView && req.user.role === 'admin';
 
-    if (isSubscribed) {
-      // If subscribed => fetch the creator's posts
+    if (isSubscribed || adminView) {
+      // If subscribed or admin view => fetch the creator's posts and sort latest first
       posts = await Post.find({ creator: ownerUser._id })
-        .populate('comments.user', 'username');
+        .populate('comments.user', 'username')
+        .sort({ createdAt: -1 });
 
-      // Then process the URLs
-      await processPostUrls(posts, currentUser, ownerUser);
+      // Process the URLs; pass adminView flag if applicable
+      await processPostUrls(posts, currentUser, ownerUser, adminView);
     } else {
-      // Not subscribed => do not even fetch or process posts
-      // or if you prefer, you can fetch them but do not call processPostUrls
-      // posts = await Post.find({ creator: ownerUser._id }) // optional, if you want them locked
-      // but safer to just keep posts = []
+      // Not subscribed => you may choose to not fetch posts or fetch locked posts
     }
 
     res.render('profile', {
       user: ownerUser,
       currentUser,
-      isSubscribed,
+      isSubscribed: isSubscribed || adminView,
       posts,
       bundles,
     });
@@ -150,7 +150,6 @@ router.get('/view/:id', authCheck, async (req, res) => {
     res.status(500).send('Error loading profile');
   }
 });
-
 
 // Unlock special content route (using the Post model)
 router.post('/unlock-special-content', authCheck, async (req, res) => {

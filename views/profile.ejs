@@ -47,7 +47,7 @@
           <div class="posts-list">
             <% posts.forEach(post => { %>
               <div class="post-card">
-                <!-- Owner always sees real content -->
+                <!-- Post Content -->
                 <a href="/posts/<%= post._id %>">
                   <% if (post.type === 'image') { %>
                     <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image">
@@ -63,14 +63,14 @@
                     <p class="post-writeUp"><%= post.writeUp %></p>
                   <% } %>
                 </a>
-                
+
                 <% if (post.special) { %>
                   <p class="special-indicator">
                     Special Content - Unlock Price: ₦<%= post.unlockPrice %>
                   </p>
                 <% } %>
 
-                <!-- Post Actions: Like, Comment, Tip (tip count always displayed) -->
+                <!-- Post Actions: Like, Comment, Tip -->
                 <div class="post-actions">
                   <!-- Like Button -->
                   <button class="like-button" data-post-id="<%= post._id %>">
@@ -78,13 +78,13 @@
                     <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
                   </button>
 
-                  <!-- Comment Info -->
-                  <span class="comment-info">
+                  <!-- Comment Icon: Click to toggle inline comment form -->
+                  <button class="comment-icon" data-post-id="<%= post._id %>">
                     <i class="fa-solid fa-comment"></i>
                     <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-                  </span>
+                  </button>
 
-                  <!-- Tip Info: Always visible for creators -->
+                  <!-- Tip Info: Always visible -->
                   <span class="tip-info">
                     <i class="fa-solid fa-gift"></i>
                     <span class="tip-count"><%= post.totalTips || 0 %></span>
@@ -108,18 +108,17 @@
                     <% }); %>
                   <% } %>
                 </div>
-                <!-- Comment Form -->
-                <form class="comment-form" data-post-id="<%= post._id %>">
-                  <input type="text" name="comment" placeholder="Add a comment">
-                  <button type="submit">Comment</button>
-                </form>
+
+                <!-- Hidden Inline Comment Form Container -->
+                <div class="comment-form-container" style="display: none;">
+                  <form class="comment-form" data-post-id="<%= post._id %>">
+                    <input type="text" name="comment" placeholder="Write your comment...">
+                    <button type="submit">Comment</button>
+                  </form>
+                </div>
 
                 <!-- Delete Post Button -->
-                <form
-                  action="/profile/delete-post/<%= post._id %>"
-                  method="POST"
-                  onsubmit="return confirm('Are you sure you want to delete this post?');"
-                >
+                <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');">
                   <button type="submit" class="delete-post-btn">Delete Post</button>
                 </form>
               </div>
@@ -135,7 +134,6 @@
       <form action="/profile/create-bundle" method="POST">
         <label for="bundlePrice">Bundle Price (NGN):</label>
         <input type="number" name="price" id="bundlePrice" min="0" required>
-      
         <label for="bundleDuration">Bundle Duration:</label>
         <select name="duration" id="bundleDuration" required>
           <option value="" disabled selected>-- Select Duration --</option>
@@ -145,33 +143,13 @@
           <option value="6 months">6 months</option>
           <option value="1 year">1 year</option>
         </select>
-      
         <label for="bundleDescription">Bundle Description:</label>
         <textarea name="description" id="bundleDescription" required></textarea>
-      
         <button type="submit">Create Bundle</button>
       </form>
 
-      <!-- Subscription Bundles -->
-      <% if (bundles && bundles.length > 0) { %>
-        <div class="subscription-bundles">
-          <h2>Your Subscription Bundles</h2>
-          <ul class="bundles-list">
-            <% bundles.forEach(bundle => { %>
-              <li class="bundle-item">
-                <p>Price: <%= bundle.price %></p>
-                <p>Duration: <%= bundle.duration %></p>
-                <p>Description: <%= bundle.description %></p>
-              </li>
-            <% }); %>
-          </ul>
-        </div>
-      <% } else { %>
-        <p>No subscription bundles available.</p>
-      <% } %>
-
     <% } %>
-  
+
   <% } else { %>
     <!-- Viewer (non-owner) profile view -->
     <% if (isSubscribed) { %>
@@ -188,9 +166,7 @@
                 <a href="/posts/<%= post._id %>">
                   <% if (post.special) {
                        const hasPurchased = currentUser.purchasedContent &&
-                         currentUser.purchasedContent.some(
-                           p => p.contentId.toString() === post._id.toString()
-                         );
+                         currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
                   %>
                     <% if (!hasPurchased) { %>
                       <!-- Locked Special Content -->
@@ -205,17 +181,7 @@
                         <% if (post.writeUp && post.type !== 'text') { %>
                           <p class="post-writeUp"><%= post.writeUp %></p>
                         <% } %>
-                        <div class="unlock-overlay" style="
-                          position: absolute;
-                          top: 0; left: 0; right: 0; bottom: 0;
-                          display: flex;
-                          flex-direction: column;
-                          align-items: center;
-                          justify-content: center;
-                          background: rgba(0,0,0,0.5);
-                          color: white;
-                          font-size: 1.2em;
-                        ">
+                        <div class="unlock-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(0,0,0,0.5); color: white; font-size: 1.2em;">
                           <div>Pay to unlock (₦<%= post.unlockPrice %>)</div>
                           <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>" style="margin-top: 10px; padding: 8px 16px;">Unlock</button>
                         </div>
@@ -260,17 +226,16 @@
                     <i class="fa-solid fa-heart"></i>
                     <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
                   </button>
-                  <span class="comment-info">
+                  <button class="comment-icon" data-post-id="<%= post._id %>">
                     <i class="fa-solid fa-comment"></i>
                     <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-                  </span>
+                  </button>
                   <% if (currentUser._id.toString() !== user._id.toString()) { %>
                     <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                       <i class="fa-solid fa-gift"></i>
                       Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
                     </button>
                   <% } else { %>
-                    <!-- If viewer is creator, always show tip count -->
                     <span class="tip-info">
                       <i class="fa-solid fa-gift"></i>
                       <span class="tip-count"><%= post.totalTips || 0 %></span>
@@ -288,11 +253,14 @@
                     <% }); %>
                   <% } %>
                 </div>
-                <!-- Comment Form -->
-                <form class="comment-form" data-post-id="<%= post._id %>">
-                  <input type="text" name="comment" placeholder="Add a comment">
-                  <button type="submit">Comment</button>
-                </form>
+
+                <!-- Added Inline Comment Form Container for subscribers -->
+                <div class="comment-form-container" style="display: none;">
+                  <form class="comment-form" data-post-id="<%= post._id %>">
+                    <input type="text" name="comment" placeholder="Write your comment...">
+                    <button type="submit">Comment</button>
+                  </form>
+                </div>
               </div>
             <% }); %>
           </div>
@@ -339,9 +307,10 @@
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    console.log("Profile page script loaded.");
+
     // Unlock special content functionality
-    const unlockButtons = document.querySelectorAll('.unlock-button');
-    unlockButtons.forEach(button => {
+    document.querySelectorAll('.unlock-button').forEach(button => {
       button.addEventListener('click', async function() {
         const contentId = this.dataset.contentId;
         const creatorId = this.dataset.creatorId;
@@ -391,9 +360,36 @@
       });
     });
 
+    // Comment icon functionality: toggle the inline comment form
+    document.querySelectorAll('.comment-icon').forEach(button => {
+      button.addEventListener('click', function() {
+        const postId = this.dataset.postId;
+        console.log("Comment icon clicked for post:", postId);
+        const postCard = this.closest('.post-card');
+        if (!postCard) {
+          console.error("Could not find closest .post-card for post:", postId);
+          return;
+        }
+        const commentContainer = postCard.querySelector('.comment-form-container');
+        if (!commentContainer) {
+          console.error("No comment-form-container found in post-card for post:", postId);
+          return;
+        }
+        if (commentContainer.style.display === 'block') {
+          commentContainer.style.display = 'none';
+          console.log("Hiding comment form for post:", postId);
+        } else {
+          commentContainer.style.display = 'block';
+          console.log("Showing comment form for post:", postId);
+          const input = commentContainer.querySelector('input[name="comment"]');
+          if (input) input.focus();
+        }
+      });
+    });
+
     // Comment form functionality
     document.querySelectorAll('.comment-form').forEach(form => {
-      form.addEventListener('submit', async function (e) {
+      form.addEventListener('submit', async function(e) {
         e.preventDefault();
         const postId = this.dataset.postId;
         const commentText = this.comment.value.trim();
@@ -404,10 +400,10 @@
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ text: commentText })
           });
-          const data = await res.json();
           if (res.ok) {
             location.reload();
           } else {
+            const data = await res.json();
             alert(data.message);
           }
         } catch (error) {

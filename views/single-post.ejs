@@ -48,36 +48,53 @@
       <p class="post-text"><%= post.writeUp %></p>
     <% } %>
     
-    <!-- Optional write-up display for non-text posts -->
+    <!-- Optional write-up for non-text posts -->
     <% if (post.writeUp && post.type !== 'text') { %>
       <p class="post-writeUp" style="margin-top: 10px;"><%= post.writeUp %></p>
     <% } %>
   </div>
 
-  <!-- Interactive Elements: Like button and Comments -->
-  <div class="post-footer" style="margin-top: 20px;">
+  <!-- Interactive Elements arranged in a flex row -->
+  <div class="post-footer" style="margin-top: 20px; display: flex; flex-direction: row; align-items: center; justify-content: space-around;">
     <!-- Like Button -->
-    <button class="like-button" data-post-id="<%= post._id %>">
-      Like (<span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>)
+    <button class="like-button" data-post-id="<%= post._id %>" style="display: flex; align-items: center; gap: 5px;">
+      <i class="fa-solid fa-heart"></i>
+      <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
     </button>
 
-    <!-- Comments Section -->
-    <div class="comments-section" style="margin-top: 20px;">
-      <h4>Comments</h4>
-      <div class="comments">
-        <% if (post.comments && post.comments.length > 0) { %>
-          <% post.comments.forEach(comment => { %>
-            <div class="comment">
-              <strong><%= comment.user.username %>:</strong> <%= comment.text %>
-            </div>
-          <% }); %>
-        <% } else { %>
-          <p>No comments yet.</p>
-        <% } %>
-      </div>
-      <!-- Comment Form -->
-      <form class="comment-form" data-post-id="<%= post._id %>" style="margin-top: 10px;">
-        <input type="text" name="comment" placeholder="Add a comment" style="width: 80%; padding: 5px;">
+    <!-- Comment Icon (toggles comment form) -->
+    <button class="comment-icon" data-post-id="<%= post._id %>" style="display: flex; align-items: center; gap: 5px;">
+      <i class="fa-solid fa-comment"></i>
+      <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+    </button>
+
+    <!-- Tip Button: only display if currentUser exists and is not the creator -->
+    <% if (typeof currentUser !== 'undefined' && currentUser._id.toString() !== post.creator._id.toString()) { %>
+      <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= post.creator._id %>" style="display: flex; align-items: center; gap: 5px;">
+        <i class="fa-solid fa-gift"></i>
+        Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+      </button>
+    <% } %>
+  </div>
+
+  <!-- Comments Section -->
+  <div class="comments-section" style="margin-top: 20px;">
+    <h4>Comments</h4>
+    <div class="comments">
+      <% if (post.comments && post.comments.length > 0) { %>
+        <% post.comments.forEach(comment => { %>
+          <div class="comment">
+            <strong><%= comment.user.username %>:</strong> <%= comment.text %>
+          </div>
+        <% }); %>
+      <% } else { %>
+        <p>No comments yet.</p>
+      <% } %>
+    </div>
+    <!-- Hidden Inline Comment Form Container -->
+    <div class="comment-form-container" style="display: none; margin-top: 10px;">
+      <form class="comment-form" data-post-id="<%= post._id %>">
+        <input type="text" name="comment" placeholder="Write your comment..." style="width: 80%; padding: 5px;">
         <button type="submit" style="padding: 5px 10px;">Comment</button>
       </form>
     </div>
@@ -100,6 +117,31 @@
       } catch (error) {
         console.error('Error:', error);
         alert('An error occurred while liking the post.');
+      }
+    });
+  });
+
+  // Comment icon functionality: toggle the inline comment form
+  document.querySelectorAll('.comment-icon').forEach(button => {
+    button.addEventListener('click', function() {
+      const postId = this.dataset.postId;
+      const postContainer = this.closest('.single-post-container');
+      if (!postContainer) {
+        console.error("Could not find container for post:", postId);
+        return;
+      }
+      const commentContainer = postContainer.querySelector('.comment-form-container');
+      if (!commentContainer) {
+        console.error("No comment-form-container found for post:", postId);
+        return;
+      }
+      // Toggle display
+      if (commentContainer.style.display === 'block') {
+        commentContainer.style.display = 'none';
+      } else {
+        commentContainer.style.display = 'block';
+        const input = commentContainer.querySelector('input[name="comment"]');
+        if (input) input.focus();
       }
     });
   });
@@ -155,6 +197,39 @@
       } catch (error) {
         console.error('Error:', error);
         alert('An error occurred while processing your request');
+        this.textContent = originalText;
+        this.disabled = false;
+      }
+    });
+  });
+
+  // Tip button functionality
+  document.querySelectorAll('.tip-button').forEach(button => {
+    button.addEventListener('click', async function() {
+      const tipAmount = prompt("Enter tip amount in NGN:");
+      if (!tipAmount) return;
+      const postId = this.dataset.postId;
+      const creatorId = this.dataset.creatorId;
+      const originalText = this.textContent;
+      this.textContent = 'Processing...';
+      this.disabled = true;
+      try {
+        const response = await fetch('/profile/posts/' + postId + '/tip', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tipAmount })
+        });
+        const result = await response.json();
+        if (response.ok && result.status === 'success' && result.data.paymentLink) {
+          window.location.href = result.data.paymentLink;
+        } else {
+          alert(result.message || 'Failed to initialize tip payment');
+          this.textContent = originalText;
+          this.disabled = false;
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while processing your tip');
         this.textContent = originalText;
         this.disabled = false;
       }
