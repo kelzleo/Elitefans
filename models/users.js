@@ -61,6 +61,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'a1.png'
   },
+  coverPhoto: {
+    type: String,
+    default: '/uploads/default-cover.jpg' // You can set a default image path
+  },
   uploadedContent: [
     {
       filename: { type: String, required: true },

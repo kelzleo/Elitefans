@@ -18,6 +18,11 @@ const Notification = require('../models/notifications');
 // Set up multer to store files in memory
 const multerStorage = multer.memoryStorage();
 const upload = multer({ storage: multerStorage });
+const uploadFields = upload.fields([
+  { name: 'profilePicture', maxCount: 1 },
+  { name: 'coverPhoto', maxCount: 1 }
+]);
+
 
 // Authentication middleware
 const authCheck = (req, res, next) => {
@@ -74,7 +79,7 @@ router.get('/', authCheck, async (req, res) => {
   try {
     console.log('Loading profile for owner...');
     const user = await User.findById(req.user._id);
-    // Add sort({ createdAt: -1 }) to get latest posts first
+    // Get posts (latest first)
     const posts = await Post.find({ creator: req.user._id })
       .populate('comments.user', 'username')
       .sort({ createdAt: -1 });
@@ -87,12 +92,24 @@ router.get('/', authCheck, async (req, res) => {
     const bundles = await SubscriptionBundle.find({ creatorId: req.user._id });
     console.log('Bundles loaded:', bundles);
 
+    // Calculate statistics
+    const calculatedNumPictures = posts.filter(post => post.type === 'image').length;
+    const calculatedNumVideos = posts.filter(post => post.type === 'video').length;
+    const calculatedTotalLikes = posts.reduce(
+      (sum, post) => sum + (post.likes ? post.likes.length : 0),
+      0
+    );
+    // Assuming subscriberCount is stored in the user document;
+    // adjust if you compute subscribers another way.
+    const calculatedSubscriberCount = user.subscriberCount || 0;
+
     res.render('profile', {
       user,
       currentUser: req.user,
       isSubscribed: false,
       posts,
       bundles,
+      
     });
   } catch (err) {
     console.error('Error loading profile:', err);
@@ -138,19 +155,28 @@ router.get('/view/:id', authCheck, async (req, res) => {
       // Not subscribed => you may choose to not fetch posts or fetch locked posts
     }
 
-    res.render('profile', {
+    // Calculate statistics for the owner's profile
+    const calculatedNumPictures = posts.filter(post => post.type === 'image').length;
+    const calculatedNumVideos = posts.filter(post => post.type === 'video').length;
+    const calculatedTotalLikes = posts.reduce(
+      (sum, post) => sum + (post.likes ? post.likes.length : 0),
+      0
+    );
+    const calculatedSubscriberCount = ownerUser.subscriberCount || 0;
+
+    res.render('profile', {             
       user: ownerUser,
       currentUser,
       isSubscribed: isSubscribed || adminView,
       posts,
       bundles,
+      
     });
   } catch (err) {
     console.error('Error loading user profile:', err);
     res.status(500).send('Error loading profile');
   }
 });
-
 // Unlock special content route (using the Post model)
 router.post('/unlock-special-content', authCheck, async (req, res) => {
   try {
@@ -664,7 +690,7 @@ router.get('/edit', authCheck, (req, res) => {
 });
 
 // POST route to handle profile edits and upload profile picture to Google Cloud Storage
-router.post('/edit', authCheck, upload.single('profilePicture'), async (req, res) => {
+router.post('/edit', authCheck, uploadFields, async (req, res) => {
   try {
     console.log('Updating profile with GCS...');
     const updates = {
@@ -672,25 +698,46 @@ router.post('/edit', authCheck, upload.single('profilePicture'), async (req, res
       bio: req.body.bio,
     };
 
-    if (req.file) {
-      // Create a unique blob name in the "profilePictures" folder.
-      const blobName = `profilePictures/${Date.now()}_${req.file.originalname}`;
-      const blob = profileBucket.file(blobName);
+    // Handle profile picture upload
+    if (req.files.profilePicture && req.files.profilePicture[0]) {
+      const profileFile = req.files.profilePicture[0];
+      const profileBlobName = `profilePictures/${Date.now()}_${profileFile.originalname}`;
+      const profileBlob = profileBucket.file(profileBlobName);
 
-      // Create a write stream to upload the file buffer to GCS.
-      const blobStream = blob.createWriteStream({
+      // Create a write stream to upload the file buffer to GCS
+      const profileBlobStream = profileBlob.createWriteStream({
         resumable: false,
-        contentType: req.file.mimetype,
+        contentType: profileFile.mimetype,
       });
 
       await new Promise((resolve, reject) => {
-        blobStream.on('finish', resolve);
-        blobStream.on('error', reject);
-        blobStream.end(req.file.buffer);
+        profileBlobStream.on('finish', resolve);
+        profileBlobStream.on('error', reject);
+        profileBlobStream.end(profileFile.buffer);
       });
 
-      // No need to call blob.makePublic() if your bucket's IAM policy grants public read access.
-      updates.profilePicture = `https://storage.googleapis.com/${profileBucket.name}/${blobName}`;
+      updates.profilePicture = `https://storage.googleapis.com/${profileBucket.name}/${profileBlobName}`;
+    }
+
+    // Handle cover photo upload
+    if (req.files.coverPhoto && req.files.coverPhoto[0]) {
+      const coverFile = req.files.coverPhoto[0];
+      const coverBlobName = `coverPhotos/${Date.now()}_${coverFile.originalname}`;
+      const coverBlob = profileBucket.file(coverBlobName);
+
+      // Create a write stream to upload the file buffer to GCS
+      const coverBlobStream = coverBlob.createWriteStream({
+        resumable: false,
+        contentType: coverFile.mimetype,
+      });
+
+      await new Promise((resolve, reject) => {
+        coverBlobStream.on('finish', resolve);
+        coverBlobStream.on('error', reject);
+        coverBlobStream.end(coverFile.buffer);
+      });
+
+      updates.coverPhoto = `https://storage.googleapis.com/${profileBucket.name}/${coverBlobName}`;
     }
 
     await User.findByIdAndUpdate(req.user._id, updates, { new: true });
@@ -700,7 +747,6 @@ router.post('/edit', authCheck, upload.single('profilePicture'), async (req, res
     res.status(500).send('Error updating profile');
   }
 });
-
 
 
 

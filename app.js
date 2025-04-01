@@ -21,7 +21,7 @@ require('./config/passport-setup'); // Passport configuration
 const indexRoutes = require('./routes/index');
 const profileRoutes = require('./routes/profile');
 const usersRoutes = require('./routes/users');
-const settingsRoutes = require('./routes/settings');
+const requestCreatorRoutes = require('./routes/requestCreator');
 const adminRoutes = require('./routes/admin');
 const uploadRoute = require('./routes/uploadRoute');
 const homeRoutes = require('./routes/home');
@@ -111,7 +111,7 @@ app.use((req, res, next) => {
 app.use('/', indexRoutes);
 app.use('/users', usersRoutes);
 app.use('/profile', profileRoutes);
-app.use('/settings', settingsRoutes);
+app.use('/request-Creator', requestCreatorRoutes);
 app.use('/admin', adminRoutes);
 app.use('/api', uploadRoute);
 app.use('/home', homeRoutes);

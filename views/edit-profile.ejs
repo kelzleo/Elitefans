@@ -7,10 +7,30 @@
     <label class="edit-profile-label" for="bio">Bio:</label>
     <textarea class="edit-profile-textarea" id="bio" name="bio"><%= user.bio %></textarea>
 
-    <label class="edit-profile-label" for="profilePicture">Profile Picture:</label>
-    <input class="edit-profile-input" type="file" id="profilePicture" name="profilePicture">
+    <div class="profile-images-section">
+        <div class="image-upload-container">
+            <label class="edit-profile-label" for="profilePicture">Profile Picture:</label>
+            <% if (user.profilePicture) { %>
+                <div class="current-image">
+                    <img src="<%= user.profilePicture %>" alt="Current Profile Picture" class="thumbnail">
+                    <p>Current Profile Picture</p>
+                </div>
+            <% } %>
+            <input class="edit-profile-input" type="file" id="profilePicture" name="profilePicture">
+        </div>
+
+        <div class="image-upload-container">
+            <label class="edit-profile-label" for="coverPhoto">Cover Photo:</label>
+            <% if (user.coverPhoto) { %>
+                <div class="current-image">
+                    <img src="<%= user.coverPhoto %>" alt="Current Cover Photo" class="thumbnail">
+                    <p>Current Cover Photo</p>
+                </div>
+            <% } %>
+            <input class="edit-profile-input" type="file" id="coverPhoto" name="coverPhoto">
+            <p class="image-hint">Recommended size: 1000x250 pixels</p>
+        </div>
+    </div>
 
     <button class="edit-profile-button" type="submit">Save Changes</button>
 </form>
-
-
