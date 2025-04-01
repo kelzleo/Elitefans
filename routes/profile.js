@@ -625,6 +625,7 @@ router.get('/verify-tip-payment', async (req, res) => {
 
 
 // Toggle Like a post
+// routes/profile.js
 router.post('/posts/:postId/like', authCheck, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
@@ -635,28 +636,27 @@ router.post('/posts/:postId/like', authCheck, async (req, res) => {
       (likeId) => likeId.toString() === userId
     );
 
+    let likeChange = 0;
     if (alreadyLiked) {
       post.likes = post.likes.filter((likeId) => likeId.toString() !== userId);
-      await post.save();
-      return res.json({
-        message: 'Post unliked successfully',
-        likes: post.likes.length,
-        liked: false,
-      });
+      likeChange = -1;
     } else {
       post.likes.push(userId);
-      await post.save();
-      return res.json({
-        message: 'Post liked successfully',
-        likes: post.likes.length,
-        liked: true,
-      });
+      likeChange = 1;
     }
+    await post.save();
+
+    // Update the creator's totalLikes in the User model
+    await User.findByIdAndUpdate(post.creator, { $inc: { totalLikes: likeChange } });
+
+    res.json({
+      message: alreadyLiked ? 'Post unliked successfully' : 'Post liked successfully',
+      likes: post.likes.length,
+      liked: !alreadyLiked,
+    });
   } catch (err) {
     console.error('Error toggling like:', err);
-    res
-      .status(500)
-      .json({ message: 'An error occurred while toggling the like' });
+    res.status(500).json({ message: 'An error occurred while toggling the like' });
   }
 });
 
@@ -750,7 +750,7 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
 
 
 
-// Corrected Content Upload Route (the big change)
+
 router.post(
   '/uploadContent',
   authCheck,
@@ -825,11 +825,11 @@ router.post(
           });
         }
       }
-      // Text-only post if no files
+      // Text-only post if no files are provided
       if (postsToCreate.length === 0 && writeUp) {
         postsToCreate.push({
           creator: req.user._id,
-          contentUrl: '', 
+          contentUrl: '',
           type: 'text',
           writeUp,
           special: isSpecial,
@@ -837,26 +837,29 @@ router.post(
         });
       }
 
-      // Create new Post docs and store them
+      // Create new Post documents and update creator counters accordingly
       const createdPosts = [];
       for (const postData of postsToCreate) {
         const post = new Post(postData);
         await post.save();
         createdPosts.push(post);
+        // If the post is an image or video, update the corresponding counter
+        if (postData.type === 'image') {
+          await User.findByIdAndUpdate(req.user._id, { $inc: { imagesCount: 1 } });
+        } else if (postData.type === 'video') {
+          await User.findByIdAndUpdate(req.user._id, { $inc: { videosCount: 1 } });
+        }
       }
 
-      // Notify subscribers if we created any new posts
+      // Notify subscribers if any new posts were created
       if (createdPosts.length > 0) {
         const creatorId = req.user._id;
         const creator = await User.findById(creatorId);
-
-        // Find active subscribers
         const subscribers = await User.find({
           'subscriptions.creatorId': creatorId,
           'subscriptions.status': 'active',
         });
 
-        // For each newly created post, notify each subscriber
         for (const post of createdPosts) {
           for (const subscriber of subscribers) {
             const message = `New post from ${creator.username}!`;
@@ -864,9 +867,9 @@ router.post(
               user: subscriber._id,
               message,
               type: 'new_post',
-              postId: post._id, 
+              postId: post._id,
               creatorId: creator._id,
-              creatorName: creator.username
+              creatorName: creator.username,
             });
           }
         }
@@ -881,16 +884,29 @@ router.post(
 );
 
 // Delete post route
+// profile.js
 router.post('/delete-post/:postId', authCheck, async (req, res) => {
   try {
-    const postId = req.params.postId;
-    await Post.deleteOne({ _id: postId, creator: req.user._id });
+    const post = await Post.findOne({ _id: req.params.postId, creator: req.user._id });
+    if (!post) {
+      return res.status(404).send('Post not found');
+    }
+    await Post.deleteOne({ _id: post._id });
+
+    // Decrement the user's counter if it was an image or video
+    if (post.type === 'image') {
+      await User.findByIdAndUpdate(req.user._id, { $inc: { imagesCount: -1 } });
+    } else if (post.type === 'video') {
+      await User.findByIdAndUpdate(req.user._id, { $inc: { videosCount: -1 } });
+    }
+
     res.redirect('/profile');
   } catch (err) {
     console.error('Error deleting post:', err);
     res.status(500).send('Error deleting post');
   }
 });
+
 
 // Create a new subscription bundle
 router.post('/create-bundle', authCheck, async (req, res) => {

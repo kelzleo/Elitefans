@@ -108,6 +108,12 @@ const userSchema = new mongoose.Schema({
       type: { type: String, enum: ['special', 'subscription', 'tip'], required: true }
     }
   ],
+
+  imagesCount: { type: Number, default: 0 },
+  videosCount: { type: Number, default: 0 },
+  totalLikes: { type: Number, default: 0 },
+
+ 
   subscriberCount: {
     type: Number,
     default: 0,
@@ -133,10 +139,14 @@ const userSchema = new mongoose.Schema({
 
 // Pre-save middleware to handle subscriber count updates if needed
 userSchema.pre('save', function (next) {
+  // Whenever subscriptions array is modified, recalc only active ones
   if (this.isModified('subscriptions')) {
-    this.subscriberCount = this.subscriptions.length;
+    this.subscriberCount = this.subscriptions.filter(
+      (sub) => sub.status === 'active'
+    ).length;
   }
   next();
 });
+
 
 module.exports = mongoose.model('User', userSchema);

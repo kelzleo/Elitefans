@@ -29,11 +29,15 @@ h1, h2 {
 /********************************************
  * BODY / CONTAINER
  ********************************************/
-body {
+ 
+ body {
   font-family: "Roboto Slab", serif;
   background-color: #f7f7f7;
-  /* Make space for the bottom nav so content isn't hidden behind it */
-  margin-bottom: 60px;
+  margin-bottom: 60px; /* Keep this for your bottom nav */
+  margin-left: 0;
+  margin-right: 0;
+  padding-left: 0;
+  padding-right: 0;
   overflow-x: hidden; /* Prevent horizontal scrolling */
 }
 
@@ -450,10 +454,7 @@ a {
   .bio {
     font-size: 20px;
   }
-  .profile-picture {
-    width: 100%;
-    height: 300px;
-  }
+  
   .pro-admin-title {
     font-size: 30px;
   }
@@ -619,14 +620,14 @@ a {
 /********************************************
  * PROFILE PICTURE (Legacy - For other pages)
  ********************************************/
-.profile-picture {
+/*.profile-picture {
   width: 80px;
   height: 80px;
   border-radius: 50%;
   object-fit: cover;
   border: 2px solid #f8c8da;
   margin-bottom: 10px;
-}
+}*/
 
 /********************************************
  * POST CARD STYLES
@@ -739,11 +740,11 @@ a {
 }
 
 @media (min-width: 768px) {
-  .profile-picture {
+  /*.profile-picture {
     width: 100px;
     height: 100px;
     margin-bottom: 15px;
-  }
+  }*/
   .post-card {
     max-width: 700px;
     margin: 20px auto;
@@ -1138,7 +1139,6 @@ button:disabled {
     max-width: 900px;
   }
 }
-
 /********************************************
  * UPDATED PROFILE HEADER STYLES
  ********************************************/
@@ -1147,29 +1147,69 @@ button:disabled {
   width: 100%;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  
 }
 
-/* Cover photo container: full width and increased height */
+/* Ensure the container has position: relative */
 .cover-photo-container {
-  width: 100vw; /* Full viewport width for small screens */
-    height: 300px; /* Adjusted height for small screens */
-    overflow: hidden;
+  width: 100%; 
+  height: 300px; /* Or your desired height */
+  overflow: hidden;
+  position: relative; /*  for absolute positioning of children */
 }
+
 
 .cover-photo {
   width: 100%;
-    height: 100%;
-    object-fit: cover;
+  height: 100%;
+  object-fit: cover;
+  display: block; /* Helps prevent extra space below image */
+}
+
+
+/* New Cover Stats: Positioned on top left of the cover photo */
+.cover-stats {
+  position: absolute;
+  top: 15px;
+  left: 15px; /* Changed from right to left */
+  display: flex;
+  gap: 20px; /* Adjust gap if needed */
+  
+  padding: 8px;
+  border-radius: 8px;
+  color: #fff; /* White text color for visibility */
+  z-index: 10; /* Ensure it stays on top of the cover photo */
+}
+
+
+.cover-stats .stat-item {
+  text-align: center;
+}
+
+.cover-stats .stat-item i {
+  font-size: 1.2rem;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.cover-stats .stat-count {
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.cover-stats .stat-label {
+  font-size: 0.9rem;
 }
 
 /* Profile details: arranged in a column, left aligned with padding */
 .profile-details {
   display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    padding: 15px; /* Adjust padding for small screens */
-    margin-top: -60px; /* Adjust overlap for small screens */
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 15px; /* Adjust padding for small screens */
+  margin-top: -60px; /* Adjust overlap for small screens */
+  position: relative;   
+  z-index: 5; 
 }
 
 /* Profile picture styling remains */
@@ -1209,22 +1249,24 @@ button:disabled {
 
 @media (min-width: 768px) {
   .cover-photo-container {
-      height: 400px; /* Increased height for larger screens */
+    height: 400px; /* Increased height for larger screens */
   }
 
   .profile-details {
-      padding: 20px; /* Adjust padding for larger screens */
-      margin-top: -80px; /* Adjust overlap for larger screens */
+    padding: 20px; /* Adjust padding for larger screens */
+    margin-top: -80px; /* Adjust overlap for larger screens */
   }
 }
 
 @media (min-width: 1024px) {
   .cover-photo-container {
-      height: 500px; /* Further increased height for larger screens */
+    height: 500px; /* Further increased height for larger screens */
   }
 
   .profile-details {
-      padding: 25px; /* Adjust padding for larger screens */
-      margin-top: -100px; /* Adjust overlap for larger screens */
+    padding: 25px; /* Adjust padding for larger screens */
+    margin-top: -100px; /* Adjust overlap for larger screens */
   }
 }
+
+
