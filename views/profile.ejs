@@ -234,11 +234,11 @@
                                             <i class="fa-solid fa-comment"></i>
                                             <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
                                         </button>
-                                        <span class="tip-info">
+                                        <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                                             <i class="fa-solid fa-gift"></i>
-                                            Tips: ₦<span class="tip-amount"><%= post.totalTipsAmount ? post.totalTipsAmount.toFixed(2) : '0.00' %></span>
-                                            (<span class="tip-count"><%= post.tipCount || 0 %></span>)
-                                        </span>
+                                            Tip (<span class="tip-count"><%= post.tipCount || 0 %></span>)
+                                          </button>
+                                          
                                     </div>
 
                                     <div class="comments">

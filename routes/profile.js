@@ -1047,6 +1047,9 @@ router.post('/subscribe', authCheck, async (req, res) => {
     ) {
       const authorization = paymentResponse.meta.authorization;
 
+      // Update the creator's subscriber count as part of the subscription process
+      await User.findByIdAndUpdate(creatorId, { $inc: { subscriberCount: 1 } });
+
       const transferDetails = {
         accountNumber: authorization.transfer_account || null,
         bankName: authorization.transfer_bank || null,
@@ -1110,6 +1113,7 @@ router.post('/subscribe', authCheck, async (req, res) => {
     });
   }
 });
+
 
 // Webhook route to handle payment notifications
 // Webhook route to handle payment notifications
