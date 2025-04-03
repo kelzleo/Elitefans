@@ -909,13 +909,31 @@ router.post('/delete-post/:postId', authCheck, async (req, res) => {
 
 
 // Create a new subscription bundle
+// Create a new subscription bundle
 router.post('/create-bundle', authCheck, async (req, res) => {
   try {
     if (req.user.role !== 'creator') {
       return res.status(403).send('Only creators can create bundles.');
     }
-    console.log('Creating new bundle...');
+
+    // 1) Count existing bundles
+    const existingCount = await SubscriptionBundle.countDocuments({
+      creatorId: req.user._id
+    });
+    if (existingCount >= 4) {
+      // If user already has 4 bundles, block creation
+      return res.status(400).send('You have reached the maximum of 4 bundles.');
+    }
+
     const { price, duration, description } = req.body;
+
+    // 2) Validate the duration
+    const validDurations = ['1 day', '1 month', '3 months', '6 months', '1 year'];
+    if (!validDurations.includes(duration)) {
+      return res.status(400).send('Invalid duration selected.');
+    }
+
+    // 3) Create the new bundle
     const bundle = new SubscriptionBundle({
       price,
       duration,
@@ -923,12 +941,37 @@ router.post('/create-bundle', authCheck, async (req, res) => {
       creatorId: req.user._id,
     });
     await bundle.save();
-    res.send('Bundle created successfully');
+
+    res.redirect('/profile'); // Or wherever you want to redirect
   } catch (err) {
     console.error(err);
     res.status(500).send('Error creating bundle');
   }
 });
+
+router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
+  try {
+    // 1) Find the bundle by ID
+    const bundle = await SubscriptionBundle.findById(req.params.bundleId);
+    if (!bundle) {
+      return res.status(404).send('Bundle not found');
+    }
+
+    // 2) Check if the logged-in user is the owner
+    if (bundle.creatorId.toString() !== req.user._id.toString()) {
+      return res.status(403).send('You do not have permission to delete this bundle');
+    }
+
+    // 3) Delete it
+    await SubscriptionBundle.findByIdAndDelete(bundle._id);
+
+    res.redirect('/profile'); // Or wherever you want to go after deletion
+  } catch (err) {
+    console.error('Error deleting bundle:', err);
+    res.status(500).send('Error deleting bundle');
+  }
+});
+
 
 // Subscribe to a creator's subscription bundle
 router.post('/subscribe', authCheck, async (req, res) => {
