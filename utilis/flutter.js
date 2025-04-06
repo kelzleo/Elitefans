@@ -228,13 +228,16 @@ async function transferToBank(bankCode, accountNumber, amount, reference = `WITH
     throw error;
   }
 }
-// In flutter.js, add this new function:
-async function initializeTipPayment(userId, creatorId, postId, amount) {
+
+/**
+ * Initialize a tip payment (updated to include optional message)
+ */
+async function initializeTipPayment(userId, creatorId, postId, amount, message = null) {
   try {
-    const user = await require('../models/users').findById(userId);
-    const creator = await require('../models/users').findById(creatorId);
-    // Generate a transaction reference for tip
-    const tx_ref = `TIP_${Date.now()}_${userId}_${postId}`;
+    const user = await User.findById(userId);
+    const creator = await User.findById(creatorId);
+    // Generate a transaction reference for tip, using 'profile' if no postId
+    const tx_ref = `TIP_${Date.now()}_${userId}_${postId || 'profile'}`;
 
     const payload = {
       tx_ref,
@@ -248,12 +251,13 @@ async function initializeTipPayment(userId, creatorId, postId, amount) {
       meta: {
         user_id: userId,
         creator_id: creatorId,
-        post_id: postId,
-        type: 'tip'
+        post_id: postId || null,
+        type: 'tip',
+        message: message || null // Include message in metadata if provided
       },
       customizations: {
         title: "Tip Payment",
-        description: `Tip for ${creator.username}`
+        description: `Tip for ${creator.username}${postId ? ' (Post)' : ''}`
       }
     };
 
@@ -295,6 +299,5 @@ module.exports = {
   initializeSpecialPayment,
   verifyPayment,
   transferToBank,
-  initializeTipPayment // NEW export for tip payments
+  initializeTipPayment
 };
-

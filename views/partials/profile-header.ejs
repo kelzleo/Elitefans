@@ -1,0 +1,97 @@
+<%# partials/_profile_header.ejs %>
+<div class="profile-header">
+    <div class="cover-photo-container">
+        <% if (user.coverPhoto) { %>
+            <img class="cover-photo" src="<%= user.coverPhoto %>" alt="Cover Photo">
+        <% } else { %>
+            <img class="cover-photo" src="/uploads/default-cover.jpg" alt="Default Cover Photo">
+        <% } %>
+
+        <div class="cover-stats">
+            <div class="stat-item">
+                <i class="fa fa-image"></i>
+                <div class="stat-count"><%= user.imagesCount || 0 %></div>
+                <div class="stat-label">Photos</div>
+            </div>
+            <div class="stat-item">
+                <i class="fa fa-video"></i>
+                <div class="stat-count"><%= user.videosCount || 0 %></div>
+                <div class="stat-label">Videos</div>
+            </div>
+            <div class="stat-item">
+                <i class="fa fa-heart"></i>
+                <div class="stat-count"><%= user.totalLikes || 0 %></div>
+                <div class="stat-label">Likes</div>
+            </div>
+            <% if (user.role === 'creator') { %>
+                <div class="stat-item">
+                    <i class="fa fa-users"></i>
+                    <div class="stat-count"><%= user.subscriberCount || 0 %></div>
+                    <div class="stat-label">Subscribers</div>
+                </div>
+            <% } %>
+        </div>
+    </div>
+
+    <div class="profile-details">
+        <img class="profile-picture" src="<%= user.profilePicture ? user.profilePicture : '/uploads/default-profile-picture.jpg' %>" alt="Profile Picture">
+        <div class="profile-names">
+            <h1 class="profile-name">
+                <%= user.profileName %>
+                <% if (user.role === 'creator') { %>
+                    <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
+                <% } %>
+            </h1>
+            <p class="username">@<%= user.username %></p>
+        </div>
+
+        <% if (user.bio) { %>
+            <div class="profile-bio">
+                <p class="bio"><%= user.bio %></p>
+            </div>
+        <% } %>
+
+        <% if (user.role === 'creator') { %>
+            <div class="subscription-section">
+
+                <%# --- Toggle Buttons --- %>
+                <% if (currentUser && currentUser._id.toString() !== user._id.toString()) { %>
+                    <%# Visitor View %>
+                    <% if (isSubscribed) { %>
+                        <div class="subscription-actions">
+                            <form action="/profile/unsubscribe/<%= user._id %>" method="POST" style="display: inline;">
+                                <button type="submit" class="unsubscribe-btn">Subscribed</button>
+                            </form>
+                            <% if (bundles && bundles.length > 0) { %>
+                                <button class="view-bundles-button" id="toggleBundlesBtn">View Options</button>
+                            <% } %>
+                        </div>
+                    <% } else { %>
+                        <%# Not Subscribed Visitor %>
+                        <% if (bundles && bundles.length > 0) { %>
+                            <button class="subscribe-now-button" id="toggleBundlesBtn">
+                                SUBSCRIBE NOW
+                            </button>
+                        <% } else { %>
+                            <p class="no-bundles-message">No subscription options currently available.</p>
+                        <% } %>
+                    <% } %>
+                <% } else if (currentUser && currentUser._id.toString() === user._id.toString() && user.role === 'creator') { %>
+                    <%# Creator's Own View %>
+                    <% if (bundles && bundles.length > 0) { %>
+                        <button class="manage-bundles-button" id="toggleBundlesBtn">
+                            Manage Bundles (<%= bundles.length %>)
+                        </button>
+                    <% } %>
+                    <%# Create bundle form is shown in _creator_actions.ejs %>
+                <% } %>
+
+                <%# --- Include Bundle Dropdown --- %>
+                <% if (bundles && bundles.length > 0) { %>
+                    <%- include('subscription-bundles', { user: user, currentUser: currentUser, isSubscribed: isSubscribed, bundles: bundles }) %>
+                <% } %>
+
+            </div>
+        <% } %> <%# End if user.role === 'creator' %>
+    </div>
+</div>

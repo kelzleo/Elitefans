@@ -46,7 +46,7 @@ const processPostUrlForFeed = async (post, currentUser) => {
     post.locked = false;
   }
 };
-
+// routes/home.js
 router.get('/', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
@@ -66,10 +66,13 @@ router.get('/', authCheck, async (req, res) => {
         user: req.user,
         posts: [],
         creators: matchingCreators,
+        featuredCreators: [], // no featured creators in search mode
         search: query
       });
+
     } else {
       // Feed mode
+
       // 1) Filter subscriptions that are active AND not expired
       const now = new Date();
       const subscribedCreatorIds = currentUser.subscriptions
@@ -85,15 +88,34 @@ router.get('/', authCheck, async (req, res) => {
         .populate('creator', 'username profilePicture')
         .sort({ createdAt: -1 });
 
-      // 3) Process each post for locked/unlocked
+      // 3) Process each post for locked/unlocked content
       for (const post of posts) {
         await processPostUrlForFeed(post, currentUser);
       }
 
+      // 4) Fetch trending creators based on a "trendingScore"
+      //    trendingScore = subscriberCount * 0.7 + totalLikes * 0.3
+      const featuredCreators = await User.aggregate([
+        { $match: { role: 'creator' } },
+        {
+          $addFields: {
+            trendingScore: {
+              $add: [
+                { $multiply: ['$subscriberCount', 0.7] },
+                { $multiply: ['$totalLikes', 0.3] }
+              ]
+            }
+          }
+        },
+        { $sort: { trendingScore: -1 } },
+        { $limit: 5 }
+      ]);
+
       return res.render('home', {
         user: req.user,
         posts,
-        creators: [],
+        creators: [], // not in search mode, so no search results here
+        featuredCreators, // trending creators now based on trendingScore
         search: ''
       });
     }

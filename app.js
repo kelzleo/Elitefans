@@ -26,9 +26,10 @@ const adminRoutes = require('./routes/admin');
 const uploadRoute = require('./routes/uploadRoute');
 const homeRoutes = require('./routes/home');
 const createRoutes = require('./routes/creator');
+const chatBroadcastRoutes = require('./routes/chatBroadcast');
 const chatRoutes = require('./routes/chat');
 const chatListRoutes = require('./routes/chatList');
-const chatBroadcastRoutes = require('./routes/chatBroadcast');
+
 const notificationsRoute = require('./routes/notifications');
 const postsRoute = require('./routes/posts');
 const dashboardRoutes = require('./routes/dashboard');
@@ -116,9 +117,10 @@ app.use('/admin', adminRoutes);
 app.use('/api', uploadRoute);
 app.use('/home', homeRoutes);
 app.use('/create', createRoutes);
+app.use('/chat/broadcast', chatBroadcastRoutes);
 app.use('/chat', chatRoutes);
 app.use('/chats', chatListRoutes);
-app.use('/chat/broadcast', chatBroadcastRoutes);
+
 app.use('/notifications', notificationsRoute);
 app.use('/posts', postsRoute);
 app.use('/dashboard', dashboardRoutes);

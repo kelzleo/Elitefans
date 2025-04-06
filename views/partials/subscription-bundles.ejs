@@ -1,0 +1,33 @@
+<%# partials/_subscription_bundles.ejs %>
+<%# This partial assumes 'user', 'currentUser', 'isSubscribed', and 'bundles' are passed %>
+<div class="subscription-dropdown hidden" id="subscriptionDropdown">
+    <ul class="bundle-list">
+        <% bundles.forEach(bundle => { %>
+            <li class="bundle-item">
+                <%# Visitor View (Not Subscribed): Show clickable button %>
+                <% if (currentUser && currentUser._id.toString() !== user._id.toString() && !isSubscribed) { %>
+                    <form action="/profile/subscribe" method="POST" class="subscribe-bundle-form">
+                        <input type="hidden" name="creatorId" value="<%= user._id %>">
+                        <input type="hidden" name="bundleId" value="<%= bundle._id %>">
+                        <button type="submit" class="bundle-subscribe-button">
+                            <span class="bundle-duration"><%= bundle.duration %></span>
+                            <span class="bundle-price">₦<%= bundle.price %></span>
+                        </button>
+                    </form>
+                <% } else { %>
+                    <%# Creator or Subscribed Visitor View: Show non-clickable info block %>
+                    <div class="bundle-info-block">
+                        <span class="bundle-duration"><%= bundle.duration %></span>
+                        <span class="bundle-price">₦<%= bundle.price %></span>
+                    </div>
+                    <%# Creator Delete Button (Only if Creator is viewing) %>
+                    <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+                        <form action="/profile/delete-bundle/<%= bundle._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this bundle?');" class="delete-bundle-form">
+                            <button type="submit" class="delete-bundle-button">Delete</button>
+                        </form>
+                    <% } %>
+                <% } %>
+            </li>
+        <% }) %>
+    </ul>
+</div>

@@ -36,6 +36,55 @@
   <% } %>
 
 <% } else { %>
+  <!-- Feed mode -->
+
+  <!-- Trending Creators Section -->
+  <% if (featuredCreators && featuredCreators.length > 0) { %>
+    <div class="trending-creators-container">
+      <h2>Trending Creators</h2>
+      <!-- Navigation Arrows -->
+      <div class="slider-nav left-nav" id="prevCreators">
+        <i class="fa-solid fa-chevron-left"></i>
+      </div>
+      <div class="slider-nav right-nav" id="nextCreators">
+        <i class="fa-solid fa-chevron-right"></i>
+      </div>
+      <div class="trending-creators-list">
+        <% featuredCreators.forEach((creator, index) => { %>
+          <% let bgImage = creator.coverPhoto ? `${creator.coverPhoto}` : '/uploads/default-cover.jpg'; %>
+          <div class="featured-creator-card" data-index="<%= index %>">
+            <!-- Cover Photo as Background -->
+            <div 
+              class="creator-card-background" 
+              style="background-image: url('<%= bgImage %>');"
+            >
+              <!-- Subscriber Count in Top-Right -->
+              <div class="subscriber-count">
+                <p><%= creator.subscriberCount %> subscriber(s)</p>
+              </div>
+              <!-- Profile Photo -->
+              <div class="profile-picture-container">
+                <img
+                  src="<%= creator.profilePicture || '/uploads/default-profile-picture.jpg' %>"
+                  alt="<%= creator.username %> profile"
+                  class="profile-picture"
+                />
+              </div>
+              <!-- Creator Info (Username and Profile Name in a column) -->
+              <div class="creator-info">
+                <a href="/profile/view/<%= creator._id %>">
+                  <strong><%= creator.username %></strong>
+                </a>
+                <% if (creator.profileName) { %>
+                  <p><%= creator.profileName %></p>
+                <% } %>
+              </div>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    </div>
+  <% } %>
   <!-- Feed mode: show subscribed posts -->
   <div class="feed-container">
     <% if (posts && posts.length > 0) { %>
@@ -90,7 +139,8 @@
                 <img
                   src="<%= post.contentUrl %>"
                   alt="Post Image"
-                  class="post-image"
+                  class="post-image fullscreenable"
+                  data-fullscreen-src="<%= post.contentUrl %>"
                 />
               <% } %>
             <% } else if (post.type === 'video') { %>
@@ -184,7 +234,7 @@
   </div>
 <% } %>
 
-<!-- JavaScript for Like, Comment, Unlock, and Tip functionality -->
+<!-- JavaScript for Like, Comment, Unlock, Tip, Trending Creators Navigation, and Full-Screen Images -->
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     // Like Button Functionality
@@ -220,10 +270,8 @@
           console.error("No comment-form-container found in post-card for post:", postId);
           return;
         }
+        commentContainer.style.display = commentContainer.style.display === 'block' ? 'none' : 'block';
         if (commentContainer.style.display === 'block') {
-          commentContainer.style.display = 'none';
-        } else {
-          commentContainer.style.display = 'block';
           const input = commentContainer.querySelector('input[name="comment"]');
           if (input) input.focus();
         }
@@ -304,7 +352,6 @@
             body: JSON.stringify({ tipAmount })
           });
           const result = await response.json();
-          console.log('Tip Payment Response:', result);
           if (response.ok && result.status === 'success' && result.data.paymentLink) {
             window.location.href = result.data.paymentLink;
           } else {
@@ -320,5 +367,82 @@
         }
       });
     });
+
+    // Full-screen image functionality for post images
+    const fullscreenOverlay = document.createElement('div');
+    fullscreenOverlay.classList.add('fullscreen-overlay');
+    document.body.appendChild(fullscreenOverlay);
+
+    const fullscreenImg = document.createElement('img');
+    fullscreenOverlay.appendChild(fullscreenImg);
+
+    const closeButton = document.createElement('button');
+    closeButton.classList.add('close-fullscreen');
+    closeButton.innerHTML = '&times;'; // HTML entity for "×"
+    fullscreenOverlay.appendChild(closeButton);
+
+    document.querySelectorAll('.fullscreenable').forEach(img => {
+      img.addEventListener('click', function() {
+        const src = this.dataset.fullscreenSrc;
+        fullscreenImg.src = src;
+        fullscreenOverlay.classList.add('active');
+      });
+    });
+
+    // Close on overlay click (outside image)
+    fullscreenOverlay.addEventListener('click', function(e) {
+      if (e.target === fullscreenOverlay) {
+        fullscreenOverlay.classList.remove('active');
+      }
+    });
+
+    // Close on button click
+    closeButton.addEventListener('click', function() {
+      fullscreenOverlay.classList.remove('active');
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && fullscreenOverlay.classList.contains('active')) {
+        fullscreenOverlay.classList.remove('active');
+      }
+    });
+
+    // Trending Creators Navigation
+    const creatorCards = document.querySelectorAll('.featured-creator-card');
+    const totalCreators = creatorCards.length;
+    const creatorsPerPage = 3;
+    let currentPage = 0;
+
+    function updateCreatorsDisplay() {
+      const startIndex = currentPage * creatorsPerPage;
+      const endIndex = startIndex + creatorsPerPage;
+
+      creatorCards.forEach((card, index) => {
+        card.style.display = (index >= startIndex && index < endIndex) ? 'block' : 'none';
+      });
+
+      document.getElementById('prevCreators').style.opacity = currentPage === 0 ? '0.5' : '1';
+      document.getElementById('prevCreators').style.pointerEvents = currentPage === 0 ? 'none' : 'auto';
+      document.getElementById('nextCreators').style.opacity = endIndex >= totalCreators ? '0.5' : '1';
+      document.getElementById('nextCreators').style.pointerEvents = endIndex >= totalCreators ? 'none' : 'auto';
+    }
+
+    document.getElementById('prevCreators').addEventListener('click', function() {
+      if (currentPage > 0) {
+        currentPage--;
+        updateCreatorsDisplay();
+      }
+    });
+
+    document.getElementById('nextCreators').addEventListener('click', function() {
+      if ((currentPage + 1) * creatorsPerPage < totalCreators) {
+        currentPage++;
+        updateCreatorsDisplay();
+      }
+    });
+
+    // Initial display
+    updateCreatorsDisplay();
   });
 </script>

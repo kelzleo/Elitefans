@@ -1,7 +1,7 @@
 /********************************************
  * BASE / GLOBAL STYLES
  ********************************************/
- 
+
 /* Basic usage of Roboto Slab */
 .roboto-slab p {
   font-family: "Roboto Slab", serif;
@@ -26,11 +26,16 @@ h1, h2 {
   color: black !important;
 }
 
+/* Utility Classes */
+.hidden {
+    display: none;
+}
+
 /********************************************
  * BODY / CONTAINER
  ********************************************/
  
- body {
+body {
   font-family: "Roboto Slab", serif;
   background-color: #f7f7f7;
   margin-bottom: 60px; /* Keep this for your bottom nav */
@@ -382,7 +387,7 @@ a {
  ********************************************/
 .profile-container {
   margin: 0;
-    padding: 0;
+  padding: 0;
   /* Removed extra backgrounds and borders */
 }
 
@@ -470,7 +475,7 @@ a {
 /********************************************
  * EDIT PROFILE PAGE
  ********************************************/
- .edit-profile-title {
+.edit-profile-title {
   font-size: 24px;
   color: #ff69b4;
   margin-bottom: 10px;
@@ -623,7 +628,7 @@ a {
 /*.profile-picture {
   width: 80px;
   height: 80px;
-  border-radius: 50%;
+  border MOL-radius: 50%;
   object-fit: cover;
   border: 2px solid #f8c8da;
   margin-bottom: 10px;
@@ -667,11 +672,22 @@ a {
 .post-body {
   margin-bottom: 10px;
 }
-.post-image,
-.post-video {
+.post-image {
   width: 100%;
+  max-width: 100%; /* Ensure it doesn't exceed container */
+  height: auto;
   border-radius: 5px;
   object-fit: cover;
+  margin-bottom: 10px;
+}
+.post-video {
+  width: 100%;
+  height: auto;
+  max-width: 100%; /* Prevent overflow */
+  max-height: 100%; /* Fit within container */
+  object-fit: contain; /* Preserve aspect ratio */
+  display: block;
+  border-radius: 5px;
   margin-bottom: 10px;
 }
 .post-text {
@@ -1140,7 +1156,6 @@ button:disabled {
   }
 }
 /********************************************
-/********************************************
  * UPDATED PROFILE HEADER STYLES
  ********************************************/
 
@@ -1512,4 +1527,622 @@ html, body {
 }
 .create-bundle-form button:hover {
   background-color: #ff3e75;
+}
+
+/********************************************
+ * NEW: PROFILE TABS AND MEDIA STYLES
+ ********************************************/
+
+/* Profile Tabs */
+.profile-tabs {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+  gap: 30px;
+}
+.tab-button {
+  background: none;
+  border: none;
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tab-button.active {
+  color: #ff69b4;
+  border-bottom: 2px solid #ff69b4;
+}
+
+/* Tab Content */
+.tab-content {
+  display: block;
+}
+
+.tab-content.hidden {
+  display: none;
+}
+.tab-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: #333;
+}
+/* Media Subtabs */
+.media-subtabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 15px;
+  gap: 10px;
+}
+
+.subtab-button {
+  background: none;
+  border: none;
+  padding: 5px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: #666;
+}
+
+.subtab-button.active {
+  color: #ff69b4;
+  border-bottom: 2px solid #ff69b4;
+}
+
+/* View Toggle Button */
+.view-toggle-button {
+  background: none;
+  border: 1px solid #ddd;
+  padding: 5px 8px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  color: #666;
+  transition: all 0.3s ease;
+}
+
+.view-toggle-button.active {
+  background-color: #ff69b4;
+  color: #fff;
+  border-color: #ff69b4;
+}
+
+/* Media Views */
+.media-view {
+  display: none;
+}
+
+.media-view.active {
+  display: block;
+}
+
+/* Compact View (Media List) - Base for phone screens */
+.media-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 columns on phones */
+  gap: 5px; /* Tight spacing for phones */
+  padding: 5px; /* Minimal padding */
+}
+
+/* Media item styles only apply in compact view */
+.media-list .media-item {
+  position: relative;
+  overflow: visible; /* Prevent clipping in full-screen */
+}
+
+.media-list .media-item img {
+  width: 100%;
+  height: 120px; /* Adjusted for compact view on phones */
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.media-list .media-item video {
+  width: 100%;
+  height: auto; /* Unchanged from original for native fullscreen */
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain; /* Consistent with Posts tab */
+  border-radius: 4px;
+  margin-bottom: 10px;
+}
+
+.media-list .media-item.locked img {
+  filter: blur(5px);
+}
+
+.media-list .unlock-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  text-align: center;
+  border-radius: 4px;
+  font-size: 12px; /* Smaller for compact view on phones */
+}
+
+.media-list .unlock-overlay i {
+  font-size: 24px;
+  margin-bottom: 5px;
+}
+
+.media-list .unlock-button {
+  background-color: #ff69b4;
+  color: #fff;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 5px;
+}
+
+/* Messages */
+.no-media-message,
+.subscribe-prompt {
+  text-align: center;
+  color: #666;
+  font-size: 16px;
+  padding: 20px;
+}
+
+/* Ensure consistent image and video sizing across Posts and Media tabs */
+.post-image {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  object-fit: cover;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+/* Video styles (normal and native fullscreen) */
+.post-video {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%; /* Fit within container */
+  object-fit: contain; /* Ensure full video visible */
+  display: block;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+/* Ensure consistency in Media tab containers */
+.media-normal .post-video,
+.media-compact .post-video {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Prevent parent containers from interfering */
+.posts-list,
+.post-card,
+.media-item,
+.media-list {
+  overflow: visible; /* Avoid clipping */
+  position: relative; /* Ensure proper stacking */
+}
+
+/* Posts tab specific container */
+.posts-list .post-card {
+  width: 100%;
+  max-width: 700px;
+  margin: 20px auto;
+  padding: 15px;
+}
+
+/* Media tab normal view specific container */
+.media-normal .media-item {
+  width: 100%;
+  max-width: 700px;
+  margin: 20px auto;
+  padding: 15px;
+}
+
+/* Ensure no overriding styles interfere */
+.media-normal .post-image {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  object-fit: cover;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+.media-normal .post-video {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+/* Responsive Adjustments */
+@media (min-width: 768px) {
+  .tab-button {
+    font-size: 1.1rem;
+    padding: 12px 24px;
+  }
+  .subtab-button, .compact-view-button {
+    font-size: 1rem;
+    padding: 10px 20px;
+  }
+  .media-item {
+    max-width: 700px;
+  }
+  .posts-list .post-card,
+  .media-normal .media-item {
+    max-width: 700px;
+    margin: 20px auto;
+    padding: 20px;
+  }
+  .post-image,
+  .post-video {
+    max-width: 100%;
+  }
+  .media-list {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* Flexible columns for larger screens */
+    gap: 10px; /* More spacing */
+    padding: 10px; /* Standard padding */
+  }
+  .media-list .media-item img {
+    height: 150px; /* Larger for compact view on tablets/desktops */
+  }
+  .media-list .unlock-overlay {
+    font-size: 14px; /* Larger text for readability */
+  }
+}
+
+@media (min-width: 1024px) {
+  .media-list.compact {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  }
+  .media-list.compact .media-item {
+    height: 120px;
+  }
+  .media-list {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Wider columns */
+  }
+  .media-list .media-item img {
+    height: 200px; /* Taller for desktops */
+  }
+}
+
+.comments {
+  margin-top: 10px;
+}
+.comment {
+  font-size: 14px;
+  margin: 5px 0;
+}
+.view-all-comments {
+  color: #007bff;
+  text-decoration: none;
+}
+/* --- Trending Creators Container --- */
+.trending-creators-container {
+  padding: 20px;
+  width: 100%;
+  position: relative;
+  text-align: center;
+}
+
+.trending-creators-container h2 {
+  color: #ff69b4;
+  margin-bottom: 20px;
+}
+
+/* Navigation arrows */
+.slider-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 24px;
+  color: #333;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.8);
+  padding: 5px;
+  border-radius: 50%;
+  z-index: 10;
+}
+.left-nav { left: 10px; }
+.right-nav { right: 10px; }
+
+/* List of trending creators */
+.trending-creators-list {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  max-width: 600px; /* Increased from 500px to allow wider cards */
+  margin: 0 auto;
+}
+
+/* Each trending creator card */
+.featured-creator-card {
+  width: 100%;
+  max-width: 480px; /* Increased from 400px to make it a little longer */
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Background cover photo container */
+.creator-card-background {
+  position: relative;
+  width: 100%;
+  height: 160px; /* Decreased from 200px to make it a little shorter */
+  background-size: cover;
+  background-position: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center; /* Center content vertically */
+  padding: 10px;
+}
+
+/* Subscriber count in top-right */
+.subscriber-count {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  color: white; /* Ensure visibility on cover photo */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8); /* Add shadow for contrast */
+}
+
+.subscriber-count p {
+  margin: 0;
+  font-size: 14px;
+}
+
+/* Profile picture container */
+.profile-picture-container {
+  position: absolute;
+  left: 10px;
+  top: 50%; /* Center vertically */
+  transform: translateY(-50%); /* Adjust for true middle */
+  width: 60px;
+  height: 60px;
+  border: 3px solid white;
+  border-radius: 50%;
+  overflow: hidden;
+  background: white;
+}
+
+.profile-picture-container .profile-picture {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Creator info styling (username and profile name in a column) */
+.creator-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start; /* Changed from center to left-align content */
+  text-align: left; /* Align text to the left */
+  color: white; /* Ensure visibility on cover photo */
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8); /* Add shadow for contrast */
+  margin-left: 80px; /* Shift left, leaving space after the profile picture */
+}
+
+.creator-info a {
+  color: white; /* Changed from pink to white for visibility */
+  text-decoration: none;
+  font-weight: bold;
+  margin-bottom: 2px; /* Minimal space between username and profile name */
+}
+
+.creator-info p {
+  margin: 0; /* Remove default margin for tight spacing */
+  font-size: 14px;
+}
+
+/* Full-screen overlay for images */
+.fullscreen-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.95);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.fullscreen-overlay img {
+  width: 100vw;
+  height: 100vh;
+  min-height: 100vh;
+  object-fit: contain;
+  margin: 0;
+  padding: 0;
+  border: none;
+}
+
+.fullscreen-overlay.active {
+  display: flex;
+}
+
+/* Close button */
+.close-fullscreen {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  color: white;
+  font-size: 30px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  z-index: 1001;
+  text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+}
+
+.close-fullscreen:hover {
+  color: #ff69b4;
+}
+
+/* Make post images clickable */
+.post-image.fullscreenable {
+  cursor: pointer;
+}
+/********************************************
+ * PROFILE ACTIONS (Chat, Tip, Broadcast Icons)
+ ********************************************/
+ .profile-actions {
+  position: absolute;
+  /* Aligns with bottom of profile picture (350px + 60px below cover) */
+  right: 30px; /* Aligns to the right with padding */
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  z-index: 100 !important; /* Higher than everything */
+  top: 360px !important; /* Move up to avoid overlap */
+}
+
+.action-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background-color: #ff69b4;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.action-button:hover {
+  background-color: #ff3e75;
+}
+
+.action-button i {
+  font-size: 18px;
+}
+
+/* Specific icon adjustments */
+.chat-icon {
+  background-color: #ff85a2; /* Distinct color for chat */
+}
+
+.tip-icon {
+  background-color: #ff4655; /* Distinct color for tip */
+}
+
+.broadcast-icon {
+  background-color: #d16ba5; /* Distinct color for broadcast */
+}
+
+/* Responsive adjustments */
+@media (min-width: 768px) {
+  .profile-actions {
+    right: 50px; /* Slightly more padding on larger screens */
+    top: 430px; /* Cover photo 400px + 60px below = 460px */
+    gap: 15px;
+  }
+  .action-button {
+    width: 45px;
+    height: 45px;
+  }
+  .action-button i {
+    font-size: 20px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .profile-actions {
+    top: 510px; /* Cover photo 450px + 60px below = 510px */
+  }
+}
+
+.tip-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
+.tip-modal.active {
+  display: flex;
+}
+.tip-modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  position: relative;
+}
+.tip-modal-content h3 {
+  margin: 0 0 15px;
+  color: #ff69b4;
+  text-align: center;
+}
+.tip-modal-content label {
+  display: block;
+  margin: 10px 0 5px;
+  color: #333;
+}
+.tip-modal-content input,
+.tip-modal-content textarea {
+  width: 100%;
+  padding: 8px;
+  margin-bottom: 15px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+.tip-modal-content button {
+  width: 100%;
+  padding: 10px;
+  background-color: #ff4655;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+.tip-modal-content button:hover {
+  background-color: #e53647;
+}
+.tip-modal-content .close-tip-modal {
+  background: none;
+  border: none;
+  color: #999;
+  font-size: 20px;
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  cursor: pointer;
 }

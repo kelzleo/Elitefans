@@ -79,37 +79,24 @@ router.get('/', authCheck, async (req, res) => {
   try {
     console.log('Loading profile for owner...');
     const user = await User.findById(req.user._id);
-    // Get posts (latest first)
     const posts = await Post.find({ creator: req.user._id })
       .populate('comments.user', 'username')
       .sort({ createdAt: -1 });
-    console.log('Posts loaded:', posts);
-
-    // Process posts for special content
     await processPostUrls(posts, req.user, user);
-
-    // Fetch only bundles created by this logged-in creator
     const bundles = await SubscriptionBundle.find({ creatorId: req.user._id });
-    console.log('Bundles loaded:', bundles);
 
-    // Calculate statistics
-    const calculatedNumPictures = posts.filter(post => post.type === 'image').length;
-    const calculatedNumVideos = posts.filter(post => post.type === 'video').length;
-    const calculatedTotalLikes = posts.reduce(
-      (sum, post) => sum + (post.likes ? post.likes.length : 0),
-      0
-    );
-    // Assuming subscriberCount is stored in the user document;
-    // adjust if you compute subscribers another way.
-    const calculatedSubscriberCount = user.subscriberCount || 0;
+    // Calculate stats
+    const imagesCount = posts.filter(post => post.type === 'image').length;
+    const videosCount = posts.filter(post => post.type === 'video').length;
+    const totalLikes = posts.reduce((sum, post) => sum + (post.likes ? post.likes.length : 0), 0);
+    const subscriberCount = user.subscriberCount || 0;
 
     res.render('profile', {
-      user,
+      user: { ...user.toObject(), imagesCount, videosCount, totalLikes, subscriberCount },
       currentUser: req.user,
       isSubscribed: false,
       posts,
       bundles,
-      
     });
   } catch (err) {
     console.error('Error loading profile:', err);
@@ -121,56 +108,37 @@ router.get('/', authCheck, async (req, res) => {
 router.get('/view/:id', authCheck, async (req, res) => {
   try {
     const ownerUser = await User.findById(req.params.id);
-    if (!ownerUser) {
-      return res.status(404).send('User not found');
-    }
+    if (!ownerUser) return res.status(404).send('User not found');
 
     const currentUser = await User.findById(req.user._id);
     const now = new Date();
-
-    // Determine if the user is subscribed and not expired
-    const isSubscribed = currentUser.subscriptions.some((sub) => {
-      if (sub.creatorId.toString() !== ownerUser._id.toString()) return false;
-      if (sub.status !== 'active') return false;
-      if (!sub.subscriptionExpiry) return false;
-      return sub.subscriptionExpiry > now;
-    });
-
-    // Fetch subscription bundles
+    const isSubscribed = currentUser.subscriptions.some(sub =>
+      sub.creatorId.toString() === ownerUser._id.toString() &&
+      sub.status === 'active' &&
+      sub.subscriptionExpiry > now
+    );
     const bundles = await SubscriptionBundle.find({ creatorId: req.params.id });
-
-    let posts = [];
-    // Check if adminView is requested by an admin
     const adminView = req.query.adminView && req.user.role === 'admin';
 
+    let posts = [];
     if (isSubscribed || adminView) {
-      // If subscribed or admin view => fetch the creator's posts and sort latest first
       posts = await Post.find({ creator: ownerUser._id })
         .populate('comments.user', 'username')
         .sort({ createdAt: -1 });
-
-      // Process the URLs; pass adminView flag if applicable
       await processPostUrls(posts, currentUser, ownerUser, adminView);
-    } else {
-      // Not subscribed => you may choose to not fetch posts or fetch locked posts
     }
 
-    // Calculate statistics for the owner's profile
-    const calculatedNumPictures = posts.filter(post => post.type === 'image').length;
-    const calculatedNumVideos = posts.filter(post => post.type === 'video').length;
-    const calculatedTotalLikes = posts.reduce(
-      (sum, post) => sum + (post.likes ? post.likes.length : 0),
-      0
-    );
-    const calculatedSubscriberCount = ownerUser.subscriberCount || 0;
+    const imagesCount = posts.filter(post => post.type === 'image').length;
+    const videosCount = posts.filter(post => post.type === 'video').length;
+    const totalLikes = posts.reduce((sum, post) => sum + (post.likes ? post.likes.length : 0), 0);
+    const subscriberCount = ownerUser.subscriberCount || 0;
 
-    res.render('profile', {             
-      user: ownerUser,
+    res.render('profile', {
+      user: { ...ownerUser.toObject(), imagesCount, videosCount, totalLikes, subscriberCount },
       currentUser,
       isSubscribed: isSubscribed || adminView,
       posts,
       bundles,
-      
     });
   } catch (err) {
     console.error('Error loading user profile:', err);
@@ -547,14 +515,11 @@ router.get('/verify-tip-payment', async (req, res) => {
     }
 
     const paymentResponse = await flutter.verifyPayment(transaction_id);
-    console.log('Tip Payment verification response:', paymentResponse);
-
     if (
       paymentResponse.status === 'success' &&
       paymentResponse.data &&
       paymentResponse.data.status === 'successful'
     ) {
-      // Find the user with the pending tip transaction
       const user = await User.findOne({ 'pendingTransactions.tx_ref': tx_ref });
       if (!user) {
         console.error('No user found with that tip transaction reference');
@@ -569,47 +534,48 @@ router.get('/verify-tip-payment', async (req, res) => {
         return res.redirect('/profile?tipPayment=error');
       }
 
-      console.log("Pending tip amount (before conversion):", pendingTx.amount, typeof pendingTx.amount);
-      // Check that the amounts match
       if (Number(pendingTx.amount) !== Number(paymentResponse.data.amount)) {
         console.error('Tip amount mismatch');
         return res.redirect('/profile?tipPayment=error');
       }
 
-      // 1) Update creator's earnings using $inc
       await User.findByIdAndUpdate(pendingTx.creatorId, {
-        $inc: { totalEarnings: Number(pendingTx.amount) }
+        $inc: { totalEarnings: Number(pendingTx.amount) },
       });
-      console.log("Creator earnings updated by:", Number(pendingTx.amount));
 
-      // 2) Create a Transaction record for the tip
+      const tipper = await User.findById(user._id).select('username');
       const newTransaction = await Transaction.create({
         user: user._id,
         creator: pendingTx.creatorId,
         post: pendingTx.postId,
         type: 'tip',
         amount: Number(pendingTx.amount),
-        description: 'Tip payment',
+        description: pendingTx.message
+          ? `Tip payment with message: "${pendingTx.message}"`
+          : 'Tip payment',
       });
-      console.log('Created tip transaction:', newTransaction);
 
-      // 3) Update the post’s totalTips using $inc and log the updated value
-      const updatedPost = await Post.findByIdAndUpdate(
-        pendingTx.postId,
-        { $inc: { totalTips: Number(pendingTx.amount) } },
-        { new: true }
-      );
-      if (updatedPost) {
-        console.log(`Updated post ${updatedPost._id} totalTips to ${updatedPost.totalTips}`);
-      } else {
-        console.error("Failed to find/update the post with ID:", pendingTx.postId);
+      const message = `${tipper.username} tipped you ₦${pendingTx.amount}${
+        pendingTx.message ? ` with message: "${pendingTx.message}"` : ''
+      }`;
+      await Notification.create({
+        user: pendingTx.creatorId,
+        message,
+        type: 'tip',
+        postId: pendingTx.postId || null,
+        creatorId: user._id,
+        creatorName: tipper.username,
+      });
+
+      if (pendingTx.postId) {
+        await Post.findByIdAndUpdate(pendingTx.postId, {
+          $inc: { totalTips: Number(pendingTx.amount) },
+        });
       }
 
-      // 4) Remove the pending tip transaction
       await User.findByIdAndUpdate(user._id, {
-        $pull: { pendingTransactions: { tx_ref } }
+        $pull: { pendingTransactions: { tx_ref } },
       });
-      console.log("Pending tip transaction removed for tx_ref:", tx_ref);
 
       return res.redirect('/profile?tipPayment=success');
     } else {
@@ -621,8 +587,64 @@ router.get('/verify-tip-payment', async (req, res) => {
     return res.redirect('/profile?tipPayment=error');
   }
 });
+router.post('/tip-creator/:creatorId', authCheck, async (req, res) => {
+  try {
+    const { tipAmount, tipMessage } = req.body;
+    const numericTip = Number(tipAmount);
+    if (!numericTip || numericTip <= 0) {
+      return res.status(400).json({ message: 'Invalid tip amount' });
+    }
+    const creatorId = req.params.creatorId;
 
+    // Initialize the tip payment
+    const paymentResponse = await flutter.initializeTipPayment(
+      req.user._id,
+      creatorId,
+      null, // no postId for profile-level tip
+      numericTip,
+      tipMessage || ''
+    );
 
+    if (
+      paymentResponse.status === 'success' &&
+      paymentResponse.meta &&
+      paymentResponse.meta.authorization
+    ) {
+      // Add pending transaction for the tip
+      await User.findByIdAndUpdate(req.user._id, {
+        $push: {
+          pendingTransactions: {
+            tx_ref: paymentResponse.meta.authorization.transfer_reference,
+            creatorId,
+            postId: null,
+            amount: numericTip,
+            message: tipMessage || null,
+            status: 'pending',
+            createdAt: new Date(),
+            type: 'tip'
+          }
+        }
+      });
+
+      return res.json({
+        status: 'success',
+        message: 'Tip payment initialized successfully',
+        data: { paymentLink: paymentResponse.meta.authorization.payment_link }
+      });
+    } else {
+      return res.status(400).json({
+        status: 'error',
+        message: paymentResponse.message || 'Payment initialization failed'
+      });
+    }
+  } catch (err) {
+    console.error('Error initializing profile-level tip payment:', err);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Error processing tip payment'
+    });
+  }
+});
 
 // Toggle Like a post
 // routes/profile.js
@@ -668,12 +690,23 @@ router.post('/posts/:postId/comment', authCheck, async (req, res) => {
     const post = await Post.findById(req.params.postId);
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
-    post.comments.push({ user: req.user._id, text });
+    const newComment = { user: req.user._id, text };
+    post.comments.push(newComment);
     await post.save();
+
+    // Fetch the commenter's username
+    const commenter = await User.findById(req.user._id).select('username');
+    if (!commenter) {
+      return res.status(500).json({ message: 'Commenter not found' });
+    }
 
     return res.json({
       message: 'Comment added successfully',
-      comments: post.comments,
+      comment: {
+        user: { username: commenter.username },
+        text: newComment.text,
+      },
+      commentCount: post.comments.length,
     });
   } catch (err) {
     console.error('Error commenting on post:', err);
@@ -682,7 +715,6 @@ router.post('/posts/:postId/comment', authCheck, async (req, res) => {
       .json({ message: 'An error occurred while submitting your comment' });
   }
 });
-
 // Edit profile route
 // GET route to render the edit profile page
 router.get('/edit', authCheck, (req, res) => {

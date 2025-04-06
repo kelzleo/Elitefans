@@ -1,0 +1,69 @@
+<%# partials/_creator_actions.ejs %>
+<%# This partial assumes 'user', 'currentUser', and 'bundles' are passed %>
+<%# It should only be included if currentUser._id === user._id %>
+<div class="creator-actions">
+    <div class="edit-profile-container">
+        <a href="/profile/edit" class="edit-profile-btn">Edit Profile</a>
+    </div>
+
+    <% if (user.role === 'creator') { %>
+        <div class="create-bundle-form">
+            <h4>Create Subscription Bundle</h4>
+            <p>Limit: 4 bundles. Currently: <%= bundles ? bundles.length : 0 %></p>
+            <% if (!bundles || bundles.length < 4) { %>
+                <form action="/profile/create-bundle" method="POST">
+                    <div style="margin-bottom: 10px;">
+                        <label for="bundlePrice">Bundle Price (NGN):</label><br>
+                        <input type="number" name="price" id="bundlePrice" min="0" required class="form-input">
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label for="bundleDuration">Bundle Duration:</label><br>
+                        <select name="duration" id="bundleDuration" required class="form-select">
+                            <option value="" disabled selected>-- Select Duration --</option>
+                            <option value="1 day">1 day</option>
+                            <option value="1 month">1 month</option>
+                            <option value="3 months">3 months</option>
+                            <option value="6 months">6 months</option>
+                            <option value="1 year">1 year</option>
+                        </select>
+                    </div>
+                    <div style="margin-bottom: 10px;">
+                        <label for="bundleDescription">Bundle Description:</label><br>
+                        <textarea name="description" id="bundleDescription" required placeholder="e.g., Access all my content for 1 month" class="form-textarea"></textarea>
+                    </div>
+                    <button type="submit" class="form-button">Create Bundle</button>
+                </form>
+            <% } else { %>
+                <p>You have reached the maximum limit of 4 bundles.</p>
+            <% } %>
+        </div>
+
+        <div class="upload-content-form">
+            <h3>Upload New Content</h3>
+            <form action="/profile/uploadContent" method="POST" enctype="multipart/form-data">
+                <div style="margin-bottom: 10px;">
+                    <label for="contentImage">Upload Image:</label><br>
+                    <input type="file" name="contentImage" id="contentImage" accept="image/*" class="form-input">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label for="contentVideo">Upload Video:</label><br>
+                    <input type="file" name="contentVideo" id="contentVideo" accept="video/*" class="form-input">
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label for="writeUp">Write-up / Caption:</label><br>
+                    <textarea name="writeUp" id="writeUp" class="form-textarea"></textarea>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label for="specialCheckbox">
+                        <input type="checkbox" name="special" value="true" id="specialCheckbox"> Mark as Special Content? (Pay-per-view)
+                    </label>
+                </div>
+                <div style="margin-bottom: 10px;" id="unlockPriceContainer" class="hidden"> <%# JS toggles this %>
+                    <label for="unlockPrice">Unlock Price (NGN):</label><br>
+                    <input type="number" name="unlockPrice" id="unlockPrice" min="0" class="form-input">
+                </div>
+                <button type="submit" class="form-button">Upload</button>
+            </form>
+        </div>
+    <% } %>
+</div>
