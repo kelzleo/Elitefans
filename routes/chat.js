@@ -22,7 +22,6 @@ router.get('/', authCheck, async (req, res) => {
     }
     
     const currentUser = req.user;
-    // Check if the current user is subscribed to the creator
     const isSubscribed = currentUser.subscriptions.some(
       (sub) => sub.creatorId.toString() === creatorId && sub.status === 'active'
     );
@@ -32,17 +31,13 @@ router.get('/', authCheck, async (req, res) => {
       return res.redirect('/profile/view/' + creatorId);
     }
     
-    // Determine a unique chat based on both participant IDs (sorted for consistency)
     const participants = [creatorId, currentUser._id.toString()].sort();
-    
-    // Find an existing chat between these participants, or create a new one if none exists
     let chat = await Chat.findOne({ participants });
     if (!chat) {
       chat = new Chat({ participants, messages: [] });
       await chat.save();
     }
     
-    // Redirect to the individual chat route using the chat ID
     return res.redirect(`/chat/${chat._id}`);
   } catch (error) {
     console.error('Error initiating chat:', error);
@@ -62,13 +57,24 @@ router.get('/:chatId', authCheck, async (req, res) => {
     }
     const currentUser = req.user;
     
-    // Ensure the current user is a participant of the chat
     if (!chat.participants.some(p => p._id.toString() === currentUser._id.toString())) {
       req.flash('error_msg', 'You are not authorized to view this chat.');
       return res.redirect('/chats');
     }
     
-    // For one-on-one chats, determine the other participant
+    // Mark messages as read
+    let updated = false;
+    chat.messages.forEach(message => {
+      if (!message.read && message.sender.toString() !== currentUser._id.toString()) {
+        message.read = true;
+        updated = true;
+      }
+    });
+    if (updated) {
+      chat.updatedAt = new Date();
+      await chat.save();
+    }
+
     let otherParticipant;
     if (chat.participants.length === 2) {
       otherParticipant = chat.participants.find(p => p._id.toString() !== currentUser._id.toString());

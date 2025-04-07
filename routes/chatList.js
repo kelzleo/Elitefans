@@ -20,8 +20,17 @@ router.get('/', authCheck, async (req, res) => {
     const chats = await Chat.find({ participants: currentUser._id })
       .populate('participants')
       .sort({ updatedAt: -1 });
+
+    // Add unread status to each chat
+    const chatsWithStatus = chats.map(chat => {
+      const hasUnread = chat.messages.some(
+        message => !message.read && message.sender.toString() !== currentUser._id.toString()
+      );
+      return { ...chat.toObject(), hasUnread };
+    });
+
     console.log(`Loaded ${chats.length} chats for user ${currentUser._id}`);
-    res.render('chatList', { chats, currentUser });
+    res.render('chatList', { chats: chatsWithStatus, currentUser });
   } catch (error) {
     console.error('Error loading chat list:', error);
     req.flash('error_msg', 'Error loading chat list.');

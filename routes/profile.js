@@ -592,9 +592,11 @@ router.get('/verify-tip-payment', async (req, res) => {
           timestamp: new Date(),
           isTip: true,
           tipAmount: Number(pendingTx.amount),
+          read: false // Added to mark the message as unread initially
         };
         chat.messages.push(chatMessage);
         try {
+          chat.updatedAt = new Date(); // Update timestamp for chat list sorting
           await chat.save();
           console.log('Chat message saved successfully:', chatMessage);
         } catch (err) {

@@ -5,11 +5,13 @@
          // For a one-on-one conversation, find the other participant:
          let otherParticipant = chat.participants.find(p => p._id.toString() !== currentUser._id.toString());
          // Get a preview from the last message, if available:
-         let lastMessage = (chat.messages && chat.messages.length > 0)
-                           ? chat.messages[chat.messages.length - 1].text
-                           : 'No messages yet.';
+         let lastMessage = (chat.messages && chat.messages.length > 0) ? chat.messages[chat.messages.length - 1] : null;
+         let previewText = lastMessage ? lastMessage.text : 'No messages yet.';
+         let isTip = lastMessage && lastMessage.isTip;
+         let tipAmount = isTip ? lastMessage.tipAmount : null;
+         let hasUnread = chat.hasUnread;
     %>
-      <div class="chat-item">
+      <div class="chat-item <%= hasUnread ? 'unread' : '' %>">
         <!-- Link to the individual chat using the chat's ID -->
         <a href="/chat/<%= chat._id %>">
           <h3>
@@ -23,7 +25,14 @@
               Group Chat
             <% } %>
           </h3>
-          <p class="chat-preview"><%= lastMessage %></p>
+          <p class="chat-preview <%= isTip ? 'tip-preview' : '' %>">
+            <%= previewText %>
+            <% if (isTip) { %>
+              <span class="tip-indicator">
+                <i class="fa fa-gift"></i> ₦<%= tipAmount %>
+              </span>
+            <% } %>
+          </p>
         </a>
       </div>
     <% }); %>
