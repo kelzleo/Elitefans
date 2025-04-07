@@ -490,14 +490,20 @@ router.post('/posts/:postId/tip', authCheck, async (req, res) => {
 router.get('/verify-tip-payment', async (req, res) => {
   try {
     const { transaction_id, status, tx_ref } = req.query;
+    console.log('Verifying tip payment:', { transaction_id, status, tx_ref });
+
     if (status === 'cancelled') {
+      console.log('Payment cancelled by user');
       return res.redirect('/profile?tipPayment=cancelled');
     }
     if (!transaction_id || !tx_ref) {
+      console.log('Missing transaction_id or tx_ref');
       return res.redirect('/profile?tipPayment=error');
     }
 
     const paymentResponse = await flutter.verifyPayment(transaction_id);
+    console.log('Payment verification response:', paymentResponse);
+
     if (
       paymentResponse.status === 'success' &&
       paymentResponse.data &&
@@ -505,26 +511,32 @@ router.get('/verify-tip-payment', async (req, res) => {
     ) {
       const user = await User.findOne({ 'pendingTransactions.tx_ref': tx_ref });
       if (!user) {
-        console.error('No user found with that tip transaction reference');
+        console.error('No user found with tx_ref:', tx_ref);
         return res.redirect('/profile?tipPayment=error');
       }
+      console.log('User found:', user._id);
 
       const pendingTx = user.pendingTransactions.find(
         (tx) => tx.tx_ref === tx_ref && tx.type === 'tip'
       );
       if (!pendingTx) {
-        console.error('No pending tip transaction found for this user');
+        console.error('No pending tip transaction found for tx_ref:', tx_ref);
         return res.redirect('/profile?tipPayment=error');
       }
+      console.log('Pending transaction details:', pendingTx);
 
       if (Number(pendingTx.amount) !== Number(paymentResponse.data.amount)) {
-        console.error('Tip amount mismatch');
+        console.error('Tip amount mismatch:', {
+          expected: pendingTx.amount,
+          received: paymentResponse.data.amount,
+        });
         return res.redirect('/profile?tipPayment=error');
       }
 
       await User.findByIdAndUpdate(pendingTx.creatorId, {
         $inc: { totalEarnings: Number(pendingTx.amount) },
       });
+      console.log('Updated creator earnings for:', pendingTx.creatorId);
 
       const tipper = await User.findById(user._id).select('username');
       const newTransaction = await Transaction.create({
@@ -537,11 +549,11 @@ router.get('/verify-tip-payment', async (req, res) => {
           ? `Tip payment with message: "${pendingTx.message}"`
           : 'Tip payment',
       });
+      console.log('Transaction created:', newTransaction._id);
 
       const messageText = pendingTx.message
         ? `${tipper.username} tipped you ₦${pendingTx.amount} with message: "${pendingTx.message}"`
         : `${tipper.username} tipped you ₦${pendingTx.amount}`;
-
       await Notification.create({
         user: pendingTx.creatorId,
         message: messageText,
@@ -550,21 +562,30 @@ router.get('/verify-tip-payment', async (req, res) => {
         creatorId: user._id,
         creatorName: tipper.username,
       });
+      console.log('Notification sent to creator:', pendingTx.creatorId);
 
       if (pendingTx.postId) {
         await Post.findByIdAndUpdate(pendingTx.postId, {
           $inc: { totalTips: Number(pendingTx.amount) },
         });
+        console.log('Updated post tips for:', pendingTx.postId);
       }
 
-      // Send tip message to chat if a message was provided
-      const Chat = require('../models/chat');
-      const participants = [user._id.toString(), pendingTx.creatorId.toString()].sort();
-      let chat = await Chat.findOne({ participants });
-      if (!chat) {
-        chat = new Chat({ participants, messages: [] });
-      }
+      // Send tip message to chat
+      console.log('Checking for tip message:', pendingTx.message);
       if (pendingTx.message) {
+        const Chat = require('../models/chat');
+        const participants = [user._id.toString(), pendingTx.creatorId.toString()].sort();
+        console.log('Chat participants:', participants);
+
+        let chat = await Chat.findOne({ participants });
+        if (!chat) {
+          chat = new Chat({ participants, messages: [] });
+          console.log('Created new chat with ID:', chat._id);
+        } else {
+          console.log('Found existing chat with ID:', chat._id);
+        }
+
         const chatMessage = {
           sender: user._id,
           text: pendingTx.message,
@@ -573,22 +594,32 @@ router.get('/verify-tip-payment', async (req, res) => {
           tipAmount: Number(pendingTx.amount),
         };
         chat.messages.push(chatMessage);
-        await chat.save();
+        try {
+          await chat.save();
+          console.log('Chat message saved successfully:', chatMessage);
+        } catch (err) {
+          console.error('Error saving chat message:', err);
+        }
 
-        // Emit the message via Socket.io
         const io = req.app.get('socketio');
         if (io) {
           io.to(chat._id.toString()).emit('newMessage', chatMessage);
+          console.log('Emitted newMessage to chat room:', chat._id.toString());
+        } else {
+          console.error('Socket.io instance not found on app');
         }
+      } else {
+        console.log('No tip message provided, skipping chat update');
       }
 
       await User.findByIdAndUpdate(user._id, {
         $pull: { pendingTransactions: { tx_ref } },
       });
+      console.log('Removed pending transaction for user:', user._id);
 
       return res.redirect('/profile?tipPayment=success');
     } else {
-      console.error('Tip payment verification failed or not successful');
+      console.error('Payment verification failed:', paymentResponse);
       return res.redirect('/profile?tipPayment=failed');
     }
   } catch (error) {

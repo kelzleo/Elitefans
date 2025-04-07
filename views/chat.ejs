@@ -55,8 +55,15 @@
   const chatId = document.getElementById('chatId').value;
   const sender = document.getElementById('sender').value;
   
-  socket.emit('joinRoom', { chatId });
-  
+  socket.on('connect', () => {
+    console.log('Connected to Socket.io server');
+    socket.emit('joinRoom', { chatId });
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('Socket.io connection error:', error);
+  });
+
   document.getElementById('messageForm').addEventListener('submit', function(e) {
     e.preventDefault();
     const messageInput = document.getElementById('messageInput');
@@ -68,6 +75,7 @@
   });
   
   socket.on('newMessage', function(message) {
+    console.log('Received new message:', message);
     const chatWindow = document.getElementById('chatWindow');
     const container = document.createElement('div');
     container.className = 'message-container ' + (message.sender === sender ? 'sent' : 'received');
