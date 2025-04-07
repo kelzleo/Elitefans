@@ -101,6 +101,7 @@ const userSchema = new mongoose.Schema({
       bundleId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionBundle'},
       postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
       amount: { type: Number, required: true },
+      message: { type: String }, 
       status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
       createdAt: { type: Date, default: Date.now },
       type: { type: String, enum: ['special', 'subscription', 'tip'], required: true }
