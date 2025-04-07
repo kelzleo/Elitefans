@@ -2146,3 +2146,28 @@ html, body {
   right: 10px;
   cursor: pointer;
 }
+
+.bookmark-button {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  margin-left: 10px;
+}
+
+.bookmark-button i {
+  color: #ccc; /* Default color for unbookmarked state */
+}
+
+.bookmark-button i.bookmarked {
+  color: #ffd700; /* Gold color for bookmarked state */
+}
+
+.action-button.bookmarks-icon i {
+  font-size: 20px;
+  color: #ffd700;
+}
+
+.like-button i.liked {
+  color: #ff0000; /* Red color for liked state */
+}

@@ -24,6 +24,7 @@ const usersRoutes = require('./routes/users');
 const requestCreatorRoutes = require('./routes/requestCreator');
 const adminRoutes = require('./routes/admin');
 const uploadRoute = require('./routes/uploadRoute');
+
 const homeRoutes = require('./routes/home');
 const createRoutes = require('./routes/creator');
 const chatBroadcastRoutes = require('./routes/chatBroadcast');
@@ -33,6 +34,7 @@ const chatListRoutes = require('./routes/chatList');
 const notificationsRoute = require('./routes/notifications');
 const postsRoute = require('./routes/posts');
 const dashboardRoutes = require('./routes/dashboard');
+const bookmarksRoutes = require('./routes/bookmarks')
 
 /**
  * 1) Decode Base64 Google Cloud credentials (if present)
@@ -124,6 +126,7 @@ app.use('/chats', chatListRoutes);
 app.use('/notifications', notificationsRoute);
 app.use('/posts', postsRoute);
 app.use('/dashboard', dashboardRoutes);
+app.use('/bookmarks', bookmarksRoutes);
 
 // Example endpoint for Google Cloud Storage usage
 app.get('/storage-example', async (req, res) => {

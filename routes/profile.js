@@ -73,12 +73,18 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
     }
   }
 };
-
 // Owner's profile route
+// View own profile
 router.get('/', authCheck, async (req, res) => {
   try {
     console.log('Loading profile for owner...');
     const user = await User.findById(req.user._id);
+    
+    // Clean up the user's own subscriptions (e.g., mark expired ones)
+    await user.checkExpiredSubscriptions();
+    // Update subscriberCount based on users subscribed to this creator
+    await user.updateSubscriberCount();
+
     const posts = await Post.find({ creator: req.user._id })
       .populate('comments.user', 'username')
       .sort({ createdAt: -1 });
@@ -89,7 +95,7 @@ router.get('/', authCheck, async (req, res) => {
     const imagesCount = posts.filter(post => post.type === 'image').length;
     const videosCount = posts.filter(post => post.type === 'video').length;
     const totalLikes = posts.reduce((sum, post) => sum + (post.likes ? post.likes.length : 0), 0);
-    const subscriberCount = user.subscriberCount || 0;
+    const subscriberCount = user.subscriberCount;
 
     res.render('profile', {
       user: { ...user.toObject(), imagesCount, videosCount, totalLikes, subscriberCount },
@@ -110,7 +116,12 @@ router.get('/view/:id', authCheck, async (req, res) => {
     const ownerUser = await User.findById(req.params.id);
     if (!ownerUser) return res.status(404).send('User not found');
 
+    // Update subscriberCount based on users subscribed to this creator
+    await ownerUser.updateSubscriberCount();
+
     const currentUser = await User.findById(req.user._id);
+    // Clean up the current user's own subscriptions
+    await currentUser.checkExpiredSubscriptions();
     const now = new Date();
     const isSubscribed = currentUser.subscriptions.some(sub =>
       sub.creatorId.toString() === ownerUser._id.toString() &&
@@ -131,7 +142,7 @@ router.get('/view/:id', authCheck, async (req, res) => {
     const imagesCount = posts.filter(post => post.type === 'image').length;
     const videosCount = posts.filter(post => post.type === 'video').length;
     const totalLikes = posts.reduce((sum, post) => sum + (post.likes ? post.likes.length : 0), 0);
-    const subscriberCount = ownerUser.subscriberCount || 0;
+    const subscriberCount = ownerUser.subscriberCount;
 
     res.render('profile', {
       user: { ...ownerUser.toObject(), imagesCount, videosCount, totalLikes, subscriberCount },
@@ -237,32 +248,22 @@ router.post('/unlock-special-content', authCheck, async (req, res) => {
 router.get('/verify-payment', async (req, res) => {
   try {
     const { transaction_id, status, tx_ref } = req.query;
-
-    if (status === 'cancelled') {
-      return res.redirect('/profile?payment=cancelled');
-    }
-
+    if (status === 'cancelled') return res.redirect('/profile?payment=cancelled');
     if (!transaction_id || !tx_ref) {
       console.error('Missing transaction_id or tx_ref');
       return res.redirect('/profile?payment=error');
     }
-
     const paymentResponse = await flutter.verifyPayment(transaction_id);
-    console.log('Payment verification response:', paymentResponse);
-
     if (
       paymentResponse.status === 'success' &&
       paymentResponse.data &&
       paymentResponse.data.status === 'successful'
     ) {
-      // 1) Find the user who made the payment
       const user = await User.findOne({ 'pendingTransactions.tx_ref': tx_ref });
       if (!user) {
         console.error('No pending transaction found for tx_ref:', tx_ref);
         return res.redirect('/profile?payment=error');
       }
-
-      // 2) Locate the pending transaction for a "subscription"
       const pendingTx = user.pendingTransactions.find(
         (tx) => tx.tx_ref === tx_ref && tx.type === 'subscription'
       );
@@ -270,8 +271,6 @@ router.get('/verify-payment', async (req, res) => {
         console.error('Pending subscription transaction not found in user doc');
         return res.redirect('/profile?payment=error');
       }
-
-      // 3) Confirm the amount matches
       if (pendingTx.amount !== paymentResponse.data.amount) {
         console.error('Amount mismatch:', {
           expected: pendingTx.amount,
@@ -279,16 +278,12 @@ router.get('/verify-payment', async (req, res) => {
         });
         return res.redirect('/profile?payment=error');
       }
-
-      // 4) Fetch the subscription bundle to parse its duration
       const bundle = await SubscriptionBundle.findById(pendingTx.bundleId);
       if (!bundle) {
         console.error('Subscription bundle not found:', pendingTx.bundleId);
         return res.redirect('/profile?payment=error');
       }
-
-      // 5) Convert the bundle.duration (e.g. "1 day", "1 month") to a real Date
-      let subscriptionExpiry = new Date(); // default = now, we'll add to it
+      let subscriptionExpiry = new Date();
       if (bundle.duration === '1 day') {
         subscriptionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
       } else if (bundle.duration === '1 month') {
@@ -300,9 +295,6 @@ router.get('/verify-payment', async (req, res) => {
       } else if (bundle.duration === '1 year') {
         subscriptionExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
       }
-      // If you want a more precise approach (e.g. 28/31 days in a month), handle that logic as needed.
-
-      // 6) Create a new subscription object
       const newSubscription = {
         creatorId: pendingTx.creatorId,
         subscriptionBundle: pendingTx.bundleId,
@@ -310,14 +302,10 @@ router.get('/verify-payment', async (req, res) => {
         subscriptionExpiry,
         status: 'active',
       };
-
-      // 7) Update the user's doc: add the subscription, remove the pending transaction
       await User.findByIdAndUpdate(user._id, {
         $push: { subscriptions: newSubscription },
         $pull: { pendingTransactions: { tx_ref: tx_ref } },
       });
-
-      // 8) Notify the creator that this user subscribed
       const subscriberUser = user;
       const message = `${subscriberUser.username} just subscribed!`;
       await Notification.create({
@@ -325,8 +313,6 @@ router.get('/verify-payment', async (req, res) => {
         message,
         type: 'new_subscription'
       });
-
-      // 9) Create a Transaction record
       await Transaction.create({
         user: user._id,
         creator: pendingTx.creatorId,
@@ -335,14 +321,12 @@ router.get('/verify-payment', async (req, res) => {
         amount: pendingTx.amount,
         description: 'Subscription purchase',
       });
-
-      // 10) Update the creator's totalEarnings
       const creator = await User.findById(pendingTx.creatorId);
       if (creator) {
         creator.totalEarnings += pendingTx.amount;
+        await creator.updateSubscriberCount(); // Update creator's subscriberCount
         await creator.save();
       }
-
       return res.redirect('/profile?payment=success');
     } else {
       console.error('Payment verification failed:', paymentResponse);
@@ -353,7 +337,6 @@ router.get('/verify-payment', async (req, res) => {
     return res.redirect('/profile?payment=error');
   }
 });
-
 
 // Verify special payment and update purchasedContent
 // Verify special payment and update purchasedContent
@@ -715,6 +698,56 @@ router.post('/posts/:postId/comment', authCheck, async (req, res) => {
       .json({ message: 'An error occurred while submitting your comment' });
   }
 });
+
+// Bookmark/Unbookmark a post
+router.post('/posts/:postId/bookmark', authCheck, async (req, res) => {
+  try {
+    const postId = req.params.postId;
+    const userId = req.user._id;
+
+    const post = await Post.findById(postId);
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const user = await User.findById(userId);
+    const isBookmarked = user.bookmarks.some(id => id.toString() === postId.toString());
+
+    if (isBookmarked) {
+      // Remove bookmark
+      user.bookmarks = user.bookmarks.filter(id => id.toString() !== postId.toString());
+    } else {
+      // Add bookmark
+      user.bookmarks.push(postId);
+    }
+
+    await user.save();
+
+    res.status(200).json({
+      message: isBookmarked ? 'Post unbookmarked successfully' : 'Post bookmarked successfully',
+      isBookmarked: !isBookmarked
+    });
+  } catch (error) {
+    console.error('Bookmark Error:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const isBookmarked = user.bookmarks.some(id => id.toString() === req.params.postId.toString());
+    res.json({ isBookmarked });
+  } catch (error) {
+    console.error('Error checking bookmark status:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Edit profile route
+router.get('/edit', authCheck, (req, res) => {
+  res.render('edit-profile', { user: req.user, currentUser: req.user });
+});
+
 // Edit profile route
 // GET route to render the edit profile page
 router.get('/edit', authCheck, (req, res) => {
@@ -1010,94 +1043,39 @@ router.post('/subscribe', authCheck, async (req, res) => {
   try {
     console.log('Processing subscription request...');
     const { creatorId, bundleId } = req.body;
-
     if (!creatorId || !bundleId) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'Creator ID and Bundle ID are required',
-      });
+      return res.status(400).json({ status: 'error', message: 'Creator ID and Bundle ID are required' });
     }
-
-    // 1) Fetch the current user
     const user = await User.findById(req.user._id);
     if (!user) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'User not found'
-      });
+      return res.status(404).json({ status: 'error', message: 'User not found' });
     }
-
-    // 2) Mark any old subscription as 'expired' if it's past expiry
     const now = new Date();
     let changed = false;
     user.subscriptions.forEach((sub) => {
-      if (
-        sub.status === 'active' &&
-        sub.subscriptionExpiry &&
-        sub.subscriptionExpiry <= now
-      ) {
+      if (sub.status === 'active' && sub.subscriptionExpiry && sub.subscriptionExpiry <= now) {
         sub.status = 'expired';
         changed = true;
       }
     });
-    if (changed) {
-      // Save user if we changed any statuses
-      await user.save();
-    }
-
-    // 3) Check if the user is still actively subscribed to that creator
+    if (changed) await user.save();
     const isSubscribed = user.subscriptions.some(
-      (sub) =>
-        sub.creatorId.toString() === creatorId.toString() &&
-        sub.status === 'active'
+      (sub) => sub.creatorId.toString() === creatorId.toString() && sub.status === 'active'
     );
-
     if (isSubscribed) {
-      return res.status(400).json({
-        status: 'error',
-        message: 'You are already subscribed to this creator',
-      });
+      return res.status(400).json({ status: 'error', message: 'You are already subscribed to this creator' });
     }
-
-    // 4) Proceed with your existing logic
     const [creator, bundle] = await Promise.all([
       User.findById(creatorId),
       SubscriptionBundle.findById(bundleId),
     ]);
-
-    // Initialize payment (Flutterwave)
-    const paymentResponse = await flutter.initializePayment(
-      req.user._id,
-      creatorId,
-      bundleId
-    );
-    console.log('Payment initialization response:', paymentResponse);
-
-    if (
-      paymentResponse.status === 'success' &&
-      paymentResponse.meta?.authorization
-    ) {
+    const paymentResponse = await flutter.initializePayment(req.user._id, creatorId, bundleId);
+    if (paymentResponse.status === 'success' && paymentResponse.meta?.authorization) {
       const authorization = paymentResponse.meta.authorization;
-
-      // Update the creator's subscriber count as part of the subscription process
-      await User.findByIdAndUpdate(creatorId, { $inc: { subscriberCount: 1 } });
-
-      const transferDetails = {
-        accountNumber: authorization.transfer_account || null,
-        bankName: authorization.transfer_bank || null,
-        amount: authorization.transfer_amount || bundle.price,
-        reference: authorization.transfer_reference,
-        accountExpiration: authorization.account_expiration || null,
-        transferNote: authorization.transfer_note || null,
-      };
-
-      // Push a pending transaction to the user
       await User.findByIdAndUpdate(req.user._id, {
         $push: {
           pendingTransactions: {
-            tx_ref:
-              authorization.transfer_reference ||
-              `SUB_${Date.now()}_${creatorId}_${bundleId}`,
+            tx_ref: authorization.transfer_reference || `SUB_${Date.now()}_${creatorId}_${bundleId}`,
             creatorId,
             bundleId,
             amount: bundle.price,
@@ -1107,32 +1085,29 @@ router.post('/subscribe', authCheck, async (req, res) => {
           },
         },
       });
-
       return res.json({
         status: 'success',
         message: 'Payment initialized successfully',
         data: {
-          transferDetails,
+          transferDetails: {
+            accountNumber: authorization.transfer_account || null,
+            bankName: authorization.transfer_bank || null,
+            amount: authorization.transfer_amount || bundle.price,
+            reference: authorization.transfer_reference,
+            accountExpiration: authorization.account_expiration || null,
+            transferNote: authorization.transfer_note || null,
+          },
           subscription: {
-            creator: {
-              id: creator._id,
-              username: creator.username,
-            },
-            bundle: {
-              name: bundle.name,
-              price: bundle.price,
-              duration: bundle.duration,
-            },
+            creator: { id: creator._id, username: creator.username },
+            bundle: { name: bundle.name, price: bundle.price, duration: bundle.duration },
           },
           paymentLink: authorization.payment_link || null,
         },
       });
     } else {
-      // Payment might be pending or something else
       return res.json({
         status: 'success',
-        message:
-          paymentResponse.message || 'Payment initialization in progress',
+        message: paymentResponse.message || 'Payment initialization in progress',
         data: paymentResponse.meta || null,
       });
     }
@@ -1145,7 +1120,6 @@ router.post('/subscribe', authCheck, async (req, res) => {
     });
   }
 });
-
 
 // Webhook route to handle payment notifications
 // Webhook route to handle payment notifications

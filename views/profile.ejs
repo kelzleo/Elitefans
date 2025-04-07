@@ -36,24 +36,26 @@
       </div>
     </div>
 
-    <!-- Profile Actions (Chat, Tip, Broadcast Icons) -->
+    <!-- Profile Actions (Chat, Tip, Broadcast, Bookmarks Icons) -->
     <div class="profile-actions">
-      <% if (currentUser && currentUser._id.toString() === user._id.toString() && user.role === 'creator') { %>
-        <!-- Creator View: Chat and Broadcast -->
-        <a href="/chat" class="action-button chat-icon" title="Chat with Subscribers">
-          <i class="fa fa-comment"></i>
-        </a>
-        <a href="/broadcast" class="action-button broadcast-icon" title="Start Broadcast">
-          <i class="fa fa-video"></i>
-        </a>
+      <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+        <!-- Creator/User View: Chat, Broadcast, and Bookmarks -->
+        <% if (user.role === 'creator') { %>
+        
+          <a href="/broadcast" class="action-button broadcast-icon" title="Start Broadcast">
+            <i class="fa fa-video"></i>
+          </a>
+        <% } %>
+        
       <% } else if (currentUser && isSubscribed && user.role === 'creator') { %>
-        <!-- Visitor View (Subscribed): Chat and Tip -->
+        <!-- Visitor View (Subscribed): Chat, Tip, and Bookmarks -->
         <a href="/chat?creatorId=<%= user._id %>" class="action-button chat-icon" title="Chat with <%= user.username %>">
           <i class="fa fa-comment"></i>
         </a>
         <button class="action-button tip-icon tip-profile-button" data-creator-id="<%= user._id %>" title="Tip <%= user.username %>">
           <i class="fa fa-gift"></i>
         </button>
+       
       <% } %>
     </div>
 
@@ -182,7 +184,7 @@
               <% } %>
               <div class="post-actions">
                 <button class="like-button" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-heart"></i>
+                  <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
                   <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
                 </button>
                 <button class="comment-icon" data-post-id="<%= post._id %>">
@@ -192,6 +194,9 @@
                 <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                   <i class="fa-solid fa-gift"></i>
                   Tip (<span class="tip-count"><%= post.tipCount || 0 %></span>)
+                </button>
+                <button class="bookmark-button" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
                 </button>
               </div>
               <div class="comments">
@@ -262,7 +267,7 @@
                 <% } %>
                 <div class="post-actions">
                   <button class="like-button" data-post-id="<%= post._id %>">
-                    <i class="fa-solid fa-heart"></i>
+                    <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
                     <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
                   </button>
                   <button class="comment-icon" data-post-id="<%= post._id %>">
@@ -272,6 +277,9 @@
                   <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                     <i class="fa-solid fa-gift"></i>
                     Tip (<span class="tip-count"><%= post.tipCount || 0 %></span>)
+                  </button>
+                  <button class="bookmark-button" data-post-id="<%= post._id %>">
+                    <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
                   </button>
                 </div>
                 <div class="comments">
@@ -350,7 +358,7 @@
                   <% } %>
                   <div class="post-actions">
                     <button class="like-button" data-post-id="<%= post._id %>">
-                      <i class="fa-solid fa-heart"></i>
+                      <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
                       <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
                     </button>
                     <button class="comment-icon" data-post-id="<%= post._id %>">
@@ -360,6 +368,9 @@
                     <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                       <i class="fa-solid fa-gift"></i>
                       Tip (<span class="tip-count"><%= post.tipCount || 0 %></span>)
+                    </button>
+                    <button class="bookmark-button" data-post-id="<%= post._id %>">
+                      <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
                     </button>
                   </div>
                   <div class="comments">
@@ -427,7 +438,7 @@
                   <% } %>
                   <div class="post-actions">
                     <button class="like-button" data-post-id="<%= post._id %>">
-                      <i class="fa-solid fa-heart"></i>
+                      <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
                       <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
                     </button>
                     <button class="comment-icon" data-post-id="<%= post._id %>">
@@ -437,6 +448,9 @@
                     <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                       <i class="fa-solid fa-gift"></i>
                       Tip (<span class="tip-count"><%= post.tipCount || 0 %></span>)
+                    </button>
+                    <button class="bookmark-button" data-post-id="<%= post._id %>">
+                      <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
                     </button>
                   </div>
                   <div class="comments">
@@ -507,7 +521,7 @@
                   <% } %>
                   <div class="post-actions">
                     <button class="like-button" data-post-id="<%= post._id %>">
-                      <i class="fa-solid fa-heart"></i>
+                      <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
                       <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
                     </button>
                     <button class="comment-icon" data-post-id="<%= post._id %>">
@@ -517,6 +531,9 @@
                     <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                       <i class="fa-solid fa-gift"></i>
                       Tip (<span class="tip-count"><%= post.tipCount || 0 %></span>)
+                    </button>
+                    <button class="bookmark-button" data-post-id="<%= post._id %>">
+                      <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
                     </button>
                   </div>
                   <div class="comments">
@@ -762,9 +779,9 @@
       // --- Comment Icon Toggle ---
       document.querySelectorAll('.comment-icon').forEach(button => {
           button.addEventListener('click', function() {
-              const mediaItem = this.closest('.media-item');
-              if (!mediaItem) return;
-              const commentContainer = mediaItem.querySelector('.comment-form-container');
+              const parentElement = this.closest('.post-card') || this.closest('.media-item');
+              if (!parentElement) return;
+              const commentContainer = parentElement.querySelector('.comment-form-container');
               if (!commentContainer) return;
               const isHidden = commentContainer.classList.contains('hidden');
               commentContainer.classList.toggle('hidden');
@@ -780,7 +797,7 @@
           form.addEventListener('submit', async function(e) {
               e.preventDefault();
               const postId = this.dataset.postId;
-              const commentInput = this.comment;
+              const commentInput = this.querySelector('input[name="comment"]');
               const commentText = commentInput.value.trim();
               const submitButton = this.querySelector('button[type="submit"]');
               if (!commentText) return;
@@ -794,8 +811,8 @@
                   });
                   if (res.ok) {
                       const data = await res.json();
-                      const mediaItem = this.closest('.media-item');
-                      const commentsDiv = mediaItem.querySelector('.comments');
+                      const parentElement = this.closest('.post-card') || this.closest('.media-item');
+                      const commentsDiv = parentElement.querySelector('.comments');
                       const newCommentDiv = document.createElement('div');
                       newCommentDiv.classList.add('comment');
                       const username = data.comment && data.comment.user ? data.comment.user.username : 'You';
@@ -806,7 +823,7 @@
                       } else {
                           commentsDiv.appendChild(newCommentDiv);
                       }
-                      const commentCountSpan = mediaItem.querySelector('.comment-count');
+                      const commentCountSpan = parentElement.querySelector('.comment-count');
                       if (commentCountSpan && data.commentCount !== undefined) commentCountSpan.textContent = data.commentCount;
                       commentInput.value = '';
                       this.closest('.comment-form-container').classList.add('hidden');
@@ -820,6 +837,26 @@
               } finally {
                   submitButton.textContent = originalButtonText;
                   submitButton.disabled = false;
+              }
+          });
+      });
+
+      // --- Bookmark Button ---
+      document.querySelectorAll('.bookmark-button').forEach(button => {
+          button.addEventListener('click', async function() {
+              const postId = this.dataset.postId;
+              const bookmarkIcon = this.querySelector('i');
+              try {
+                  const res = await fetch('/profile/posts/' + postId + '/bookmark', { method: 'POST' });
+                  const data = await res.json();
+                  if (res.ok) {
+                      bookmarkIcon.classList.toggle('bookmarked', data.isBookmarked);
+                  } else {
+                      alert(data.message || `Could not bookmark post (Status: ${res.status})`);
+                  }
+              } catch (error) {
+                  console.error('Bookmark Error:', error);
+                  alert('Error bookmarking post.');
               }
           });
       });

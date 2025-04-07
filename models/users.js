@@ -63,19 +63,17 @@ const userSchema = new mongoose.Schema({
   },
   coverPhoto: {
     type: String,
-    default: '/uploads/default-cover.jpg' // You can set a default image path
+    default: '/uploads/default-cover.jpg'
   },
   uploadedContent: [
     {
       filename: { type: String, required: true },
       type: { type: String, enum: ['image', 'video'], required: true },
       writeUp: { type: String },
-      // NEW FIELDS for special content
       special: { type: Boolean, default: false },
       unlockPrice: { type: Number }
     },
   ],
-  // Track special content that a subscriber has unlocked
   purchasedContent: [
     {
       contentId: { type: mongoose.Schema.Types.ObjectId },
@@ -108,20 +106,13 @@ const userSchema = new mongoose.Schema({
       type: { type: String, enum: ['special', 'subscription', 'tip'], required: true }
     }
   ],
-
   imagesCount: { type: Number, default: 0 },
   videosCount: { type: Number, default: 0 },
   totalLikes: { type: Number, default: 0 },
-
- 
   subscriberCount: {
     type: Number,
     default: 0,
   },
-
-  
- 
-  // Track how much the creator has earned from subs + special content
   totalEarnings: {
     type: Number,
     default: 0
@@ -131,22 +122,54 @@ const userSchema = new mongoose.Schema({
       _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
       bankName: { type: String, required: true },
       accountNumber: { type: String, required: true },
-      // optionally store the bank code if you want to skip mapping:
-      // bankCode: { type: String, default: '' }
     }
   ],
+  bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
 });
 
-// Pre-save middleware to handle subscriber count updates if needed
+// Pre-save middleware to update subscriberCount based on active, non-expired subscriptions
+
 userSchema.pre('save', function (next) {
-  // Whenever subscriptions array is modified, recalc only active ones
+  const now = new Date();
   if (this.isModified('subscriptions')) {
-    this.subscriberCount = this.subscriptions.filter(
-      (sub) => sub.status === 'active'
-    ).length;
+    // Only update the user's own subscription statuses
+    this.subscriptions.forEach(sub => {
+      if (sub.status === 'active' && sub.subscriptionExpiry && sub.subscriptionExpiry < now) {
+        sub.status = 'expired';
+      }
+    });
   }
   next();
 });
 
+// Method to calculate subscriberCount based on users subscribed to this creator
+userSchema.methods.updateSubscriberCount = async function () {
+  const now = new Date();
+  // Count users who have an active subscription to this creator
+  const subscriberCount = await mongoose.model('User').countDocuments({
+    'subscriptions': {
+      $elemMatch: {
+        creatorId: this._id,
+        status: 'active',
+        subscriptionExpiry: { $gt: now }
+      }
+    }
+  });
+  this.subscriberCount = subscriberCount;
+  await this.save();
+  return subscriberCount;
+};
 
+// Optional: Method to check and update expired subscriptions for this user
+userSchema.methods.checkExpiredSubscriptions = async function () {
+  const now = new Date();
+  let changed = false;
+  this.subscriptions.forEach(sub => {
+    if (sub.status === 'active' && sub.subscriptionExpiry && sub.subscriptionExpiry < now) {
+      sub.status = 'expired';
+      changed = true;
+    }
+  });
+  if (changed) await this.save();
+};
 module.exports = mongoose.model('User', userSchema);

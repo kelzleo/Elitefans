@@ -20,36 +20,31 @@ const authCheck = (req, res, next) => {
  */
 const processPostUrlForFeed = async (post, currentUser) => {
   if (post.special) {
-    // Check if user purchased
     const hasPurchased =
       currentUser.purchasedContent &&
       currentUser.purchasedContent.some(
         (p) => p.contentId.toString() === post._id.toString()
       );
-
     if (hasPurchased) {
-      // Generate the real signed URL
       if (post.contentUrl && !post.contentUrl.startsWith('http')) {
         post.contentUrl = await generateSignedUrl(post.contentUrl);
       }
       post.locked = false;
     } else {
-      // Use a placeholder file (image or static placeholder video)
       post.contentUrl = '/uploads/locked-placeholder.png';
       post.locked = true;
     }
   } else {
-    // Non-special => always generate if needed
     if (post.contentUrl && !post.contentUrl.startsWith('http')) {
       post.contentUrl = await generateSignedUrl(post.contentUrl);
     }
     post.locked = false;
   }
 };
-// routes/home.js
+
 router.get('/', authCheck, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user._id);
+    const currentUser = await User.findById(req.user._id).populate('bookmarks');
     const query = req.query.query;
 
     if (query && query.trim() !== '') {
@@ -64,37 +59,33 @@ router.get('/', authCheck, async (req, res) => {
 
       return res.render('home', {
         user: req.user,
+        currentUser,
         posts: [],
         creators: matchingCreators,
-        featuredCreators: [], // no featured creators in search mode
+        featuredCreators: [],
         search: query
       });
-
     } else {
       // Feed mode
-
-      // 1) Filter subscriptions that are active AND not expired
       const now = new Date();
       const subscribedCreatorIds = currentUser.subscriptions
         .filter(sub => {
           if (sub.status !== 'active') return false;
           if (!sub.subscriptionExpiry) return false;
-          return sub.subscriptionExpiry > now; // only if still valid
+          return sub.subscriptionExpiry > now;
         })
         .map(sub => sub.creatorId);
 
-      // 2) Find posts from these subscribed creators
       const posts = await Post.find({ creator: { $in: subscribedCreatorIds } })
         .populate('creator', 'username profilePicture')
+        .populate('comments.user', 'username')
         .sort({ createdAt: -1 });
 
-      // 3) Process each post for locked/unlocked content
       for (const post of posts) {
         await processPostUrlForFeed(post, currentUser);
       }
 
-      // 4) Fetch trending creators based on a "trendingScore"
-      //    trendingScore = subscriberCount * 0.7 + totalLikes * 0.3
+      // Fetch trending creators and update subscriberCount
       const featuredCreators = await User.aggregate([
         { $match: { role: 'creator' } },
         {
@@ -111,11 +102,22 @@ router.get('/', authCheck, async (req, res) => {
         { $limit: 5 }
       ]);
 
+      // Update subscriberCount for each featured creator
+      for (const creator of featuredCreators) {
+        const creatorDoc = await User.findById(creator._id);
+        await creatorDoc.updateSubscriberCount();
+        creator.subscriberCount = creatorDoc.subscriberCount; // Update the aggregated object
+      }
+
+      console.log('Current User Bookmarks:', currentUser.bookmarks.map(b => b.toString()));
+      console.log('Post IDs:', posts.map(p => p._id.toString()));
+
       return res.render('home', {
         user: req.user,
+        currentUser,
         posts,
-        creators: [], // not in search mode, so no search results here
-        featuredCreators, // trending creators now based on trendingScore
+        creators: [],
+        featuredCreators,
         search: ''
       });
     }

@@ -189,11 +189,11 @@
               <p class="post-text" style="margin-top: 10px;"><%= post.writeUp %></p>
             <% } %>
           </div>
-          <!-- Post Actions: Like, Comment, Tip -->
+          <!-- Post Actions: Like, Comment, Tip, Bookmark -->
           <div class="post-actions">
             <!-- Like Button -->
             <button class="like-button" data-post-id="<%= post._id %>">
-              <i class="fa-solid fa-heart"></i>
+              <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
               <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
             </button>
             <!-- Comment Icon (toggling comment form) -->
@@ -208,6 +208,10 @@
                 Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
               </button>
             <% } %>
+            <!-- Bookmark Button -->
+            <button class="bookmark-button" data-post-id="<%= post._id %>">
+              <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.some(b => b.toString() === post._id.toString()) ? 'bookmarked' : '' %>"></i>
+            </button>
           </div>
           <!-- Comments Section -->
           <div class="comments">
@@ -234,24 +238,27 @@
   </div>
 <% } %>
 
-<!-- JavaScript for Like, Comment, Unlock, Tip, Trending Creators Navigation, and Full-Screen Images -->
+<!-- JavaScript for Like, Comment, Unlock, Tip, Bookmark, Trending Creators Navigation, and Full-Screen Images -->
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     // Like Button Functionality
     document.querySelectorAll('.like-button').forEach(button => {
       button.addEventListener('click', async function() {
         const postId = this.dataset.postId;
+        const likeIcon = this.querySelector('i');
+        const likeCountSpan = this.querySelector('.like-count');
         try {
           const res = await fetch('/profile/posts/' + postId + '/like', { method: 'POST' });
           const data = await res.json();
           if (res.ok) {
-            this.querySelector('.like-count').textContent = data.likes;
+            likeCountSpan.textContent = data.likes;
+            likeIcon.classList.toggle('liked', data.userLiked);
           } else {
-            alert(data.message);
+            alert(data.message || `Could not like post (Status: ${res.status})`);
           }
         } catch (error) {
-          console.error('Error:', error);
-          alert('An error occurred while liking the post.');
+          console.error('Like Error:', error);
+          alert('Error liking post.');
         }
       });
     });
@@ -283,8 +290,13 @@
       form.addEventListener('submit', async function(e) {
         e.preventDefault();
         const postId = this.dataset.postId;
-        const commentText = this.comment.value.trim();
+        const commentInput = this.querySelector('input[name="comment"]');
+        const commentText = commentInput.value.trim();
+        const submitButton = this.querySelector('button[type="submit"]');
         if (!commentText) return;
+        const originalButtonText = submitButton.textContent;
+        submitButton.textContent = 'Posting...';
+        submitButton.disabled = true;
         try {
           const res = await fetch('/profile/posts/' + postId + '/comment', {
             method: 'POST',
@@ -292,16 +304,64 @@
             body: JSON.stringify({ text: commentText })
           });
           if (res.ok) {
-            location.reload();
+            const data = await res.json();
+            const commentsDiv = this.closest('.post-card').querySelector('.comments');
+            const newCommentDiv = document.createElement('div');
+            newCommentDiv.classList.add('comment');
+            const username = data.comment && data.comment.user ? data.comment.user.username : 'You';
+            newCommentDiv.innerHTML = `<strong>${username}:</strong> ${data.comment.text}`;
+            commentsDiv.appendChild(newCommentDiv);
+            const commentCountSpan = this.closest('.post-card').querySelector('.comment-count');
+            if (commentCountSpan && data.commentCount !== undefined) commentCountSpan.textContent = data.commentCount;
+            commentInput.value = '';
+            this.closest('.comment-form-container').style.display = 'none';
           } else {
             const data = await res.json();
-            alert(data.message);
+            alert(data.message || `Failed to post comment (Status: ${res.status})`);
           }
         } catch (error) {
-          console.error('Error:', error);
-          alert('An error occurred while submitting your comment.');
+          console.error('Comment Error:', error);
+          alert('Error posting comment.');
+        } finally {
+          submitButton.textContent = originalButtonText;
+          submitButton.disabled = false;
         }
       });
+    });
+
+    // Bookmark Button Functionality
+    document.querySelectorAll('.bookmark-button').forEach(button => {
+      button.addEventListener('click', async function() {
+        const postId = this.dataset.postId;
+        const bookmarkIcon = this.querySelector('i');
+        try {
+          const res = await fetch('/profile/posts/' + postId + '/bookmark', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            bookmarkIcon.classList.toggle('bookmarked', data.isBookmarked);
+          } else {
+            alert(data.message || `Could not bookmark post (Status: ${res.status})`);
+          }
+        } catch (error) {
+          console.error('Bookmark Error:', error);
+          alert('Error bookmarking post.');
+        }
+      });
+    });
+
+    // Sync bookmark states on page load
+    document.querySelectorAll('.bookmark-button').forEach(async button => {
+      const postId = button.dataset.postId;
+      const bookmarkIcon = button.querySelector('i');
+      try {
+        const res = await fetch(`/profile/posts/${postId}/bookmark-status`, { method: 'GET' });
+        const data = await res.json();
+        if (res.ok) {
+          bookmarkIcon.classList.toggle('bookmarked', data.isBookmarked);
+        }
+      } catch (error) {
+        console.error('Error syncing bookmark:', error);
+      }
     });
 
     // Unlock Button Functionality
@@ -338,31 +398,37 @@
     // Tip Button Functionality
     document.querySelectorAll('.tip-button').forEach(button => {
       button.addEventListener('click', async function() {
-        const tipAmount = prompt("Enter tip amount in NGN:");
-        if (!tipAmount) return;
         const postId = this.dataset.postId;
         const creatorId = this.dataset.creatorId;
-        const originalText = this.textContent;
-        this.textContent = 'Processing...';
+        let tipAmountNum = NaN;
+        while (isNaN(tipAmountNum) || tipAmountNum <= 0) {
+          const tipAmountStr = prompt("Enter tip amount in NGN (e.g., 500):");
+          if (tipAmountStr === null) return;
+          tipAmountNum = parseFloat(tipAmountStr);
+          if (isNaN(tipAmountNum) || tipAmountNum <= 0) alert("Please enter a valid positive number.");
+        }
+        const originalHtml = this.innerHTML;
+        this.innerHTML = 'Processing...';
         this.disabled = true;
         try {
           const response = await fetch('/profile/posts/' + postId + '/tip', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ tipAmount })
+            body: JSON.stringify({ tipAmount: tipAmountNum, creatorId: creatorId })
           });
           const result = await response.json();
           if (response.ok && result.status === 'success' && result.data.paymentLink) {
+            this.innerHTML = 'Redirecting...';
             window.location.href = result.data.paymentLink;
           } else {
             alert(result.message || 'Failed to initialize tip payment');
-            this.textContent = originalText;
+            this.innerHTML = originalHtml;
             this.disabled = false;
           }
         } catch (error) {
           console.error('Error:', error);
           alert('An error occurred while processing your tip');
-          this.textContent = originalText;
+          this.innerHTML = originalHtml;
           this.disabled = false;
         }
       });
@@ -378,7 +444,7 @@
 
     const closeButton = document.createElement('button');
     closeButton.classList.add('close-fullscreen');
-    closeButton.innerHTML = '&times;'; // HTML entity for "×"
+    closeButton.innerHTML = '×'; // HTML entity for "×"
     fullscreenOverlay.appendChild(closeButton);
 
     document.querySelectorAll('.fullscreenable').forEach(img => {
