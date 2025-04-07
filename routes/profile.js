@@ -538,12 +538,13 @@ router.get('/verify-tip-payment', async (req, res) => {
           : 'Tip payment',
       });
 
-      const message = `${tipper.username} tipped you ₦${pendingTx.amount}${
-        pendingTx.message ? ` with message: "${pendingTx.message}"` : ''
-      }`;
+      const messageText = pendingTx.message
+        ? `${tipper.username} tipped you ₦${pendingTx.amount} with message: "${pendingTx.message}"`
+        : `${tipper.username} tipped you ₦${pendingTx.amount}`;
+
       await Notification.create({
         user: pendingTx.creatorId,
-        message,
+        message: messageText,
         type: 'tip',
         postId: pendingTx.postId || null,
         creatorId: user._id,
@@ -554,6 +555,31 @@ router.get('/verify-tip-payment', async (req, res) => {
         await Post.findByIdAndUpdate(pendingTx.postId, {
           $inc: { totalTips: Number(pendingTx.amount) },
         });
+      }
+
+      // Send tip message to chat if a message was provided
+      const Chat = require('../models/chat');
+      const participants = [user._id.toString(), pendingTx.creatorId.toString()].sort();
+      let chat = await Chat.findOne({ participants });
+      if (!chat) {
+        chat = new Chat({ participants, messages: [] });
+      }
+      if (pendingTx.message) {
+        const chatMessage = {
+          sender: user._id,
+          text: pendingTx.message,
+          timestamp: new Date(),
+          isTip: true,
+          tipAmount: Number(pendingTx.amount),
+        };
+        chat.messages.push(chatMessage);
+        await chat.save();
+
+        // Emit the message via Socket.io
+        const io = req.app.get('socketio');
+        if (io) {
+          io.to(chat._id.toString()).emit('newMessage', chatMessage);
+        }
       }
 
       await User.findByIdAndUpdate(user._id, {

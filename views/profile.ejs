@@ -193,7 +193,7 @@
                 </button>
                 <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                   <i class="fa-solid fa-gift"></i>
-                  Tip (<span class="tip-count"><%= post.tipCount || 0 %></span>)
+                  Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
                 </button>
                 <button class="bookmark-button" data-post-id="<%= post._id %>">
                   <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
@@ -276,7 +276,7 @@
                   </button>
                   <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                     <i class="fa-solid fa-gift"></i>
-                    Tip (<span class="tip-count"><%= post.tipCount || 0 %></span>)
+                    Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
                   </button>
                   <button class="bookmark-button" data-post-id="<%= post._id %>">
                     <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
@@ -367,7 +367,7 @@
                     </button>
                     <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                       <i class="fa-solid fa-gift"></i>
-                      Tip (<span class="tip-count"><%= post.tipCount || 0 %></span>)
+                      Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
                     </button>
                     <button class="bookmark-button" data-post-id="<%= post._id %>">
                       <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
@@ -447,7 +447,7 @@
                     </button>
                     <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                       <i class="fa-solid fa-gift"></i>
-                      Tip (<span class="tip-count"><%= post.tipCount || 0 %></span>)
+                      Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
                     </button>
                     <button class="bookmark-button" data-post-id="<%= post._id %>">
                       <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
@@ -530,7 +530,7 @@
                     </button>
                     <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
                       <i class="fa-solid fa-gift"></i>
-                      Tip (<span class="tip-count"><%= post.tipCount || 0 %></span>)
+                      Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
                     </button>
                     <button class="bookmark-button" data-post-id="<%= post._id %>">
                       <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>

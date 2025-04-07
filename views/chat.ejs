@@ -21,6 +21,12 @@
         <div class="message-container <%= message.sender.toString() === currentUser._id.toString() ? 'sent' : 'received' %>">
           <div class="message">
             <span class="text"><%= message.text %></span>
+            <% if (message.isTip) { %>
+              <span class="tip-info">
+                <i class="fa fa-gift" title="Sent with a tip"></i>
+                <span class="tip-amount">₦<%= message.tipAmount %></span>
+              </span>
+            <% } %>
           </div>
           <div class="info">
             <span class="time"><%= new Date(message.timestamp).toLocaleTimeString() %></span>
@@ -68,7 +74,15 @@
     
     const bubble = document.createElement('div');
     bubble.className = 'message';
-    bubble.innerHTML = `<span class="text">${message.text}</span>`;
+    let messageContent = `<span class="text">${message.text}</span>`;
+    if (message.isTip) {
+      messageContent += `
+        <span class="tip-info">
+          <i class="fa fa-gift" title="Sent with a tip"></i>
+          <span class="tip-amount">₦${message.tipAmount}</span>
+        </span>`;
+    }
+    bubble.innerHTML = messageContent;
     
     const info = document.createElement('div');
     info.className = 'info';

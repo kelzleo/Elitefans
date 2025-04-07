@@ -153,6 +153,9 @@ app.get('/storage-example', async (req, res) => {
 const server = http.createServer(app);
 const io = socketIo(server);
 
+// Make io accessible in routes
+app.set('socketio', io);
+
 io.on('connection', (socket) => {
   console.log('New client connected:', socket.id);
 

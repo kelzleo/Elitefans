@@ -2171,3 +2171,17 @@ html, body {
 .like-button i.liked {
   color: #ff0000; /* Red color for liked state */
 }
+.tip-info {
+  margin-left: 10px;
+  display: inline-flex;
+  align-items: center;
+  color: #ff69b4; /* Pink color, adjust as needed */
+}
+
+.tip-info .fa-gift {
+  margin-right: 5px;
+}
+
+.tip-amount {
+  font-weight: bold;
+}
