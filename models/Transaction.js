@@ -11,6 +11,11 @@ const transactionSchema = new Schema({
   amount: { type: Number, required: true },
   description: { type: String, default: '' },
   createdAt: { type: Date, default: Date.now },
+   // New fields for referral system
+   creatorShare: { type: Number, default: 0 },
+   platformShare: { type: Number, default: 0 },
+   referrerShare: { type: Number, default: 0 },
+   referrerId: { type: Schema.Types.ObjectId, ref: 'User', default: null },
 });
 
 module.exports = mongoose.model('Transaction', transactionSchema);

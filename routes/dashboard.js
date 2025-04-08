@@ -3,14 +3,13 @@ const express = require('express');
 const router = express.Router();
 const Transaction = require('../models/Transaction');
 const User = require('../models/users');
-const { transferToBank } = require('../utilis/flutter'); // The Flutterwave transfer function
+const { transferToBank } = require('../utilis/flutter');
 
 function authCheck(req, res, next) {
   if (!req.user) return res.redirect('/');
   next();
 }
 
-// GET /dashboard
 router.get('/', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
@@ -18,39 +17,35 @@ router.get('/', authCheck, async (req, res) => {
     let transactions = [];
     let totalSubscription = 0;
     let totalSpecial = 0;
-    let totalTips = 0; // New variable for tip earnings
+    let totalTips = 0;
 
     if (currentUser.role === 'creator') {
-      // Fetch transactions where this user is the creator
       transactions = await Transaction.find({ creator: currentUser._id })
         .sort({ createdAt: -1 })
         .populate('user', 'username')
         .populate('post', 'writeUp')
         .populate('subscriptionBundle', 'description price');
 
-      // Sum amounts by type
       for (const tx of transactions) {
         if (tx.type === 'subscription') {
           totalSubscription += tx.amount;
         } else if (tx.type === 'special') {
           totalSpecial += tx.amount;
-        } else if (tx.type === 'tip') { // Handle tip transactions
+        } else if (tx.type === 'tip') {
           totalTips += tx.amount;
         }
       }
 
-      // Render the creator dashboard with tip earnings included
       res.render('dashboard', {
         user: currentUser,
         role: 'creator',
         transactions,
         totalSubscription,
         totalSpecial,
-        totalTips, // Pass total tips to the view
+        totalTips,
         totalEarnings: currentUser.totalEarnings
       });
     } else {
-      // Normal user dashboard remains unchanged
       transactions = await Transaction.find({ user: currentUser._id })
         .sort({ createdAt: -1 })
         .populate('creator', 'username')
@@ -79,11 +74,6 @@ router.get('/', authCheck, async (req, res) => {
   }
 });
 
-
-/**
- * POST /dashboard/add-bank
- * Adds a new bank to the user's array of banks
- */
 router.post('/add-bank', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
@@ -96,7 +86,6 @@ router.post('/add-bank', authCheck, async (req, res) => {
       return res.status(400).json({ message: 'Please provide bank name and account number.' });
     }
 
-    // Push a new bank object to the array
     currentUser.banks.push({ bankName, accountNumber });
     await currentUser.save();
 
@@ -107,10 +96,6 @@ router.post('/add-bank', authCheck, async (req, res) => {
   }
 });
 
-/**
- * POST /dashboard/withdraw
- * Let a creator withdraw to a chosen bank
- */
 router.post('/withdraw', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
@@ -118,34 +103,27 @@ router.post('/withdraw', authCheck, async (req, res) => {
       return res.status(403).json({ message: 'Only creators can withdraw funds.' });
     }
 
-    const { amount, bankId } = req.body; // bankId is the index or _id from the user’s banks array
+    const { amount, bankId } = req.body;
+    const withdrawalAmount = parseFloat(amount);
 
-    // Validate the requested withdrawal amount
-    if (!amount || amount < 1000) {
+    if (!withdrawalAmount || withdrawalAmount < 1000) {
       return res.status(400).json({ message: 'Withdrawal amount must be at least 1000.' });
     }
 
-    if (amount > currentUser.totalEarnings) {
+    if (withdrawalAmount > currentUser.totalEarnings) {
       return res.status(400).json({ message: 'Insufficient balance to withdraw that amount.' });
     }
 
-    // Find the chosen bank
-    const chosenBank = currentUser.banks.id(bankId); // if bankId is an ObjectId
+    const chosenBank = currentUser.banks.id(bankId);
     if (!chosenBank) {
       return res.status(400).json({ message: 'Invalid bank selection.' });
     }
 
-    // Deduct 25% fee
-    const fee = amount * 0.25;
-    const payoutAmount = amount - fee;
-
-    // Convert bank name to code
     const bankCode = mapBankNameToCode(chosenBank.bankName);
 
-    // Attempt immediate transfer
     let transferResponse;
     try {
-      transferResponse = await transferToBank(bankCode, chosenBank.accountNumber, payoutAmount);
+      transferResponse = await transferToBank(bankCode, chosenBank.accountNumber, withdrawalAmount);
       console.log('Full transferResponse object:', transferResponse);
     } catch (err) {
       console.error('transferToBank error:', err);
@@ -156,13 +134,11 @@ router.post('/withdraw', authCheck, async (req, res) => {
     }
 
     if (transferResponse.status === 'success') {
-      // On success, subtract from totalEarnings
-      currentUser.totalEarnings -= amount;
+      currentUser.totalEarnings -= withdrawalAmount;
       await currentUser.save();
 
       return res.json({ message: 'Withdrawal successful!' });
     } else {
-      // If the transfer fails
       console.error('Flutterwave transfer failed:', transferResponse);
       return res.status(500).json({ message: 'Transfer failed.', data: transferResponse });
     }
@@ -172,11 +148,7 @@ router.post('/withdraw', authCheck, async (req, res) => {
   }
 });
 
-/**
- * Helper function: map bankName to bankCode
- */
 function mapBankNameToCode(bankName) {
-  // Extended dictionary of ~40 banks in Nigeria (example)
   const bankMap = {
     'Access Bank': '044',
     'ALAT by Wema': '035',
@@ -192,8 +164,8 @@ function mapBankNameToCode(bankName) {
     'Keystone Bank': '082',
     'Kuda Bank': '50211',
     'Moniepoint Microfinance Bank': '50515',
-    'OPay': '100', // or sometimes '999991' or '999992'—varies
-    'Palmpay': '999992', // approximate
+    'OPay': '100',
+    'Palmpay': '999992',
     'Parallex Bank': '526',
     'Polaris Bank': '076',
     'PremiumTrust Bank': '50746',
@@ -208,10 +180,8 @@ function mapBankNameToCode(bankName) {
     'Unity Bank': '215',
     'Wema Bank': '035',
     'Zenith Bank': '057',
-    // ... add more if needed
   };
-
-  return bankMap[bankName] || '044'; // default to Access if unknown
+  return bankMap[bankName] || '044';
 }
 
 module.exports = router;

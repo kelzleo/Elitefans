@@ -126,6 +126,8 @@ const userSchema = new mongoose.Schema({
     }
   ],
   bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
+  referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  creatorSince: { type: Date, default: null },
 });
 
 // Pre-save middleware to update subscriberCount based on active, non-expired subscriptions

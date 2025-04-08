@@ -1,0 +1,17 @@
+<h2>Referral Earnings</h2>
+  <p>Your referral link: <a href="<%= referralLink %>"><%= referralLink %></a></p>
+  <p>Total referral earnings: ₦<%= totalReferralEarnings.toFixed(2) %></p>
+  <h3>Referred Creators</h3>
+  <% if (referredCreators.length > 0) { %>
+    <ul>
+      <% referredCreators.forEach(creator => { %>
+        <li>
+          <%= creator.username %> (Became creator on <%= creator.creatorSince.toLocaleDateString() %>)
+          - Referral earnings: ₦<%= creator.totalReferralEarnings.toFixed(2) %>
+        </li>
+      <% }) %>
+    </ul>
+  <% } else { %>
+    <p>You haven’t referred any creators yet.</p>
+  <% } %>
+  <a href="/dashboard">Back to Dashboard</a>

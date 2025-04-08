@@ -988,7 +988,7 @@ a {
 /********************************************
  * CHAT LIST
  ********************************************/
-.chat-list-container {
+ .chat-list-container {
   width: 90%;
   max-width: 400px;
   margin: 20px auto;
@@ -1007,6 +1007,10 @@ a {
 .chat-item {
   border-bottom: 1px solid #f8bbd0;
   padding: 10px 0;
+}
+.chat-item.unread {
+  background-color: #f3e5f5; /* Light purple for unread chats */
+  border-left: 4px solid #d16ba5; /* Pink border accent */
 }
 .chat-item a {
   text-decoration: none;
@@ -1028,6 +1032,20 @@ a {
 .chat-preview {
   font-size: 14px;
   color: #666;
+}
+.chat-preview.tip-preview {
+  font-weight: bold;
+  color: #ff69b4; /* Pink for tip messages */
+}
+.tip-indicator {
+  margin-left: 8px;
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.9em;
+}
+.tip-indicator .fa-gift {
+  margin-right: 4px;
+  color: #ff69b4; /* Matches tip text color */
 }
 @media (min-width: 768px) {
   .chat-list-container {
@@ -1746,31 +1764,35 @@ html, body {
   max-width: 700px;
   margin: 20px auto;
   padding: 15px;
+  background: #fff; /* Optional: Add background for consistency */
+  border-radius: 5px; /* Optional: Add slight rounding */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Optional: Subtle shadow */
 }
 
 /* Media tab normal view specific container */
-.media-normal .media-item {
+.media-content.posts-list .media-item {
   width: 100%;
   max-width: 700px;
   margin: 20px auto;
   padding: 15px;
+  background: #fff; /* Match Posts tab */
+  border-radius: 5px; /* Match Posts tab */
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Match Posts tab */
 }
 
-/* Ensure no overriding styles interfere */
-.media-normal .post-image {
+/* Ensure media-list (compact view) doesn’t interfere with normal view */
+.media-content.media-list .media-item {
+  position: relative;
+  overflow: visible;
+}
+
+/* Ensure images and videos fit within the container in normal view */
+.media-content.posts-list .media-item img,
+.media-content.posts-list .media-item video {
   width: 100%;
   max-width: 100%;
   height: auto;
-  object-fit: cover;
-  border-radius: 5px;
-  margin-bottom: 10px;
-}
-
-.media-normal .post-video {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  object-fit: contain;
+  object-fit: cover; /* or contain, depending on preference */
   border-radius: 5px;
   margin-bottom: 10px;
 }
@@ -1789,7 +1811,7 @@ html, body {
     max-width: 700px;
   }
   .posts-list .post-card,
-  .media-normal .media-item {
+  .media-content.posts-list .media-item {
     max-width: 700px;
     margin: 20px auto;
     padding: 20px;

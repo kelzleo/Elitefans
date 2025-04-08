@@ -268,7 +268,7 @@ router.get('/verify-payment', async (req, res) => {
         (tx) => tx.tx_ref === tx_ref && tx.type === 'subscription'
       );
       if (!pendingTx) {
-        console.error('Pending subscription transaction not found in user doc');
+        console.error('Pending subscription transaction not found');
         return res.redirect('/profile?payment=error');
       }
       if (pendingTx.amount !== paymentResponse.data.amount) {
@@ -283,6 +283,7 @@ router.get('/verify-payment', async (req, res) => {
         console.error('Subscription bundle not found:', pendingTx.bundleId);
         return res.redirect('/profile?payment=error');
       }
+
       let subscriptionExpiry = new Date();
       if (bundle.duration === '1 day') {
         subscriptionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -295,38 +296,69 @@ router.get('/verify-payment', async (req, res) => {
       } else if (bundle.duration === '1 year') {
         subscriptionExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
       }
-      const newSubscription = {
-        creatorId: pendingTx.creatorId,
-        subscriptionBundle: pendingTx.bundleId,
-        subscribedAt: new Date(),
-        subscriptionExpiry,
-        status: 'active',
-      };
+
       await User.findByIdAndUpdate(user._id, {
-        $push: { subscriptions: newSubscription },
+        $push: {
+          subscriptions: {
+            creatorId: pendingTx.creatorId,
+            subscriptionBundle: pendingTx.bundleId,
+            subscribedAt: new Date(),
+            subscriptionExpiry,
+            status: 'active',
+          },
+        },
         $pull: { pendingTransactions: { tx_ref: tx_ref } },
       });
+
       const subscriberUser = user;
-      const message = `${subscriberUser.username} just subscribed!`;
       await Notification.create({
-        user: newSubscription.creatorId,
-        message,
-        type: 'new_subscription'
+        user: pendingTx.creatorId,
+        message: `${subscriberUser.username} just subscribed!`,
+        type: 'new_subscription',
       });
+
+      const creator = await User.findById(pendingTx.creatorId);
+      const transactionDate = new Date();
+      const isWithinReferralPeriod =
+        creator.referredBy &&
+        creator.creatorSince &&
+        (transactionDate - creator.creatorSince) < (3 * 30 * 24 * 60 * 60 * 1000); // 3 months
+
+      let creatorShare, platformShare, referrerShare = 0;
+      if (isWithinReferralPeriod) {
+        creatorShare = pendingTx.amount * 0.75;
+        platformShare = pendingTx.amount * 0.20;
+        referrerShare = pendingTx.amount * 0.05;
+      } else {
+        creatorShare = pendingTx.amount * 0.75;
+        platformShare = pendingTx.amount * 0.25;
+      }
+
       await Transaction.create({
         user: user._id,
         creator: pendingTx.creatorId,
         subscriptionBundle: pendingTx.bundleId,
         type: 'subscription',
         amount: pendingTx.amount,
+        creatorShare,
+        platformShare,
+        referrerShare,
+        referrerId: isWithinReferralPeriod ? creator.referredBy : null,
         description: 'Subscription purchase',
       });
-      const creator = await User.findById(pendingTx.creatorId);
-      if (creator) {
-        creator.totalEarnings += pendingTx.amount;
-        await creator.updateSubscriberCount(); // Update creator's subscriberCount
-        await creator.save();
+
+      creator.totalEarnings += creatorShare;
+      await creator.updateSubscriberCount();
+      await creator.save();
+
+      if (referrerShare > 0) {
+        const referrer = await User.findById(creator.referredBy);
+        if (referrer) {
+          referrer.totalEarnings += referrerShare;
+          await referrer.save();
+        }
       }
+
       return res.redirect('/profile?payment=success');
     } else {
       console.error('Payment verification failed:', paymentResponse);
@@ -337,7 +369,6 @@ router.get('/verify-payment', async (req, res) => {
     return res.redirect('/profile?payment=error');
   }
 });
-
 // Verify special payment and update purchasedContent
 // Verify special payment and update purchasedContent
 router.get('/verify-special-payment', async (req, res) => {
@@ -352,8 +383,6 @@ router.get('/verify-special-payment', async (req, res) => {
     }
 
     const paymentResponse = await flutter.verifyPayment(transaction_id);
-    console.log('Payment verification response:', paymentResponse);
-
     if (
       paymentResponse.status === 'success' &&
       paymentResponse.data &&
@@ -368,10 +397,9 @@ router.get('/verify-special-payment', async (req, res) => {
         (tx) => tx.tx_ref === tx_ref && tx.type === 'special'
       );
       if (!pendingTx) {
-        console.error('Pending special transaction not found in user doc');
+        console.error('Pending special transaction not found');
         return res.redirect('/profile?specialPayment=error');
       }
-
       if (pendingTx.amount !== paymentResponse.data.amount) {
         console.error('Amount mismatch:', {
           expected: pendingTx.amount,
@@ -380,7 +408,6 @@ router.get('/verify-special-payment', async (req, res) => {
         return res.redirect('/profile?specialPayment=error');
       }
 
-      // 1) Update user's purchased content
       await User.findByIdAndUpdate(user._id, {
         $push: {
           purchasedContent: {
@@ -393,21 +420,45 @@ router.get('/verify-special-payment', async (req, res) => {
         $pull: { pendingTransactions: { tx_ref: tx_ref } },
       });
 
-      // 2) Create a Transaction doc
+      const creator = await User.findById(pendingTx.creatorId);
+      const transactionDate = new Date();
+      const isWithinReferralPeriod =
+        creator.referredBy &&
+        creator.creatorSince &&
+        (transactionDate - creator.creatorSince) < (3 * 30 * 24 * 60 * 60 * 1000);
+
+      let creatorShare, platformShare, referrerShare = 0;
+      if (isWithinReferralPeriod) {
+        creatorShare = pendingTx.amount * 0.75;
+        platformShare = pendingTx.amount * 0.20;
+        referrerShare = pendingTx.amount * 0.05;
+      } else {
+        creatorShare = pendingTx.amount * 0.75;
+        platformShare = pendingTx.amount * 0.25;
+      }
+
       await Transaction.create({
         user: user._id,
         creator: pendingTx.creatorId,
-        post: pendingTx.bundleId, // references the Post if you want
+        post: pendingTx.bundleId,
         type: 'special',
         amount: pendingTx.amount,
+        creatorShare,
+        platformShare,
+        referrerShare,
+        referrerId: isWithinReferralPeriod ? creator.referredBy : null,
         description: 'Unlocked special content',
       });
 
-      // 3) Update the creator's totalEarnings
-      const creator = await User.findById(pendingTx.creatorId);
-      if (creator) {
-        creator.totalEarnings += pendingTx.amount; // Add the special content unlock price
-        await creator.save();
+      creator.totalEarnings += creatorShare;
+      await creator.save();
+
+      if (referrerShare > 0) {
+        const referrer = await User.findById(creator.referredBy);
+        if (referrer) {
+          referrer.totalEarnings += referrerShare;
+          await referrer.save();
+        }
       }
 
       return res.redirect(`/profile/view/${pendingTx.creatorId}?specialPayment=success`);
@@ -420,7 +471,6 @@ router.get('/verify-special-payment', async (req, res) => {
     return res.redirect('/profile?specialPayment=error');
   }
 });
-
 // for tip amounts
 router.post('/posts/:postId/tip', authCheck, async (req, res) => {
   try {
@@ -490,20 +540,15 @@ router.post('/posts/:postId/tip', authCheck, async (req, res) => {
 router.get('/verify-tip-payment', async (req, res) => {
   try {
     const { transaction_id, status, tx_ref } = req.query;
-    console.log('Verifying tip payment:', { transaction_id, status, tx_ref });
-
     if (status === 'cancelled') {
-      console.log('Payment cancelled by user');
       return res.redirect('/profile?tipPayment=cancelled');
     }
     if (!transaction_id || !tx_ref) {
-      console.log('Missing transaction_id or tx_ref');
+      console.error('Missing transaction_id or tx_ref');
       return res.redirect('/profile?tipPayment=error');
     }
 
     const paymentResponse = await flutter.verifyPayment(transaction_id);
-    console.log('Payment verification response:', paymentResponse);
-
     if (
       paymentResponse.status === 'success' &&
       paymentResponse.data &&
@@ -514,8 +559,6 @@ router.get('/verify-tip-payment', async (req, res) => {
         console.error('No user found with tx_ref:', tx_ref);
         return res.redirect('/profile?tipPayment=error');
       }
-      console.log('User found:', user._id);
-
       const pendingTx = user.pendingTransactions.find(
         (tx) => tx.tx_ref === tx_ref && tx.type === 'tip'
       );
@@ -523,8 +566,6 @@ router.get('/verify-tip-payment', async (req, res) => {
         console.error('No pending tip transaction found for tx_ref:', tx_ref);
         return res.redirect('/profile?tipPayment=error');
       }
-      console.log('Pending transaction details:', pendingTx);
-
       if (Number(pendingTx.amount) !== Number(paymentResponse.data.amount)) {
         console.error('Tip amount mismatch:', {
           expected: pendingTx.amount,
@@ -533,91 +574,94 @@ router.get('/verify-tip-payment', async (req, res) => {
         return res.redirect('/profile?tipPayment=error');
       }
 
-      await User.findByIdAndUpdate(pendingTx.creatorId, {
-        $inc: { totalEarnings: Number(pendingTx.amount) },
-      });
-      console.log('Updated creator earnings for:', pendingTx.creatorId);
+      const creator = await User.findById(pendingTx.creatorId);
+      const transactionDate = new Date();
+      const isWithinReferralPeriod =
+        creator.referredBy &&
+        creator.creatorSince &&
+        (transactionDate - creator.creatorSince) < (3 * 30 * 24 * 60 * 60 * 1000);
+
+      let creatorShare, platformShare, referrerShare = 0;
+      if (isWithinReferralPeriod) {
+        creatorShare = pendingTx.amount * 0.75;
+        platformShare = pendingTx.amount * 0.20;
+        referrerShare = pendingTx.amount * 0.05;
+      } else {
+        creatorShare = pendingTx.amount * 0.75;
+        platformShare = pendingTx.amount * 0.25;
+      }
 
       const tipper = await User.findById(user._id).select('username');
-      const newTransaction = await Transaction.create({
+      await Transaction.create({
         user: user._id,
         creator: pendingTx.creatorId,
         post: pendingTx.postId,
         type: 'tip',
         amount: Number(pendingTx.amount),
+        creatorShare,
+        platformShare,
+        referrerShare,
+        referrerId: isWithinReferralPeriod ? creator.referredBy : null,
         description: pendingTx.message
           ? `Tip payment with message: "${pendingTx.message}"`
           : 'Tip payment',
       });
-      console.log('Transaction created:', newTransaction._id);
 
-      const messageText = pendingTx.message
-        ? `${tipper.username} tipped you ₦${pendingTx.amount} with message: "${pendingTx.message}"`
-        : `${tipper.username} tipped you ₦${pendingTx.amount}`;
+      creator.totalEarnings += creatorShare;
+      await creator.save();
+
+      if (referrerShare > 0) {
+        const referrer = await User.findById(creator.referredBy);
+        if (referrer) {
+          referrer.totalEarnings += referrerShare;
+          await referrer.save();
+        }
+      }
+
       await Notification.create({
         user: pendingTx.creatorId,
-        message: messageText,
+        message: pendingTx.message
+          ? `${tipper.username} tipped you ₦${pendingTx.amount} with message: "${pendingTx.message}"`
+          : `${tipper.username} tipped you ₦${pendingTx.amount}`,
         type: 'tip',
         postId: pendingTx.postId || null,
         creatorId: user._id,
         creatorName: tipper.username,
       });
-      console.log('Notification sent to creator:', pendingTx.creatorId);
 
       if (pendingTx.postId) {
         await Post.findByIdAndUpdate(pendingTx.postId, {
           $inc: { totalTips: Number(pendingTx.amount) },
         });
-        console.log('Updated post tips for:', pendingTx.postId);
       }
 
-      // Send tip message to chat
-      console.log('Checking for tip message:', pendingTx.message);
       if (pendingTx.message) {
         const Chat = require('../models/chat');
         const participants = [user._id.toString(), pendingTx.creatorId.toString()].sort();
-        console.log('Chat participants:', participants);
-
         let chat = await Chat.findOne({ participants });
         if (!chat) {
           chat = new Chat({ participants, messages: [] });
-          console.log('Created new chat with ID:', chat._id);
-        } else {
-          console.log('Found existing chat with ID:', chat._id);
         }
-
-        const chatMessage = {
+        chat.messages.push({
           sender: user._id,
           text: pendingTx.message,
           timestamp: new Date(),
           isTip: true,
           tipAmount: Number(pendingTx.amount),
-          read: false // Added to mark the message as unread initially
-        };
-        chat.messages.push(chatMessage);
-        try {
-          chat.updatedAt = new Date(); // Update timestamp for chat list sorting
-          await chat.save();
-          console.log('Chat message saved successfully:', chatMessage);
-        } catch (err) {
-          console.error('Error saving chat message:', err);
-        }
+          read: false,
+        });
+        chat.updatedAt = new Date();
+        await chat.save();
 
         const io = req.app.get('socketio');
         if (io) {
-          io.to(chat._id.toString()).emit('newMessage', chatMessage);
-          console.log('Emitted newMessage to chat room:', chat._id.toString());
-        } else {
-          console.error('Socket.io instance not found on app');
+          io.to(chat._id.toString()).emit('newMessage', chat.messages[chat.messages.length - 1]);
         }
-      } else {
-        console.log('No tip message provided, skipping chat update');
       }
 
       await User.findByIdAndUpdate(user._id, {
         $pull: { pendingTransactions: { tx_ref } },
       });
-      console.log('Removed pending transaction for user:', user._id);
 
       return res.redirect('/profile?tipPayment=success');
     } else {

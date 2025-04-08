@@ -72,6 +72,7 @@
     <ul class="profile-menu-links">
       <li><a href="/profile">My Profile</a></li>
       <li><a href="/bookmarks">Bookmarks</a></li>
+      <li><a href="/profile/edit">Edit Profile</a></li>
       <% if (currentUser && currentUser.role === 'user') { %>
         <li><a href="/request-creator">Request to be a Creator</a></li>
       <% } %>
@@ -79,6 +80,11 @@
       <li><a href="">Subscriptions</a></li>
       <li><a href="">Help and Support</a></li>
       <li><a href="/purchase">Purchase</a></li>
+      <li><a href="/profile/edit">Edit Profile</a></li>
+      <% if (currentUser && currentUser.role === 'creator') { %>
+        <li><a href="/referrals">Referrals</a></li>
+      <% } %>
+     
       <% if (currentUser) { %>
         <li><a href="/logout">Logout</a></li>
       <% } else { %>

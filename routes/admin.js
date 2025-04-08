@@ -5,30 +5,19 @@ const CreatorRequest = require('../models/CreatorRequest');
 const User = require('../models/users');
 const { generateSignedUrlForCreatorRequest } = require('../utilis/cloudStorage');
 
-// Admin authentication middleware
 const adminCheck = (req, res, next) => {
   if (!req.user || req.user.role !== 'admin') return res.redirect('/');
   next();
 };
 
-
 router.get('/', (req, res) => {
   res.redirect('/admin/creator-requests');
 });
 
-
-// GET: Admin dashboard – list pending requests and approved creators
-// routes/admin.js
 router.get('/creator-requests', adminCheck, async (req, res) => {
   try {
-    // Fetch pending creator requests
     const pending = await CreatorRequest.find({ status: 'pending' }).populate('user', 'username email requestedAt');
-    // Fetch approved creators
     const approved = await User.find({ role: 'creator' }, 'username email');
-
-    console.log('Pending requests:', pending);
-    console.log('Approved creators:', approved);
-
     res.render('admin', { creatorRequests: { pending, approved } });
   } catch (err) {
     console.error('Error fetching admin dashboard data:', err);
@@ -36,7 +25,6 @@ router.get('/creator-requests', adminCheck, async (req, res) => {
   }
 });
 
-// GET: Detailed view for a pending creator request
 router.get('/creator-request/pending/:id', adminCheck, async (req, res) => {
   try {
     const request = await CreatorRequest.findById(req.params.id)
@@ -59,7 +47,6 @@ router.get('/creator-request/pending/:id', adminCheck, async (req, res) => {
   }
 });
 
-// GET: Detailed view for an approved creator (from the User model)
 router.get('/creator-request/approved/:id', adminCheck, async (req, res) => {
   try {
     const creator = await User.findById(req.params.id);
@@ -74,7 +61,6 @@ router.get('/creator-request/approved/:id', adminCheck, async (req, res) => {
   }
 });
 
-// POST: Approve a creator request
 router.post('/approve/:id', adminCheck, async (req, res) => {
   try {
     const requestId = req.params.id;
@@ -83,6 +69,7 @@ router.post('/approve/:id', adminCheck, async (req, res) => {
       const user = await User.findById(requestDoc.user);
       if (user) {
         user.role = 'creator';
+        user.creatorSince = new Date(); // Set creatorSince here
         await user.save();
       }
       requestDoc.status = 'approved';
@@ -100,7 +87,6 @@ router.post('/approve/:id', adminCheck, async (req, res) => {
   }
 });
 
-// POST: Reject a creator request
 router.post('/reject/:id', adminCheck, async (req, res) => {
   try {
     const requestId = req.params.id;

@@ -11,13 +11,15 @@
       <p class="stat-item">Total Special Content Revenue: ₦<%= totalSpecial %></p>
       <p class="stat-item">Total Tips Received: ₦<%= totalTips %></p>
       <p class="stat-item" style="margin-top: 10px;">
-        <strong>Total Revenue (aggregated):</strong> ₦<%= totalSubscription + totalSpecial + totalTips %>
+        <strong>Total Gross Revenue:</strong> ₦<%= totalSubscription + totalSpecial + totalTips %>
       </p>
     </div>
-    
 
     <!-- Real Available Balance -->
     <p><strong>Your Available Balance:</strong> ₦<span id="availableBalance"><%= totalEarnings %></span></p>
+
+    <!-- Referral Link -->
+    <p><a href="/referrals">View Referral Earnings</a></p>
 
     <!-- Saved Banks -->
     <div class="saved-banks-section">
@@ -89,12 +91,10 @@
       <h3>Withdraw</h3>
       <p>Minimum withdrawable balance: ₦1000</p>
 
-      <!-- If user has banks, let them pick one to withdraw to -->
       <% if (user.banks && user.banks.length > 0) { %>
         <label for="withdrawBank">Choose a Bank:</label>
         <select id="withdrawBank">
           <% user.banks.forEach((bank) => { %>
-            <!-- Using the array subdoc _id as the value -->
             <option value="<%= bank._id %>">
               <%= bank.bankName %> (Acct: <%= bank.accountNumber %>)
             </option>
@@ -191,7 +191,6 @@
         document.getElementById('add-bank-msg').innerText = data.message || 'Error';
 
         if (data.message === 'Bank added successfully!') {
-          // Reload to see the new bank in the list
           setTimeout(() => location.reload(), 1500);
         }
       } catch (error) {
