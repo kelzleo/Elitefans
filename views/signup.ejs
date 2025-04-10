@@ -6,10 +6,13 @@
     </div>
 <% } %>
 
-<form action="/signup" method="POST" class="signup-form">
+<form action="/signup<% if (typeof ref !== 'undefined' && ref) { %>?ref=<%= ref %><% } %>" method="POST" class="signup-form">
     <h2>Create Your Account</h2>
     <input type="text" name="username" placeholder="Username" required>
     <input type="email" name="email" placeholder="Email" required>
     <input type="password" name="password" placeholder="Password" required>
+    <% if (typeof ref !== 'undefined' && ref) { %>
+        <input type="hidden" name="ref" value="<%= ref %>">
+    <% } %>
     <button type="submit" class="button-signup">Sign Up</button>
 </form>

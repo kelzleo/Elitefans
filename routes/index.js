@@ -15,9 +15,10 @@ router.post('/signup', async (req, res) => {
     const { username, email, password } = req.body;
 
     try {
+        console.log('Signup Request - URL:', req.url, 'Query:', req.query, 'Body:', req.body);
         const existingUser = await User.findOne({ $or: [{ email }, { username }] });
         if (existingUser) {
-            return res.render('signup', { errorMessage: 'Email or username already exists' });
+            return res.render('signup', { errorMessage: 'Email or username already exists', ref: req.query.ref || req.body.ref || '' });
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -30,15 +31,28 @@ router.post('/signup', async (req, res) => {
             verificationToken,
         });
 
-        // Check for referral parameter
-        if (req.query.ref) {
-            const referrer = await User.findById(req.query.ref);
+        // Check for referral parameter from query or body
+        const ref = req.query.ref || req.body.ref;
+        if (ref) {
+            console.log('Ref parameter detected:', ref);
+            const referrer = await User.findById(ref);
+            console.log('Referrer:', referrer ? { id: referrer._id, role: referrer.role } : 'Not found');
             if (referrer && referrer.role === 'creator') {
                 newUser.referredBy = referrer._id;
+                console.log('Setting referredBy to:', referrer._id);
+            } else {
+                console.log('Referrer invalid or not a creator');
             }
+        } else {
+            console.log('No ref parameter in query or body');
         }
 
         await newUser.save();
+        console.log('User saved:', { id: newUser._id, referredBy: newUser.referredBy });
+
+        // Verify in database
+        const savedUser = await User.findById(newUser._id);
+        console.log('Database check - Saved user referredBy:', savedUser.referredBy);
 
         const verificationLink = `https://onlyaccess.onrender.com/verify/${verificationToken}`;
         await sendEmail(
@@ -51,7 +65,7 @@ router.post('/signup', async (req, res) => {
         res.render('welcome', { errorMessage: 'Check your email to verify your account.' });
     } catch (error) {
         console.error('Error signing up user:', error);
-        res.render('signup', { errorMessage: 'An error occurred while signing up. Please try again.' });
+        res.render('signup', { errorMessage: 'An error occurred while signing up. Please try again.', ref: req.query.ref || req.body.ref || '' });
     }
 });
 
@@ -76,7 +90,7 @@ router.get('/verify/:token', async (req, res) => {
 });
 
 router.get('/signup', (req, res) => {
-    res.render('signup', { errorMessage: '' });
+    res.render('signup', { errorMessage: '', ref: req.query.ref || '' });
 });
 
 router.get('/logout', (req, res, next) => {
