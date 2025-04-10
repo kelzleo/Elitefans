@@ -81,7 +81,10 @@ router.get('/', authCheck, async (req, res) => {
         .populate('comments.user', 'username')
         .sort({ createdAt: -1 });
 
-      for (const post of posts) {
+      // Filter out posts where creator is null (e.g., deleted user)
+      const validPosts = posts.filter(post => post.creator !== null);
+
+      for (const post of validPosts) {
         await processPostUrlForFeed(post, currentUser);
       }
 
@@ -110,12 +113,12 @@ router.get('/', authCheck, async (req, res) => {
       }
 
       console.log('Current User Bookmarks:', currentUser.bookmarks.map(b => b.toString()));
-      console.log('Post IDs:', posts.map(p => p._id.toString()));
+      console.log('Post IDs:', validPosts.map(p => p._id.toString()));
 
       return res.render('home', {
         user: req.user,
         currentUser,
-        posts,
+        posts: validPosts,
         creators: [],
         featuredCreators,
         search: ''

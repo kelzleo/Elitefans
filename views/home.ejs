@@ -89,148 +89,152 @@
   <div class="feed-container">
     <% if (posts && posts.length > 0) { %>
       <% posts.forEach(post => { %>
-        <div class="post-card">
-          <div class="post-header">
-            <img
-              src="<%= post.creator.profilePicture || '/uploads/default-profile-picture.jpg' %>"
-              alt="<%= post.creator.username %> profile"
-              class="creator-profile-pic"
-            />
-            <a href="/profile/view/<%= post.creator._id %>" class="creator-name">
-              <%= post.creator.username %>
-            </a>
-          </div>
-          <div class="post-body">
-            <!-- IMAGE POST -->
-            <% if (post.type === 'image') { %>
-              <% if (post.special && post.locked) { %>
-                <div class="locked-image-container" style="position: relative;">
-                  <img
-                    src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Content"
-                    alt="Locked Image"
-                    class="post-image"
-                  />
-                  <div
-                    class="unlock-overlay"
-                    style="
-                      position: absolute;
-                      top: 0; left: 0; right: 0; bottom: 0;
-                      display: flex;
-                      flex-direction: column;
-                      align-items: center;
-                      justify-content: center;
-                      background: rgba(0,0,0,0.5);
-                      color: white;
-                      font-size: 1.2em;
-                    "
-                  >
-                    <div>Pay to unlock</div>
-                    <button
-                      class="unlock-button"
-                      data-content-id="<%= post._id %>"
-                      data-creator-id="<%= post.creator._id %>"
-                      style="margin-top: 10px; padding: 8px 16px;"
+        <% if (post.creator) { %>
+          <div class="post-card">
+            <div class="post-header">
+              <img
+                src="<%= post.creator.profilePicture || '/uploads/default-profile-picture.jpg' %>"
+                alt="<%= post.creator.username %> profile"
+                class="creator-profile-pic"
+              />
+              <a href="/profile/view/<%= post.creator._id %>" class="creator-name">
+                <%= post.creator.username %>
+              </a>
+            </div>
+            <div class="post-body">
+              <!-- IMAGE POST -->
+              <% if (post.type === 'image') { %>
+                <% if (post.special && post.locked) { %>
+                  <div class="locked-image-container" style="position: relative;">
+                    <img
+                      src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Content"
+                      alt="Locked Image"
+                      class="post-image"
+                    />
+                    <div
+                      class="unlock-overlay"
+                      style="
+                        position: absolute;
+                        top: 0; left: 0; right: 0; bottom: 0;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        background: rgba(0,0,0,0.5);
+                        color: white;
+                        font-size: 1.2em;
+                      "
                     >
-                      Unlock
-                    </button>
+                      <div>Pay to unlock</div>
+                      <button
+                        class="unlock-button"
+                        data-content-id="<%= post._id %>"
+                        data-creator-id="<%= post.creator._id %>"
+                        style="margin-top: 10px; padding: 8px 16px;"
+                      >
+                        Unlock
+                      </button>
+                    </div>
                   </div>
-                </div>
-              <% } else { %>
-                <img
-                  src="<%= post.contentUrl %>"
-                  alt="Post Image"
-                  class="post-image fullscreenable"
-                  data-fullscreen-src="<%= post.contentUrl %>"
-                />
-              <% } %>
-            <% } else if (post.type === 'video') { %>
-              <% if (post.special && post.locked) { %>
-                <div class="locked-video-container" style="position: relative;">
+                <% } else { %>
                   <img
-                    src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Video"
-                    alt="Locked Video"
-                    class="post-image"
+                    src="<%= post.contentUrl %>"
+                    alt="Post Image"
+                    class="post-image fullscreenable"
+                    data-fullscreen-src="<%= post.contentUrl %>"
                   />
-                  <div
-                    class="unlock-overlay"
-                    style="
-                      position: absolute;
-                      top: 0; left: 0; right: 0; bottom: 0;
-                      display: flex;
-                      flex-direction: column;
-                      align-items: center;
-                      justify-content: center;
-                      background: rgba(0,0,0,0.5);
-                      color: white;
-                      font-size: 1.2em;
-                    "
-                  >
-                    <div>Pay to unlock</div>
-                    <button
-                      class="unlock-button"
-                      data-content-id="<%= post._id %>"
-                      data-creator-id="<%= post.creator._id %>"
-                      style="margin-top: 10px; padding: 8px 16px;"
+                <% } %>
+              <% } else if (post.type === 'video') { %>
+                <% if (post.special && post.locked) { %>
+                  <div class="locked-video-container" style="position: relative;">
+                    <img
+                      src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Video"
+                      alt="Locked Video"
+                      class="post-image"
+                    />
+                    <div
+                      class="unlock-overlay"
+                      style="
+                        position: absolute;
+                        top: 0; left: 0; right: 0; bottom: 0;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        background: rgba(0,0,0,0.5);
+                        color: white;
+                        font-size: 1.2em;
+                      "
                     >
-                      Unlock
-                    </button>
+                      <div>Pay to unlock</div>
+                      <button
+                        class="unlock-button"
+                        data-content-id="<%= post._id %>"
+                        data-creator-id="<%= post.creator._id %>"
+                        style="margin-top: 10px; padding: 8px 16px;"
+                      >
+                        Unlock
+                      </button>
+                    </div>
                   </div>
-                </div>
-              <% } else { %>
-                <video controls class="post-video">
-                  <source src="<%= post.contentUrl %>" type="video/mp4">
-                  Your browser does not support the video tag.
-                </video>
+                <% } else { %>
+                  <video controls class="post-video">
+                    <source src="<%= post.contentUrl %>" type="video/mp4">
+                    Your browser does not support the video tag.
+                  </video>
+                <% } %>
+              <% } else if (post.type === 'text') { %>
+                <p class="post-text"><%= post.writeUp %></p>
               <% } %>
-            <% } else if (post.type === 'text') { %>
-              <p class="post-text"><%= post.writeUp %></p>
-            <% } %>
-            <% if (post.writeUp && post.type !== 'text') { %>
-              <p class="post-text" style="margin-top: 10px;"><%= post.writeUp %></p>
-            <% } %>
-          </div>
-          <!-- Post Actions: Like, Comment, Tip, Bookmark -->
-          <div class="post-actions">
-            <!-- Like Button -->
-            <button class="like-button" data-post-id="<%= post._id %>">
-              <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
-              <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
-            </button>
-            <!-- Comment Icon (toggling comment form) -->
-            <button class="comment-icon" data-post-id="<%= post._id %>">
-              <i class="fa-solid fa-comment"></i>
-              <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-            </button>
-            <!-- Tip Button (only if viewer isn't the creator) -->
-            <% if (currentUser._id.toString() !== post.creator._id.toString()) { %>
-              <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= post.creator._id %>">
-                <i class="fa-solid fa-gift"></i>
-                Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+              <% if (post.writeUp && post.type !== 'text') { %>
+                <p class="post-text" style="margin-top: 10px;"><%= post.writeUp %></p>
+              <% } %>
+            </div>
+            <!-- Post Actions: Like, Comment, Tip, Bookmark -->
+            <div class="post-actions">
+              <!-- Like Button -->
+              <button class="like-button" data-post-id="<%= post._id %>">
+                <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
+                <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
               </button>
-            <% } %>
-            <!-- Bookmark Button -->
-            <button class="bookmark-button" data-post-id="<%= post._id %>">
-              <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.some(b => b.toString() === post._id.toString()) ? 'bookmarked' : '' %>"></i>
-            </button>
+              <!-- Comment Icon (toggling comment form) -->
+              <button class="comment-icon" data-post-id="<%= post._id %>">
+                <i class="fa-solid fa-comment"></i>
+                <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+              </button>
+              <!-- Tip Button (only if viewer isn't the creator) -->
+              <% if (currentUser._id.toString() !== post.creator._id.toString()) { %>
+                <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= post.creator._id %>">
+                  <i class="fa-solid fa-gift"></i>
+                  Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+                </button>
+              <% } %>
+              <!-- Bookmark Button -->
+              <button class="bookmark-button" data-post-id="<%= post._id %>">
+                <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.some(b => b.toString() === post._id.toString()) ? 'bookmarked' : '' %>"></i>
+              </button>
+            </div>
+            <!-- Comments Section -->
+            <div class="comments">
+              <% if (post.comments && post.comments.length > 0) { %>
+                <% post.comments.forEach(comment => { %>
+                  <div class="comment">
+                    <strong><%= comment.user.username %>:</strong> <%= comment.text %>
+                  </div>
+                <% }); %>
+              <% } %>
+            </div>
+            <!-- Hidden Inline Comment Form Container -->
+            <div class="comment-form-container" style="display: none;">
+              <form class="comment-form" data-post-id="<%= post._id %>">
+                <input type="text" name="comment" placeholder="Write your comment...">
+                <button type="submit">Comment</button>
+              </form>
+            </div>
           </div>
-          <!-- Comments Section -->
-          <div class="comments">
-            <% if (post.comments && post.comments.length > 0) { %>
-              <% post.comments.forEach(comment => { %>
-                <div class="comment">
-                  <strong><%= comment.user.username %>:</strong> <%= comment.text %>
-                </div>
-              <% }); %>
-            <% } %>
-          </div>
-          <!-- Hidden Inline Comment Form Container -->
-          <div class="comment-form-container" style="display: none;">
-            <form class="comment-form" data-post-id="<%= post._id %>">
-              <input type="text" name="comment" placeholder="Write your comment...">
-              <button type="submit">Comment</button>
-            </form>
-          </div>
-        </div>
+        <% } else { %>
+          <p>Post creator not found.</p>
+        <% } %>
       <% }); %>
     <% } else { %>
       <p>No posts available.</p>
