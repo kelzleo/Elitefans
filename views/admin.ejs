@@ -1,3 +1,4 @@
+<!-- views/admin.ejs -->
 <h1>Admin Dashboard</h1>
 
 <h2>Pending Creator Requests</h2>
@@ -6,7 +7,7 @@
         <% creatorRequests.pending.forEach(request => { %>
             <li style="margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
                 <a href="/admin/creator-request/pending/<%= request._id %>">
-                  <strong>User:</strong> <%= request.user.username %>
+                  <strong>User:</strong> <%= request.user.username %> (<%= request.firstName %> <%= request.lastName %>)
                 </a> (<%= request.user.email %>) – Requested on <%= new Date(request.requestedAt).toLocaleString() %>
             </li>
         <% }) %>

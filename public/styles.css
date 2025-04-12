@@ -2294,3 +2294,13 @@ html, body {
 .tip-amount {
   font-weight: bold;
 }
+.purchased-content-link a {
+  margin-top: 10px;
+  display: inline-block;
+  color: #007bff;
+  font-weight: bold;
+  text-decoration: none;
+}
+.purchased-content-link a:hover {
+  text-decoration: underline;
+}

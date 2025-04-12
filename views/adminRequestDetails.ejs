@@ -1,10 +1,16 @@
+<!-- views/adminRequestDetails.ejs -->
 <h1>Creator Request Details</h1>
 <div style="border: 1px solid #ccc; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
   <p><strong>User:</strong> <%= request.user.username %> (<%= request.user.email %>)</p>
-  <p><strong>BVN:</strong> <%= request.bvn %></p>
-  <p><strong>Full Name:</strong> <%= request.fullName %></p>
-  <p><strong>First Name:</strong> <%= request.firstName %></p>
+  <p><strong>Name:</strong> <%= request.firstName %> <%= request.lastName %></p>
   <p><strong>Requested At:</strong> <%= request.requestedAt.toLocaleString() %></p>
+  <% if (request.bvnVerificationData && request.bvnVerificationData.verifiedAt) { %>
+    <p><strong>BVN Verification:</strong> Verified</p>
+    <p><strong>Verified Name:</strong> <%= request.bvnVerificationData.verifiedFirstName %> <%= request.bvnVerificationData.verifiedLastName %></p>
+    <p><strong>Verified At:</strong> <%= new Date(request.bvnVerificationData.verifiedAt).toLocaleString() %></p>
+  <% } else { %>
+    <p><strong>BVN Verification:</strong> Not verified</p>
+  <% } %>
   <p>
     <strong>Passport Photo:</strong>
     <% if (signedUrl) { %>

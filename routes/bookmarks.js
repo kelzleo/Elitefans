@@ -1,3 +1,4 @@
+// bookmarks.js
 const express = require('express');
 const router = express.Router();
 const User = require('../models/users');
@@ -42,12 +43,38 @@ router.get('/', authCheck, async (req, res) => {
       populate: { path: 'creator', select: 'username profilePicture' }
     });
 
-    const bookmarkedPosts = user.bookmarks || [];
+    const now = new Date();
+    // Get the user's active subscriptions
+    const activeCreatorIds = user.subscriptions
+      .filter(
+        (sub) =>
+          sub.status === 'active' &&
+          sub.subscriptionExpiry &&
+          sub.subscriptionExpiry > now
+      )
+      .map((sub) => sub.creatorId.toString());
 
-    // Reverse the bookmarked posts so newest additions appear first
+    // Filter bookmarked posts to include only those from creators with active subscriptions
+    // or posts that are not special (free content) or purchased
+    let bookmarkedPosts = user.bookmarks || [];
+    bookmarkedPosts = bookmarkedPosts.filter((post) => {
+      const isCreatorSubscribed = activeCreatorIds.includes(
+        post.creator._id.toString()
+      );
+      const isPurchased = user.purchasedContent.some(
+        (p) => p.contentId.toString() === post._id.toString()
+      );
+      // Include post if:
+      // - User has an active subscription to the creator, OR
+      // - Post is not special (free), OR
+      // - Post is special but has been purchased
+      return isCreatorSubscribed || !post.special || isPurchased;
+    });
+
+    // Reverse the filtered bookmarked posts so newest additions appear first
     const reversedBookmarkedPosts = bookmarkedPosts.reverse();
 
-    // Process post URLs for display
+    // Process post URLs for display only for allowed posts
     await processPostUrls(reversedBookmarkedPosts, user);
 
     res.render('bookmarks', {

@@ -36,6 +36,7 @@ const postsRoute = require('./routes/posts');
 const dashboardRoutes = require('./routes/dashboard');
 const bookmarksRoutes = require('./routes/bookmarks');
 const referralsRoutes = require('./routes/referrals');
+const purchasedContentRoutes = require('./routes/purchasedContent');
 
 /**
  * 1) Decode Base64 Google Cloud credentials (if present)
@@ -129,6 +130,7 @@ app.use('/posts', postsRoute);
 app.use('/dashboard', dashboardRoutes);
 app.use('/bookmarks', bookmarksRoutes);
 app.use('/referrals', referralsRoutes);
+app.use('/purchased-content', purchasedContentRoutes);
 
 // Example endpoint for Google Cloud Storage usage
 app.get('/storage-example', async (req, res) => {

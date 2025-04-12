@@ -11,11 +11,11 @@ const CreatorRequestSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
-  fullName: {
+  firstName: {
     type: String,
     required: true,
   },
-  firstName: {
+  lastName: {
     type: String,
     required: true,
   },
@@ -31,6 +31,11 @@ const CreatorRequestSchema = new mongoose.Schema({
   requestedAt: {
     type: Date,
     default: Date.now,
+  },
+  bvnVerificationData: {
+    verifiedFirstName: { type: String },
+    verifiedLastName: { type: String },
+    verifiedAt: { type: Date }
   }
 });
 

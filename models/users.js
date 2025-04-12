@@ -130,17 +130,31 @@ const userSchema = new mongoose.Schema({
   creatorSince: { type: Date, default: null },
 });
 
-// Pre-save middleware to update subscriberCount based on active, non-expired subscriptions
-
-userSchema.pre('save', function (next) {
+// Pre-save middleware to update subscription statuses and clean up bookmarks
+userSchema.pre('save', async function (next) {
   const now = new Date();
   if (this.isModified('subscriptions')) {
-    // Only update the user's own subscription statuses
-    this.subscriptions.forEach(sub => {
-      if (sub.status === 'active' && sub.subscriptionExpiry && sub.subscriptionExpiry < now) {
+    // Update subscription statuses
+    let subscriptionsChanged = false;
+    this.subscriptions.forEach((sub) => {
+      if (
+        sub.status === 'active' &&
+        sub.subscriptionExpiry &&
+        sub.subscriptionExpiry < now
+      ) {
         sub.status = 'expired';
+        subscriptionsChanged = true;
       }
     });
+
+    // If subscriptions changed, clean up bookmarks
+    if (subscriptionsChanged && this.bookmarks.length > 0) {
+      try {
+        await this.removeBookmarksForExpiredSubscriptions();
+      } catch (error) {
+        console.error('Error cleaning bookmarks:', error);
+      }
+    }
   }
   next();
 });
@@ -163,11 +177,11 @@ userSchema.methods.updateSubscriberCount = async function () {
   return subscriberCount;
 };
 
-// Optional: Method to check and update expired subscriptions for this user
+// Method to check and update expired subscriptions for this user
 userSchema.methods.checkExpiredSubscriptions = async function () {
   const now = new Date();
   let changed = false;
-  this.subscriptions.forEach(sub => {
+  this.subscriptions.forEach((sub) => {
     if (sub.status === 'active' && sub.subscriptionExpiry && sub.subscriptionExpiry < now) {
       sub.status = 'expired';
       changed = true;
@@ -175,4 +189,48 @@ userSchema.methods.checkExpiredSubscriptions = async function () {
   });
   if (changed) await this.save();
 };
+
+// Method to remove bookmarks from creators with expired subscriptions
+userSchema.methods.removeBookmarksForExpiredSubscriptions = async function () {
+  const now = new Date();
+  // Get creator IDs with active subscriptions
+  const activeCreatorIds = this.subscriptions
+    .filter(
+      (sub) =>
+        sub.status === 'active' &&
+        sub.subscriptionExpiry &&
+        sub.subscriptionExpiry > now
+    )
+    .map((sub) => sub.creatorId.toString());
+
+  // Filter bookmarks to keep only those from active creators, non-special posts, or purchased posts
+  const updatedBookmarks = await Promise.all(
+    this.bookmarks.map(async (bookmarkId) => {
+      try {
+        const post = await this.model('Post')
+          .findById(bookmarkId)
+          .populate('creator', '_id');
+        if (!post || !post.creator) return false;
+        const isCreatorSubscribed = activeCreatorIds.includes(
+          post.creator._id.toString()
+        );
+        const isPurchased = this.purchasedContent.some(
+          (p) => p.contentId.toString() === bookmarkId.toString()
+        );
+        return (isCreatorSubscribed || !post.special || isPurchased) ? bookmarkId : false;
+      } catch (error) {
+        console.error('Error checking bookmark:', bookmarkId, error);
+        return false;
+      }
+    })
+  );
+
+  // Update bookmarks if there are changes
+  const validBookmarks = updatedBookmarks.filter((id) => id !== false);
+  if (validBookmarks.length !== this.bookmarks.length) {
+    this.bookmarks = validBookmarks;
+    await this.save();
+  }
+};
+
 module.exports = mongoose.model('User', userSchema);

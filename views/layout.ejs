@@ -14,8 +14,8 @@
 
   <!-- Font Awesome 6 (CDN) -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css"
-  integrity="sha512-ns8...someLongHash..."
-  crossorigin="anonymous" referrerpolicy="no-referrer" />
+    integrity="sha512-ns8...someLongHash..."
+    crossorigin="anonymous" referrerpolicy="no-referrer" />
 
   <!-- Your main CSS file -->
   <link rel="stylesheet" href="/styles.css" />
@@ -23,15 +23,13 @@
   <title>APP</title>
 </head>
 <body>
-  <!-- Optional top nav (hidden on mobile via CSS or JavaScript) -->
-  
-
-  <!-- Main container for page content -->
-  <div class="container">
-    <%- body %>
+  <!-- Content wrapper to enforce navbar clearance -->
+  <div class="content-wrapper">
+    <div class="container">
+      <%- body %>
+    </div>
   </div>
 
-  <!-- Bottom nav bar -->
   <!-- Bottom nav bar -->
   <nav class="bottom-nav">
     <a href="/home" class="nav-item">
@@ -43,7 +41,6 @@
     <a href="/chats" class="nav-item">
       <i class="fa-solid fa-comments"></i>
     </a>
-    <!-- Trigger for profile menu -->
     <a href="javascript:void(0)" class="nav-item profile-nav-trigger">
       <i class="fa-solid fa-user"></i>
     </a>
@@ -75,6 +72,7 @@
       <li><a href="/profile/edit">Edit Profile</a></li>
       <% if (currentUser && currentUser.role === 'user') { %>
         <li><a href="/request-creator">Request to be a Creator</a></li>
+        <li><a href="/purchased-content">Purchased Content</a></li>
       <% } %>
       <li><a href="/dashboard">Dashboards</a></li>
       <li><a href="">Subscriptions</a></li>
@@ -83,15 +81,14 @@
       <li><a href="/profile/edit">Edit Profile</a></li>
       <% if (currentUser && currentUser.role === 'creator') { %>
         <li><a href="/referrals">Referrals</a></li>
+
       <% } %>
-     
       <% if (currentUser) { %>
         <li><a href="/logout">Logout</a></li>
       <% } else { %>
         <li><a href="/users/login">Login</a></li>
       <% } %>
     </ul>
-    
   </aside>
 
   <script>
@@ -106,7 +103,6 @@
 
       // 2) Close menu if clicking outside of it
       document.addEventListener('click', (event) => {
-        // If the menu is open AND the click is outside the menu & the trigger...
         if (
           profileMenu.classList.contains('open') &&
           !profileMenu.contains(event.target) && 
