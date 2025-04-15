@@ -1,35 +1,109 @@
-<div class="bookmarks-container" style="padding-bottom: 60px;">
-  <h2>Your Bookmarked Posts</h2>
+<div class="feed-container">
+  <div class="header">
+    <h1>Your Bookmarked Posts</h1>
+  </div>
 
   <% if (posts && posts.length > 0) { %>
-    <div class="posts-list">
-      <% posts.forEach(post => { %>
-        <div class="post-card" id="post-<%= post._id %>">
-          <div class="post-content">
+    <% posts.forEach(post => { %>
+      <% if (post.creator) { %>
+        <div class="post-card">
+          <div class="post-header">
+            <img
+              src="<%= post.creator.profilePicture || '/uploads/default-profile-picture.jpg' %>"
+              alt="<%= post.creator.username %> profile"
+              class="creator-profile-pic"
+            />
+            <a href="/profile/view/<%= post.creator._id %>" class="creator-name">
+              <%= post.creator.username %>
+            </a>
+          </div>
+          <div class="post-body">
             <% if (post.type === 'image') { %>
-              <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
+              <% if (post.special && post.locked) { %>
+                <div class="locked-image-container" style="position: relative;">
+                  <img
+                    src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Content"
+                    alt="Locked Image"
+                    class="post-image"
+                  />
+                  <div
+                    class="unlock-overlay"
+                    style="
+                      position: absolute;
+                      top: 0; left: 0; right: 0; bottom: 0;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      background: rgba(0,0,0,0.5);
+                      color: white;
+                      font-size: 1.2em;
+                    "
+                  >
+                    <div>Pay to unlock</div>
+                    <button
+                      class="unlock-button"
+                      data-content-id="<%= post._id %>"
+                      data-creator-id="<%= post.creator._id %>"
+                      style="margin-top: 10px; padding: 8px 16px;"
+                    >
+                      Unlock
+                    </button>
+                  </div>
+                </div>
+              <% } else { %>
+                <img
+                  src="<%= post.contentUrl %>"
+                  alt="Post Image"
+                  class="post-image fullscreenable"
+                  data-fullscreen-src="<%= post.contentUrl %>"
+                />
+              <% } %>
             <% } else if (post.type === 'video') { %>
-              <video controls class="post-video">
-                <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
-                Your browser does not support the video tag.
-              </video>
+              <% if (post.special && post.locked) { %>
+                <div class="locked-video-container" style="position: relative;">
+                  <img
+                    src="https://placehold.co/300x200/ff69b4/ffffff?text=Locked+Video"
+                    alt="Locked Video"
+                    class="post-image"
+                  />
+                  <div
+                    class="unlock-overlay"
+                    style="
+                      position: absolute;
+                      top: 0; left: 0; right: 0; bottom: 0;
+                      display: flex;
+                      flex-direction: column;
+                      align-items: center;
+                      justify-content: center;
+                      background: rgba(0,0,0,0.5);
+                      color: white;
+                      font-size: 1.2em;
+                    "
+                  >
+                    <div>Pay to unlock</div>
+                    <button
+                      class="unlock-button"
+                      data-content-id="<%= post._id %>"
+                      data-creator-id="<%= post.creator._id %>"
+                      style="margin-top: 10px; padding: 8px 16px;"
+                    >
+                      Unlock
+                    </button>
+                  </div>
+                </div>
+              <% } else { %>
+                <video controls class="post-video">
+                  <source src="<%= post.contentUrl %>" type="video/mp4">
+                  Your browser does not support the video tag.
+                </video>
+              <% } %>
             <% } else if (post.type === 'text') { %>
               <p class="post-text"><%= post.writeUp %></p>
             <% } %>
             <% if (post.writeUp && post.type !== 'text') { %>
-              <p class="post-writeUp"><%= post.writeUp %></p>
+              <p class="post-text" style="margin-top: 10px;"><%= post.writeUp %></p>
             <% } %>
-          </div>
-          <% if (post.special && post.contentUrl === '/uploads/locked-placeholder.png') { %>
-            <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
-            <div class="unlock-overlay">
-              <i class="fa fa-lock"></i>
-              <div>Unlock for ₦<%= post.unlockPrice %></div>
-              <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= post.creator._id %>">Unlock Post</button>
-            </div>
-          <% } %>
-          <div class="post-meta">
-            <p>Posted by <a href="/profile/view/<%= post.creator._id %>">@<%= post.creator.username %></a></p>
           </div>
           <div class="post-actions">
             <button class="like-button" data-post-id="<%= post._id %>">
@@ -40,53 +114,52 @@
               <i class="fa-solid fa-comment"></i>
               <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
             </button>
-            <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= post.creator._id %>">
-              <i class="fa-solid fa-gift"></i>
-              Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
-            </button>
+            <% if (currentUser._id.toString() !== post.creator._id.toString()) { %>
+              <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= post.creator._id %>">
+                <i class="fa-solid fa-gift"></i>
+                Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+              </button>
+            <% } %>
             <button class="bookmark-button" data-post-id="<%= post._id %>">
-              <i class="fa-solid fa-bookmark bookmarked"></i>
+              <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.some(b => b.toString() === post._id.toString()) ? 'bookmarked' : '' %>"></i>
             </button>
           </div>
           <div class="comments">
             <% if (post.comments && post.comments.length > 0) { %>
-              <% post.comments.slice(0, 2).forEach(comment => { %>
+              <% post.comments.forEach(comment => { %>
                 <div class="comment">
                   <strong><%= comment.user.username %>:</strong> <%= comment.text %>
                 </div>
               <% }); %>
-              <% if (post.comments.length > 2) { %>
-                <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
-              <% } %>
             <% } %>
           </div>
-          <div class="comment-form-container hidden">
+          <div class="comment-form-container" style="display: none;">
             <form class="comment-form" data-post-id="<%= post._id %>">
-              <input type="text" name="comment" placeholder="Write a comment...">
-              <button type="submit">Post</button>
+              <input type="text" name="comment" placeholder="Write your comment...">
+              <button type="submit">Comment</button>
             </form>
           </div>
         </div>
-      <% }); %>
-    </div>
+      <% } else { %>
+        <p>Post creator not found.</p>
+      <% } %>
+    <% }); %>
   <% } else { %>
-    <p class="no-posts-message">You haven't bookmarked any posts yet.</p>
+    <p>No bookmarked posts available.</p>
   <% } %>
-</div>
 
-<!-- Fullscreen Overlay -->
-<div class="fullscreen-overlay" id="fullscreenOverlay">
-  <img src="" alt="Fullscreen Image" id="fullscreenImage">
-  <button class="close-fullscreen" id="closeFullscreen">×</button>
+  <!-- Fullscreen Overlay -->
+  <div class="fullscreen-overlay">
+    <img src="" alt="Fullscreen Image">
+    <button class="close-fullscreen">×</button>
+  </div>
 </div>
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    // --- Unlock Special Content ---
+    // Unlock Button Functionality
     document.querySelectorAll('.unlock-button').forEach(button => {
-      button.addEventListener('click', async function(e) {
-        e.preventDefault();
-        e.stopPropagation();
+      button.addEventListener('click', async function() {
         const contentId = this.dataset.contentId;
         const creatorId = this.dataset.creatorId;
         const originalText = this.textContent;
@@ -103,20 +176,20 @@
             this.textContent = 'Redirecting...';
             window.location.href = result.data.paymentLink;
           } else {
-            alert(result.message || 'Failed to initialize payment.');
+            alert(result.message || 'Failed to initialize payment');
             this.textContent = originalText;
             this.disabled = false;
           }
         } catch (error) {
           console.error('Unlock Error:', error);
-          alert('Error unlocking.');
+          alert('An error occurred while processing your request');
           this.textContent = originalText;
           this.disabled = false;
         }
       });
     });
 
-    // --- Like Button ---
+    // Like Button Functionality
     document.querySelectorAll('.like-button').forEach(button => {
       button.addEventListener('click', async function() {
         const postId = this.dataset.postId;
@@ -127,7 +200,7 @@
           const data = await res.json();
           if (res.ok) {
             likeCountSpan.textContent = data.likes;
-            likeIcon.classList.toggle('liked', data.liked);
+            likeIcon.classList.toggle('liked', data.userLiked);
           } else {
             alert(data.message || `Could not like post (Status: ${res.status})`);
           }
@@ -138,23 +211,29 @@
       });
     });
 
-    // --- Comment Icon Toggle ---
+    // Comment Icon Functionality: toggle the inline comment form
     document.querySelectorAll('.comment-icon').forEach(button => {
       button.addEventListener('click', function() {
+        const postId = this.dataset.postId;
         const postCard = this.closest('.post-card');
-        if (!postCard) return;
+        if (!postCard) {
+          console.error("Could not find closest .post-card for post:", postId);
+          return;
+        }
         const commentContainer = postCard.querySelector('.comment-form-container');
-        if (!commentContainer) return;
-        const isHidden = commentContainer.classList.contains('hidden');
-        commentContainer.classList.toggle('hidden');
-        if (isHidden) {
+        if (!commentContainer) {
+          console.error("No comment-form-container found in post-card for post:", postId);
+          return;
+        }
+        commentContainer.style.display = commentContainer.style.display === 'block' ? 'none' : 'block';
+        if (commentContainer.style.display === 'block') {
           const input = commentContainer.querySelector('input[name="comment"]');
           if (input) input.focus();
         }
       });
     });
 
-    // --- Comment Form Submit ---
+    // Comment Form Functionality
     document.querySelectorAll('.comment-form').forEach(form => {
       form.addEventListener('submit', async function(e) {
         e.preventDefault();
@@ -174,22 +253,16 @@
           });
           if (res.ok) {
             const data = await res.json();
-            const postCard = this.closest('.post-card');
-            const commentsDiv = postCard.querySelector('.comments');
+            const commentsDiv = this.closest('.post-card').querySelector('.comments');
             const newCommentDiv = document.createElement('div');
             newCommentDiv.classList.add('comment');
             const username = data.comment && data.comment.user ? data.comment.user.username : 'You';
             newCommentDiv.innerHTML = `<strong>${username}:</strong> ${data.comment.text}`;
-            const viewAllLink = commentsDiv.querySelector('.view-all-comments');
-            if (viewAllLink) {
-              commentsDiv.insertBefore(newCommentDiv, viewAllLink);
-            } else {
-              commentsDiv.appendChild(newCommentDiv);
-            }
-            const commentCountSpan = postCard.querySelector('.comment-count');
+            commentsDiv.appendChild(newCommentDiv);
+            const commentCountSpan = this.closest('.post-card').querySelector('.comment-count');
             if (commentCountSpan && data.commentCount !== undefined) commentCountSpan.textContent = data.commentCount;
             commentInput.value = '';
-            this.closest('.comment-form-container').classList.add('hidden');
+            this.closest('.comment-form-container').style.display = 'none';
           } else {
             const data = await res.json();
             alert(data.message || `Failed to post comment (Status: ${res.status})`);
@@ -204,7 +277,7 @@
       });
     });
 
-    // --- Tip Button ---
+    // Tip Button Functionality
     document.querySelectorAll('.tip-button').forEach(button => {
       button.addEventListener('click', async function() {
         const postId = this.dataset.postId;
@@ -230,7 +303,7 @@
             this.innerHTML = 'Redirecting...';
             window.location.href = result.data.paymentLink;
           } else {
-            alert(result.message || `Failed to initialize tip payment (Status: ${response.status})`);
+            alert(result.message || 'Failed to initialize tip payment');
             this.innerHTML = originalHtml;
             this.disabled = false;
           }
@@ -243,7 +316,7 @@
       });
     });
 
-    // --- Bookmark Button ---
+    // Bookmark Button Functionality
     document.querySelectorAll('.bookmark-button').forEach(button => {
       button.addEventListener('click', async function() {
         const postId = this.dataset.postId;
@@ -254,7 +327,6 @@
           if (res.ok) {
             bookmarkIcon.classList.toggle('bookmarked', data.isBookmarked);
             if (!data.isBookmarked) {
-              // Remove the post from the DOM if unbookmarked
               const postCard = this.closest('.post-card');
               if (postCard) postCard.remove();
             }
@@ -268,28 +340,47 @@
       });
     });
 
-    // --- Fullscreen Image Handling ---
-    const fullscreenOverlay = document.getElementById('fullscreenOverlay');
-    const fullscreenImage = document.getElementById('fullscreenImage');
-    const closeFullscreen = document.getElementById('closeFullscreen');
+    // Sync bookmark states on page load
+    document.querySelectorAll('.bookmark-button').forEach(async button => {
+      const postId = button.dataset.postId;
+      const bookmarkIcon = button.querySelector('i');
+      try {
+        const res = await fetch(`/profile/posts/${postId}/bookmark-status`, { method: 'GET' });
+        const data = await res.json();
+        if (res.ok) {
+          bookmarkIcon.classList.toggle('bookmarked', data.isBookmarked);
+        }
+      } catch (error) {
+        console.error('Error syncing bookmark:', error);
+      }
+    });
 
-    document.querySelectorAll('.post-image.fullscreenable').forEach(image => {
-      image.addEventListener('click', () => {
-        const src = image.dataset.fullscreenSrc;
-        fullscreenImage.src = src;
+    // Full-screen image functionality
+    const fullscreenOverlay = document.querySelector('.fullscreen-overlay');
+    const fullscreenImg = fullscreenOverlay.querySelector('img');
+    const closeButton = fullscreenOverlay.querySelector('.close-fullscreen');
+
+    document.querySelectorAll('.fullscreenable').forEach(img => {
+      img.addEventListener('click', function() {
+        const src = this.dataset.fullscreenSrc;
+        fullscreenImg.src = src;
         fullscreenOverlay.classList.add('active');
       });
     });
 
-    closeFullscreen.addEventListener('click', () => {
-      fullscreenOverlay.classList.remove('active');
-      fullscreenImage.src = '';
-    });
-
-    fullscreenOverlay.addEventListener('click', (e) => {
+    fullscreenOverlay.addEventListener('click', function(e) {
       if (e.target === fullscreenOverlay) {
         fullscreenOverlay.classList.remove('active');
-        fullscreenImage.src = '';
+      }
+    });
+
+    closeButton.addEventListener('click', function() {
+      fullscreenOverlay.classList.remove('active');
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && fullscreenOverlay.classList.contains('active')) {
+        fullscreenOverlay.classList.remove('active');
       }
     });
   });

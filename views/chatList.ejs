@@ -1,38 +1,103 @@
+<!-- views/chatList.ejs -->
 <div class="chat-list-container">
-  <h2>Your Chats</h2>
+  <div class="chat-list-header">
+    <h2>Chat</h2>
+    <div class="chat-list-controls">
+      <!-- Dropdown Filter -->
+      <select id="chatFilter" onchange="filterChats(this.value)">
+        <option value="all">All Chats</option>
+        <option value="unread">Unread</option>
+        <option value="a-z">A-Z</option>
+        <option value="highest-tips">Highest Tips</option>
+        <option value="online">Online</option>
+      </select>
+      <!-- Search Bar -->
+      <div class="search-container">
+        <input type="text" id="searchInput" placeholder="Search users" onkeyup="searchChats()">
+      </div>
+    </div>
+  </div>
+
   <% if (chats.length > 0) { %>
     <% chats.forEach(function(chat) { 
-         // For a one-on-one conversation, find the other participant:
          let otherParticipant = chat.participants.find(p => p._id.toString() !== currentUser._id.toString());
-         // Get a preview from the last message, if available:
-         let lastMessage = (chat.messages && chat.messages.length > 0) ? chat.messages[chat.messages.length - 1] : null;
-         let previewText = lastMessage ? lastMessage.text : 'No messages yet.';
-         let isTip = lastMessage && lastMessage.isTip;
-         let tipAmount = isTip ? lastMessage.tipAmount : null;
-         let hasUnread = chat.hasUnread;
+         let hasUnread = chat.hasUnread; // Computed in chatlist.js
+
+         // Calculate "Last seen" time for the participant
+         let lastSeenDisplay = 'Unknown';
+         if (otherParticipant) {
+           if (otherParticipant.isOnline) {
+             lastSeenDisplay = 'Available Now';
+           } else if (otherParticipant.lastSeen) {
+             let timeDiff = Math.floor((Date.now() - new Date(otherParticipant.lastSeen)) / (1000 * 60)); // Time difference in minutes
+             if (timeDiff < 1) {
+               lastSeenDisplay = 'Last seen less than a minute ago';
+             } else if (timeDiff < 60) {
+               lastSeenDisplay = `Last seen ${timeDiff} min${timeDiff === 1 ? '' : 's'} ago`;
+             } else if (timeDiff < 1440) { // Less than 24 hours (1440 minutes)
+               let hours = Math.floor(timeDiff / 60);
+               lastSeenDisplay = `Last seen ${hours} hour${hours === 1 ? '' : 's'} ago`;
+             } else { // 24 hours or more
+               let days = Math.floor(timeDiff / (60 * 24)); // Convert minutes to days
+               lastSeenDisplay = `Last seen ${days} day${days === 1 ? '' : 's'} ago`;
+             }
+           } else {
+             lastSeenDisplay = 'Not available';
+           }
+         }
     %>
-      <div class="chat-item <%= hasUnread ? 'unread' : '' %>">
-        <!-- Link to the individual chat using the chat's ID -->
+      <div class="chat-item <%= hasUnread ? 'unread' : '' %>" 
+           data-username="<%= otherParticipant ? otherParticipant.username : 'Group Chat' %>" 
+           data-tip="<%= chat.tipAmount || 0 %>" 
+           data-online="<%= otherParticipant && otherParticipant.isOnline ? 'true' : 'false' %>"
+           data-chat-id="<%= chat._id %>">
         <a href="/chat/<%= chat._id %>">
-          <h3>
-            <% if (otherParticipant) { %>
-              <% if (otherParticipant.profileName) { %>
-                <%= otherParticipant.profileName %> - <%= otherParticipant.username %>
-              <% } else { %>
-                <%= otherParticipant.username %>
-              <% } %>
-            <% } else { %>
-              Group Chat
+          <div class="chat-item-content">
+            <!-- Profile Picture -->
+            <img src="<%= otherParticipant && otherParticipant.profilePicture ? otherParticipant.profilePicture : '/images/default-profile.png' %>" 
+                 alt="Profile Picture" 
+                 class="chat-profile-pic">
+            <div class="chat-details">
+              <div class="chat-item-header">
+                <h3>
+                  <% if (otherParticipant) { %>
+                    <%= otherParticipant.username %>
+                  <% } else { %>
+                    Group Chat
+                  <% } %>
+                </h3>
+                <span class="chat-timestamp"><%= lastSeenDisplay %></span>
+              </div>
+              <div class="chat-preview-wrapper">
+                <% if (chat.mediaType && !chat.previewText) { %>
+                  <p class="chat-preview <%= chat.isTip ? 'tip-preview' : '' %>">
+                    <% if (chat.mediaType === 'image') { %>
+                      sent a photo
+                    <% } else if (chat.mediaType === 'video') { %>
+                      sent a video
+                    <% } %>
+                    <% if (chat.isTip) { %>
+                      <span class="tip-indicator">
+                        <i class="fa fa-gift"></i> ₦<%= chat.tipAmount %>
+                      </span>
+                    <% } %>
+                  </p>
+                <% } else { %>
+                  <p class="chat-preview <%= chat.isTip ? 'tip-preview' : '' %>">
+                    <%= chat.previewText %>
+                    <% if (chat.isTip) { %>
+                      <span class="tip-indicator">
+                        <i class="fa fa-gift"></i> ₦<%= chat.tipAmount %>
+                      </span>
+                    <% } %>
+                  </p>
+                <% } %>
+              </div>
+            </div>
+            <% if (hasUnread) { %>
+              <span class="unread-dot"></span>
             <% } %>
-          </h3>
-          <p class="chat-preview <%= isTip ? 'tip-preview' : '' %>">
-            <%= previewText %>
-            <% if (isTip) { %>
-              <span class="tip-indicator">
-                <i class="fa fa-gift"></i> ₦<%= tipAmount %>
-              </span>
-            <% } %>
-          </p>
+          </div>
         </a>
       </div>
     <% }); %>
@@ -40,3 +105,65 @@
     <p>You have no conversations yet.</p>
   <% } %>
 </div>
+
+<!-- Client-side JavaScript for Filtering, Searching, and Heartbeat -->
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const socket = io();
+
+  socket.on('connect', () => {
+    console.log('Connected to Socket.io server for chat list');
+
+    // Send heartbeat every 15 seconds
+    setInterval(() => {
+      socket.emit('heartbeat');
+    }, 15000); // HEARTBEAT_INTERVAL
+  });
+
+  socket.on('connect_error', (error) => {
+    console.error('Socket.io connection error:', error);
+    alert('Failed to connect to the chat server. Please try refreshing the page.');
+  });
+
+  function filterChats(filter) {
+    const chatItems = document.querySelectorAll('.chat-item');
+    chatItems.forEach(item => {
+      const username = item.getAttribute('data-username').toLowerCase();
+      const tipAmount = parseFloat(item.getAttribute('data-tip'));
+      const isOnline = item.getAttribute('data-online') === 'true';
+      const isUnread = item.classList.contains('unread');
+
+      let shouldShow = true;
+      if (filter === 'unread' && !isUnread) shouldShow = false;
+      if (filter === 'online' && !isOnline) shouldShow = false;
+      if (filter === 'highest-tips' && tipAmount === 0) shouldShow = false;
+
+      item.style.display = shouldShow ? 'block' : 'none';
+    });
+
+    if (filter === 'a-z' || filter === 'highest-tips') {
+      const sortedItems = Array.from(chatItems).sort((a, b) => {
+        if (filter === 'a-z') {
+          const nameA = a.getAttribute('data-username').toLowerCase();
+          const nameB = b.getAttribute('data-username').toLowerCase();
+          return nameA.localeCompare(nameB);
+        } else if (filter === 'highest-tips') {
+          const tipA = parseFloat(a.getAttribute('data-tip'));
+          const tipB = parseFloat(b.getAttribute('data-tip'));
+          return tipB - tipA;
+        }
+      });
+      const container = document.querySelector('.chat-list-container');
+      sortedItems.forEach(item => container.appendChild(item));
+    }
+  }
+
+  function searchChats() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const chatItems = document.querySelectorAll('.chat-item');
+    chatItems.forEach(item => {
+      const username = item.getAttribute('data-username').toLowerCase();
+      item.style.display = username.includes(searchTerm) ? 'block' : 'none';
+    });
+  }
+</script>

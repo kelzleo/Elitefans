@@ -1,266 +1,287 @@
-<div class="profile-container">
-    <div class="profile-header">
-      <div class="header">
-        <h1>Your Purchased Content</h1>
-        <a href="/profile">Back to Profile</a>
-      </div>
-    </div>
+<!-- views/purchased-content.ejs -->
 
-    <!-- Posts Tab (mirrors profile.ejs posts tab) -->
-    <div class="tab-content active" id="posts-tab">
-      <% if (posts && posts.length > 0) { %>
-        <div class="posts-list">
-          <% posts.forEach(post => { %>
-            <div class="post-card" id="post-<%= post._id %>">
-              <div class="post-content">
-                <% if (post.type === 'image') { %>
-                  <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
-                <% } else if (post.type === 'video') { %>
-                  <video controls class="post-video">
-                    <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
-                    Your browser does not support the video tag.
-                  </video>
-                <% } else if (post.type === 'text') { %>
-                  <p class="post-text"><%= post.writeUp %></p>
-                <% } %>
-                <% if (post.writeUp && post.type !== 'text') { %>
-                  <p class="post-writeUp"><%= post.writeUp %></p>
-                <% } %>
-              </div>
-              <p class="special-indicator">Purchased from @<%= post.creator.username %></p>
-              <div class="post-actions">
-                <button class="like-button" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
-                  <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
-                </button>
-                <button class="comment-icon" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-comment"></i>
-                  <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-                </button>
-                <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= post.creator._id %>">
-                  <i class="fa-solid fa-gift"></i>
-                  Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
-                </button>
-                <button class="bookmark-button" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
-                </button>
-              </div>
-              <div class="comments">
-                <% if (post.comments && post.comments.length > 0) { %>
-                  <% post.comments.slice(0, 2).forEach(comment => { %>
-                    <div class="comment">
-                      <strong><%= comment.user.username %>:</strong> <%= comment.text %>
-                    </div>
-                  <% }); %>
-                  <% if (post.comments.length > 2) { %>
-                    <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
-                  <% } %>
-                <% } %>
-              </div>
-              <div class="comment-form-container hidden">
-                <form class="comment-form" data-post-id="<%= post._id %>">
-                  <input type="text" name="comment" placeholder="Write a comment...">
-                  <button type="submit">Post</button>
-                </form>
-              </div>
-            </div>
-          <% }); %>
-        </div>
-      <% } else { %>
-        <p class="no-posts-message">You haven't purchased any special content yet.</p>
-      <% } %>
-    </div>
 
-    <!-- Fullscreen Overlay -->
-    <div class="fullscreen-overlay" id="fullscreenOverlay">
-      <img src="" alt="Fullscreen Image" id="fullscreenImage">
-      <button class="close-fullscreen" id="closeFullscreen">×</button>
-    </div>
-
-    <!-- Tip Modal -->
-    <div class="modal hidden" id="tipModal">
-      <div class="modal-content">
-        <span class="close-modal">&times;</span>
-        <h2>Tip Creator</h2>
-        <form id="tipForm">
-          <input type="hidden" name="postId" id="tipPostId">
-          <input type="hidden" name="creatorId" id="tipCreatorId">
-          <label for="tipAmount">Tip Amount (NGN):</label>
-          <input type="number" name="tipAmount" id="tipAmount" min="1" required>
-          <button type="submit">Send Tip</button>
-        </form>
-      </div>
-    </div>
+<div class="feed-container">
+  <div class="header">
+    <h1>Your Purchased Content</h1>
+    <a href="/profile">Back to Profile</a>
   </div>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', function() {
-      // Like Button
-      document.querySelectorAll('.like-button').forEach(button => {
-        button.addEventListener('click', async function() {
-          const postId = this.dataset.postId;
-          const likeIcon = this.querySelector('i');
-          const likeCountSpan = this.querySelector('.like-count');
-          try {
-            const res = await fetch('/profile/posts/' + postId + '/like', { method: 'POST' });
-            const data = await res.json();
-            if (res.ok) {
-              likeCountSpan.textContent = data.likes;
-              likeIcon.classList.toggle('liked', data.liked);
-            } else {
-              alert(data.message || `Could not like post (Status: ${res.status})`);
-            }
-          } catch (error) {
-            console.error('Like Error:', error);
-            alert('Error liking post.');
+  <% if (posts && posts.length > 0) { %>
+    <% posts.forEach(post => { %>
+      <% if (post.creator) { %>
+        <div class="post-card">
+          <div class="post-header">
+            <img
+              src="<%= post.creator.profilePicture || '/uploads/default-profile-picture.jpg' %>"
+              alt="<%= post.creator.username %> profile"
+              class="creator-profile-pic"
+            />
+            <a href="/profile/view/<%= post.creator._id %>" class="creator-name">
+              <%= post.creator.username %>
+            </a>
+          </div>
+          <div class="post-body">
+            <% if (post.type === 'image') { %>
+              <img
+                src="<%= post.contentUrl %>"
+                alt="Post Image"
+                class="post-image fullscreenable"
+                data-fullscreen-src="<%= post.contentUrl %>"
+              />
+            <% } else if (post.type === 'video') { %>
+              <video controls class="post-video">
+                <source src="<%= post.contentUrl %>" type="video/mp4">
+                Your browser does not support the video tag.
+              </video>
+            <% } else if (post.type === 'text') { %>
+              <p class="post-text"><%= post.writeUp %></p>
+            <% } %>
+            <% if (post.writeUp && post.type !== 'text') { %>
+              <p class="post-text" style="margin-top: 10px;"><%= post.writeUp %></p>
+            <% } %>
+          </div>
+          <div class="post-actions">
+            <button class="like-button" data-post-id="<%= post._id %>">
+              <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
+              <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
+            </button>
+            <button class="comment-icon" data-post-id="<%= post._id %>">
+              <i class="fa-solid fa-comment"></i>
+              <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+            </button>
+            <% if (currentUser._id.toString() !== post.creator._id.toString()) { %>
+              <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= post.creator._id %>">
+                <i class="fa-solid fa-gift"></i>
+                Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+              </button>
+            <% } %>
+            <button class="bookmark-button" data-post-id="<%= post._id %>">
+              <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.some(b => b.toString() === post._id.toString()) ? 'bookmarked' : '' %>"></i>
+            </button>
+          </div>
+          <div class="comments">
+            <% if (post.comments && post.comments.length > 0) { %>
+              <% post.comments.forEach(comment => { %>
+                <div class="comment">
+                  <strong><%= comment.user.username %>:</strong> <%= comment.text %>
+                </div>
+              <% }); %>
+            <% } %>
+          </div>
+          <div class="comment-form-container" style="display: none;">
+            <form class="comment-form" data-post-id="<%= post._id %>">
+              <input type="text" name="comment" placeholder="Write your comment...">
+              <button type="submit">Comment</button>
+            </form>
+          </div>
+        </div>
+      <% } else { %>
+        <p>Post creator not found.</p>
+      <% } %>
+    <% }); %>
+  <% } else { %>
+    <p>No purchased content available.</p>
+  <% } %>
+
+  <!-- Fullscreen Overlay -->
+  <div class="fullscreen-overlay">
+    <img src="" alt="Fullscreen Image">
+    <button class="close-fullscreen">×</button>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Like Button Functionality
+    document.querySelectorAll('.like-button').forEach(button => {
+      button.addEventListener('click', async function() {
+        const postId = this.dataset.postId;
+        const likeIcon = this.querySelector('i');
+        const likeCountSpan = this.querySelector('.like-count');
+        try {
+          const res = await fetch('/profile/posts/' + postId + '/like', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            likeCountSpan.textContent = data.likes;
+            likeIcon.classList.toggle('liked', data.userLiked);
+          } else {
+            alert(data.message || `Could not like post (Status: ${res.status})`);
           }
-        });
-      });
-
-      // Comment Icon Toggle
-      document.querySelectorAll('.comment-icon').forEach(button => {
-        button.addEventListener('click', function() {
-          const parentElement = this.closest('.post-card');
-          if (!parentElement) return;
-          const commentContainer = parentElement.querySelector('.comment-form-container');
-          if (!commentContainer) return;
-          const isHidden = commentContainer.classList.contains('hidden');
-          commentContainer.classList.toggle('hidden');
-          if (isHidden) {
-            const input = commentContainer.querySelector('input[name="comment"]');
-            if (input) input.focus();
-          }
-        });
-      });
-
-      // Comment Form Submit
-      document.querySelectorAll('.comment-form').forEach(form => {
-        form.addEventListener('submit', async function(e) {
-          e.preventDefault();
-          const postId = this.dataset.postId;
-          const commentInput = this.querySelector('input[name="comment"]');
-          const commentText = commentInput.value.trim();
-          const submitButton = this.querySelector('button[type="submit"]');
-          if (!commentText) return;
-          const originalButtonText = submitButton.textContent;
-          submitButton.textContent = 'Posting...'; submitButton.disabled = true;
-          try {
-            const res = await fetch('/profile/posts/' + postId + '/comment', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ text: commentText })
-            });
-            if (res.ok) {
-              const data = await res.json();
-              const parentElement = this.closest('.post-card');
-              const commentsDiv = parentElement.querySelector('.comments');
-              const newCommentDiv = document.createElement('div');
-              newCommentDiv.classList.add('comment');
-              const username = data.comment && data.comment.user ? data.comment.user.username : 'You';
-              newCommentDiv.innerHTML = `<strong>${username}:</strong> ${data.comment.text}`;
-              const viewAllLink = commentsDiv.querySelector('.view-all-comments');
-              if (viewAllLink) {
-                commentsDiv.insertBefore(newCommentDiv, viewAllLink);
-              } else {
-                commentsDiv.appendChild(newCommentDiv);
-              }
-              const commentCountSpan = parentElement.querySelector('.comment-count');
-              if (commentCountSpan && data.commentCount !== undefined) commentCountSpan.textContent = data.commentCount;
-              commentInput.value = '';
-              this.closest('.comment-form-container').classList.add('hidden');
-            } else {
-              const data = await res.json();
-              alert(data.message || `Failed to post comment (Status: ${res.status})`);
-            }
-          } catch (error) {
-            console.error('Comment Error:', error);
-            alert('Error posting comment.');
-          } finally {
-            submitButton.textContent = originalButtonText;
-            submitButton.disabled = false;
-          }
-        });
-      });
-
-      // Tip Button
-      document.querySelectorAll('.tip-button').forEach(button => {
-        button.addEventListener('click', async function() {
-          const postId = this.dataset.postId;
-          const creatorId = this.dataset.creatorId;
-          let tipAmountNum = NaN;
-          while(isNaN(tipAmountNum) || tipAmountNum <= 0) {
-            const tipAmountStr = prompt("Enter tip amount in NGN (e.g., 500):");
-            if (tipAmountStr === null) return;
-            tipAmountNum = parseFloat(tipAmountStr);
-            if (isNaN(tipAmountNum) || tipAmountNum <= 0) alert("Please enter a valid positive number.");
-          }
-          const originalHtml = this.innerHTML;
-          this.innerHTML = 'Processing...'; this.disabled = true;
-          try {
-            const response = await fetch('/profile/posts/' + postId + '/tip', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ tipAmount: tipAmountNum, creatorId: creatorId })
-            });
-            const result = await response.json();
-            if (response.ok && result.status === 'success' && result.data.paymentLink) {
-              this.innerHTML = 'Redirecting...';
-              window.location.href = result.data.paymentLink;
-            } else {
-              alert(result.message || `Failed to initialize tip payment (Status: ${response.status})`);
-              this.innerHTML = originalHtml; this.disabled = false;
-            }
-          } catch (error) {
-            console.error('Tip Error:', error);
-            alert('Error processing tip.');
-            this.innerHTML = originalHtml; this.disabled = false;
-          }
-        });
-      });
-
-      // Bookmark Button
-      document.querySelectorAll('.bookmark-button').forEach(button => {
-        button.addEventListener('click', async function() {
-          const postId = this.dataset.postId;
-          const bookmarkIcon = this.querySelector('i');
-          try {
-            const res = await fetch('/profile/posts/' + postId + '/bookmark', { method: 'POST' });
-            const data = await res.json();
-            if (res.ok) {
-              bookmarkIcon.classList.toggle('bookmarked', data.isBookmarked);
-            } else {
-              alert(data.message || `Could not bookmark post (Status: ${res.status})`);
-            }
-          } catch (error) {
-            console.error('Bookmark Error:', error);
-            alert('Error bookmarking post.');
-          }
-        });
-      });
-
-      // Fullscreen Image Handling
-      const fullscreenOverlay = document.getElementById('fullscreenOverlay');
-      const fullscreenImage = document.getElementById('fullscreenImage');
-      const closeFullscreen = document.getElementById('closeFullscreen');
-
-      document.querySelectorAll('.post-image.fullscreenable').forEach(image => {
-        image.addEventListener('click', () => {
-          const src = image.dataset.fullscreenSrc;
-          fullscreenImage.src = src;
-          fullscreenOverlay.classList.add('active');
-        });
-      });
-
-      closeFullscreen.addEventListener('click', () => {
-        fullscreenOverlay.classList.remove('active');
-        fullscreenImage.src = '';
-      });
-
-      fullscreenOverlay.addEventListener('click', (e) => {
-        if (e.target === fullscreenOverlay) {
-          fullscreenOverlay.classList.remove('active');
-          fullscreenImage.src = '';
+        } catch (error) {
+          console.error('Like Error:', error);
+          alert('Error liking post.');
         }
       });
     });
-  </script>
+
+    // Comment Icon Functionality: toggle the inline comment form
+    document.querySelectorAll('.comment-icon').forEach(button => {
+      button.addEventListener('click', function() {
+        const postId = this.dataset.postId;
+        const postCard = this.closest('.post-card');
+        if (!postCard) {
+          console.error("Could not find closest .post-card for post:", postId);
+          return;
+        }
+        const commentContainer = postCard.querySelector('.comment-form-container');
+        if (!commentContainer) {
+          console.error("No comment-form-container found in post-card for post:", postId);
+          return;
+        }
+        commentContainer.style.display = commentContainer.style.display === 'block' ? 'none' : 'block';
+        if (commentContainer.style.display === 'block') {
+          const input = commentContainer.querySelector('input[name="comment"]');
+          if (input) input.focus();
+        }
+      });
+    });
+
+    // Comment Form Functionality
+    document.querySelectorAll('.comment-form').forEach(form => {
+      form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const postId = this.dataset.postId;
+        const commentInput = this.querySelector('input[name="comment"]');
+        const commentText = commentInput.value.trim();
+        const submitButton = this.querySelector('button[type="submit"]');
+        if (!commentText) return;
+        const originalButtonText = submitButton.textContent;
+        submitButton.textContent = 'Posting...';
+        submitButton.disabled = true;
+        try {
+          const res = await fetch('/profile/posts/' + postId + '/comment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: commentText })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            const commentsDiv = this.closest('.post-card').querySelector('.comments');
+            const newCommentDiv = document.createElement('div');
+            newCommentDiv.classList.add('comment');
+            const username = data.comment && data.comment.user ? data.comment.user.username : 'You';
+            newCommentDiv.innerHTML = `<strong>${username}:</strong> ${data.comment.text}`;
+            commentsDiv.appendChild(newCommentDiv);
+            const commentCountSpan = this.closest('.post-card').querySelector('.comment-count');
+            if (commentCountSpan && data.commentCount !== undefined) commentCountSpan.textContent = data.commentCount;
+            commentInput.value = '';
+            this.closest('.comment-form-container').style.display = 'none';
+          } else {
+            const data = await res.json();
+            alert(data.message || `Failed to post comment (Status: ${res.status})`);
+          }
+        } catch (error) {
+          console.error('Comment Error:', error);
+          alert('Error posting comment.');
+        } finally {
+          submitButton.textContent = originalButtonText;
+          submitButton.disabled = false;
+        }
+      });
+    });
+
+    // Bookmark Button Functionality
+    document.querySelectorAll('.bookmark-button').forEach(button => {
+      button.addEventListener('click', async function() {
+        const postId = this.dataset.postId;
+        const bookmarkIcon = this.querySelector('i');
+        try {
+          const res = await fetch('/profile/posts/' + postId + '/bookmark', { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            bookmarkIcon.classList.toggle('bookmarked', data.isBookmarked);
+          } else {
+            alert(data.message || `Could not bookmark post (Status: ${res.status})`);
+          }
+        } catch (error) {
+          console.error('Bookmark Error:', error);
+          alert('Error bookmarking post.');
+        }
+      });
+    });
+
+    // Sync bookmark states on page load
+    document.querySelectorAll('.bookmark-button').forEach(async button => {
+      const postId = button.dataset.postId;
+      const bookmarkIcon = button.querySelector('i');
+      try {
+        const res = await fetch(`/profile/posts/${postId}/bookmark-status`, { method: 'GET' });
+        const data = await res.json();
+        if (res.ok) {
+          bookmarkIcon.classList.toggle('bookmarked', data.isBookmarked);
+        }
+      } catch (error) {
+        console.error('Error syncing bookmark:', error);
+      }
+    });
+
+    // Tip Button Functionality
+    document.querySelectorAll('.tip-button').forEach(button => {
+      button.addEventListener('click', async function() {
+        const postId = this.dataset.postId;
+        const creatorId = this.dataset.creatorId;
+        let tipAmountNum = NaN;
+        while (isNaN(tipAmountNum) || tipAmountNum <= 0) {
+          const tipAmountStr = prompt("Enter tip amount in NGN (e.g., 500):");
+          if (tipAmountStr === null) return;
+          tipAmountNum = parseFloat(tipAmountStr);
+          if (isNaN(tipAmountNum) || tipAmountNum <= 0) alert("Please enter a valid positive number.");
+        }
+        const originalHtml = this.innerHTML;
+        this.innerHTML = 'Processing...';
+        this.disabled = true;
+        try {
+          const response = await fetch('/profile/posts/' + postId + '/tip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipAmount: tipAmountNum, creatorId: creatorId })
+          });
+          const result = await response.json();
+          if (response.ok && result.status === 'success' && result.data.paymentLink) {
+            this.innerHTML = 'Redirecting...';
+            window.location.href = result.data.paymentLink;
+          } else {
+            alert(result.message || 'Failed to initialize tip payment');
+            this.innerHTML = originalHtml;
+            this.disabled = false;
+          }
+        } catch (error) {
+          console.error('Error:', error);
+          alert('An error occurred while processing your tip');
+          this.innerHTML = originalHtml;
+          this.disabled = false;
+        }
+      });
+    });
+
+    // Full-screen image functionality
+    const fullscreenOverlay = document.querySelector('.fullscreen-overlay');
+    const fullscreenImg = fullscreenOverlay.querySelector('img');
+    const closeButton = fullscreenOverlay.querySelector('.close-fullscreen');
+
+    document.querySelectorAll('.fullscreenable').forEach(img => {
+      img.addEventListener('click', function() {
+        const src = this.dataset.fullscreenSrc;
+        fullscreenImg.src = src;
+        fullscreenOverlay.classList.add('active');
+      });
+    });
+
+    fullscreenOverlay.addEventListener('click', function(e) {
+      if (e.target === fullscreenOverlay) {
+        fullscreenOverlay.classList.remove('active');
+      }
+    });
+
+    closeButton.addEventListener('click', function() {
+      fullscreenOverlay.classList.remove('active');
+    });
+
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'Escape' && fullscreenOverlay.classList.contains('active')) {
+        fullscreenOverlay.classList.remove('active');
+      }
+    });
+  });
+</script>

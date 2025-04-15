@@ -946,119 +946,309 @@ a {
 /********************************************
  * CHAT CONTAINERS
  ********************************************/
-.chat-container {
+ .chat-container {
   width: 90%;
-  max-width: 400px;
+  max-width: 500px;
   background: white;
   border-radius: 15px;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  margin: 0 auto;
+  height: 100vh;
+  min-height: 100vh;
 }
 
 .chat-header {
-  background: linear-gradient(135deg, #ff85a2, #d16ba5);
-  color: white;
-  text-align: center;
+  background: white;
+  color: #333;
   padding: 15px;
   font-weight: bold;
-  border-bottom: 2px solid #f8bbd0;
-  font-family: 'Playfair Display', serif;
+  border-bottom: 1px solid #e0e0e0;
+  font-family: 'Arial', sans-serif;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
+
+.chat-header-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.chat-header-title {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .chat-header h2 {
   margin: 0;
   font-size: 18px;
+  color: #333;
+  display: inline-flex;
+  align-items: center;
 }
-.chat-header p {
-  margin: 5px 0 0;
+
+.chat-header .last-seen {
+  margin: 2px 0 0;
   font-size: 12px;
+  color: #888;
+  font-weight: normal;
+}
+
+.chat-header .back-arrow {
+  color: #d16ba5;
+  font-size: 18px;
+  text-decoration: none;
+}
+
+.chat-header-icon .initial-circle {
+  width: 40px;
+  height: 40px;
+  background-color: #d16ba5;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: bold;
+}
+
+.verified-badge {
+  margin-left: 5px;
+  color: #1DA1F2;
+  font-size: 16px;
 }
 
 .chat-window {
   flex-grow: 1;
   padding: 15px;
   overflow-y: auto;
-  max-height: 400px;
-  background-color: #fff0f6;
+  max-height: calc(100vh - 150px);
+  background-color: #fff;
   display: flex;
   flex-direction: column;
 }
 
+.date-divider {
+  text-align: center;
+  font-size: 12px;
+  color: #888;
+  margin: 10px 0;
+  position: relative;
+}
+
+.date-divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+  background-color: #e0e0e0;
+  z-index: 0;
+}
+
+.date-divider span {
+  background-color: #fff;
+  padding: 0 10px;
+  position: relative;
+  z-index: 1;
+}
+
 .message-container {
   margin-bottom: 15px;
-  display: inline-block;
+  display: flex;
+  align-items: flex-start;
   max-width: 80%;
 }
+
 .message-container.sent {
   align-self: flex-end;
-  text-align: right;
+  flex-direction: row-reverse;
 }
+
 .message-container.received {
   align-self: flex-start;
-  text-align: left;
+}
+
+.message-profile-pic {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  margin-right: 10px; /* Space between profile pic and message for received messages */
+  margin-left: 10px; /* Space between profile pic and message for sent messages */
+}
+
+.message-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.message-container.sent .message-wrapper {
+  align-items: flex-end;
 }
 
 .message {
-  padding: 10px;
-  border-radius: 12px;
+  border-radius: 20px;
   font-size: 14px;
-  font-weight: bold;
+  font-weight: normal;
   word-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
 }
+
 .message-container.sent .message {
-  background-color: #ff85a2;
   color: white;
+  border-bottom-right-radius: 5px;
+  align-items: flex-end;
 }
+
 .message-container.received .message {
-  background-color: #f8bbd0;
   color: #333;
+  border-bottom-left-radius: 5px;
+}
+
+/* Apply background only to text and tip-info, not media */
+.message .text,
+.message .tip-info {
+  background-color: inherit;
+  padding: 10px 15px;
+  border-radius: 20px;
+}
+
+.message-container.sent .text,
+.message-container.sent .tip-info {
+  background-color: #007bff;
+  border-bottom-right-radius: 5px;
+}
+
+.message-container.received .text,
+.message-container.received .tip-info {
+  background-color: #f0f0f0;
+  border-bottom-left-radius: 5px;
 }
 
 .info {
   margin-top: 5px;
   font-size: 10px;
-  color: #555;
+  color: #888;
+  text-align: left; /* Default for received messages */
+}
+
+.message-container.sent .info {
+  text-align: right; /* Align timestamp/status to the right for sent messages */
+}
+
+.message-input-wrapper {
+  display: flex;
+  align-items: center;
+  flex-grow: 1;
+  background: #f0f0f0;
+  border-radius: 25px;
+  padding: 5px 10px;
+  position: relative;
+}
+
+.media-preview {
+  margin-right: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.media-preview-img,
+.media-preview-video {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+.chat-media {
+  max-width: 100%;
+  max-height: 200px;
+  border-radius: 10px;
+  margin-bottom: 5px;
+  display: block;
+  object-fit: cover;
+  background: none;
+  padding: 0;
 }
 
 .message-form {
   display: flex;
   padding: 10px;
   background: white;
-  border-top: 1px solid #f8bbd0;
+  border-top: 1px solid #e0e0e0;
 }
+
+.message-input-wrapper {
+  display: flex;
+  align-items: center;
+  flex-grow: 1;
+  background: #f0f0f0;
+  border-radius: 25px;
+  padding: 5px 10px;
+  position: relative;
+}
+
 .message-form input {
   flex-grow: 1;
   padding: 10px;
   border: none;
-  border-radius: 25px;
   font-size: 14px;
   outline: none;
-  background: #fdf1f8;
+  background: transparent;
 }
-.message-form button {
-  margin-left: 10px;
-  padding: 10px 15px;
+
+.input-icon {
+  color: #888;
+  margin: 0 5px;
+  cursor: pointer;
+}
+
+.media-icon {
+  cursor: pointer;
+}
+
+#emojiPicker {
+  z-index: 1000;
+}
+
+.send-button {
   background: #ff85a2;
   color: white;
   border: none;
-  border-radius: 50px;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: background 0.3s;
+  margin-left: 10px;
 }
-.message-form button:hover {
+
+.send-button:hover {
   background: #d16ba5;
 }
 
 @media (min-width: 768px) {
   .chat-container {
-    max-width: 600px;
+    max-width: 800px;
   }
   .chat-header h2 {
     font-size: 22px;
   }
   .chat-window {
-    max-height: 500px;
+    max-height: calc(100vh - 150px);
   }
   .message {
     font-size: 16px;
@@ -1066,91 +1256,184 @@ a {
   .message-form input {
     font-size: 16px;
   }
-  .message-form button {
-    padding: 12px 20px;
-    font-size: 16px;
+  .send-button {
+    width: 45px;
+    height: 45px;
   }
 }
 
 /********************************************
  * CHAT LIST
  ********************************************/
- .chat-list-container {
+.chat-list-container {
   width: 90%;
-  max-width: 400px;
+  max-width: 500px;
   margin: 20px auto;
   padding: 15px;
   background: #fff;
   border-radius: 10px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
-.chat-list-container h2 {
-  font-family: 'Playfair Display', serif;
-  font-size: 20px;
-  color: #d16ba5;
-  text-align: center;
+
+.chat-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 15px;
 }
+
+.chat-list-header h2 {
+  font-family: 'Arial', sans-serif;
+  font-size: 24px;
+  color: #333;
+  margin: 0;
+}
+
+.chat-list-controls {
+  display: flex;
+  align-items: center;
+}
+
+.chat-list-controls select {
+  padding: 5px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  font-size: 14px;
+  margin-right: 10px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.search-container {
+  position: relative;
+}
+
+#searchInput {
+  padding: 5px 30px 5px 10px;
+  border: 1px solid #e0e0e0;
+  border-radius: 15px;
+  font-size: 14px;
+  width: 150px;
+}
+
+#searchInput::placeholder {
+  color: #888;
+}
+
+.search-container::after {
+  content: '\f002';
+  font-family: 'FontAwesome';
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #888;
+}
+
 .chat-item {
-  border-bottom: 1px solid #f8bbd0;
-  padding: 10px 0;
+  border: 1px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 10px;
+  margin-bottom: 10px;
+  position: relative;
+  background-color: #fff;
 }
-.chat-item.unread {
-  background-color: #f3e5f5; /* Light purple for unread chats */
-  border-left: 4px solid #d16ba5; /* Pink border accent */
+
+.chat-item.unread .chat-item-header h3,
+.chat-item.unread .chat-preview {
+  font-weight: bold; /* Bold text for username and preview text in unread chats */
+  color: black; /* Black text for unread chats */
 }
+
+.chat-item.unread .unread-dot {
+  width: 10px;
+  height: 10px;
+  background-color: #ff85a2;
+  border-radius: 50%;
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
 .chat-item a {
   text-decoration: none;
   display: block;
   color: #333;
-  transition: background-color 0.3s;
-  padding: 5px;
-  border-radius: 5px;
 }
-.chat-item a:hover {
-  background-color: #fff0f6;
+
+.chat-item-content {
+  display: flex;
+  align-items: center;
 }
+
+.chat-profile-pic {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  margin-right: 10px;
+}
+
+.chat-details {
+  flex-grow: 1;
+}
+
+.chat-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 .chat-item h3 {
-  font-family: 'Playfair Display', serif;
+  font-family: 'Arial', sans-serif;
   font-size: 16px;
-  color: #a83260;
-  margin: 0 0 5px 0;
+  color: #333;
+  margin: 0;
 }
+
+.chat-timestamp {
+  font-size: 12px;
+  color: #888;
+}
+
 .chat-preview {
   font-size: 14px;
   color: #666;
+  margin: 5px 0 0;
 }
+
 .chat-preview.tip-preview {
   font-weight: bold;
-  color: #ff69b4; /* Pink for tip messages */
+  color: #ff69b4;
 }
+
 .tip-indicator {
   margin-left: 8px;
   display: inline-flex;
   align-items: center;
   font-size: 0.9em;
 }
+
 .tip-indicator .fa-gift {
   margin-right: 4px;
-  color: #ff69b4; /* Matches tip text color */
+  color: #ff69b4;
 }
+
 @media (min-width: 768px) {
   .chat-list-container {
-    max-width: 600px;
+    max-width: 800px;
     padding: 20px;
   }
-  .chat-list-container h2 {
-    font-size: 26px;
-    margin-bottom: 20px;
+  .chat-list-header h2 {
+    font-size: 28px;
   }
   .chat-item h3 {
-    font-size: 20px;
+    font-size: 18px;
   }
   .chat-preview {
     font-size: 16px;
   }
 }
-
 .dashboard-container {
   max-width: 95%;
   margin: 20px auto;
@@ -1260,6 +1543,7 @@ button:disabled {
     max-width: 900px;
   }
 }
+
 /********************************************
  * UPDATED PROFILE HEADER STYLES
  ********************************************/
@@ -1460,6 +1744,7 @@ html, body {
     height: 160px;
   }
 }
+
 /********************************************
  * SUBSCRIPTION SECTION STYLES
  ********************************************/
@@ -1491,6 +1776,7 @@ html, body {
 .subscribe-now-button:hover {
   background-color: #e53647;
 }
+
 /* Subscription Dropdown Container */
 .subscription-dropdown {
   margin-top: 15px;
@@ -1558,6 +1844,7 @@ html, body {
 .bundle-info-block {
   cursor: default;
 }
+
 /* Bundle Duration (left side) */
 .bundle-duration {
   font-weight: bold;
@@ -1582,6 +1869,7 @@ html, body {
   transition: background-color 0.3s ease;
   margin-top: 5px;
 }
+
 .delete-bundle-button:hover {
   background-color: #999;
 }
@@ -1599,18 +1887,21 @@ html, body {
   border: 2px dashed #ffb3c6;
   border-radius: 8px;
 }
+
 .create-bundle-form h4 {
   margin-top: 0;
   font-size: 1.1rem;
   color: #ff6f91;
   margin-bottom: 10px;
 }
+
 .create-bundle-form label {
   display: block;
   margin-top: 10px;
   font-weight: bold;
   color: #444;
 }
+
 .create-bundle-form input,
 .create-bundle-form select {
   width: 100%;
@@ -1620,6 +1911,7 @@ html, body {
   border: 1px solid #ccc;
   font-size: 1rem;
 }
+
 .create-bundle-form button {
   background-color: #ff6f91;
   color: #fff;
@@ -1630,6 +1922,7 @@ html, body {
   cursor: pointer;
   margin-top: 15px;
 }
+
 .create-bundle-form button:hover {
   background-color: #ff3e75;
 }
@@ -1645,6 +1938,7 @@ html, body {
   margin: 20px 0;
   gap: 30px;
 }
+
 .tab-button {
   background: none;
   border: none;
@@ -1672,11 +1966,13 @@ html, body {
 .tab-content.hidden {
   display: none;
 }
+
 .tab-count {
   font-size: 12px;
   font-weight: 700;
   color: #333;
 }
+
 /* Media Subtabs */
 .media-subtabs {
   display: flex;
@@ -1938,14 +2234,17 @@ html, body {
 .comments {
   margin-top: 10px;
 }
+
 .comment {
   font-size: 14px;
   margin: 5px 0;
 }
+
 .view-all-comments {
   color: #007bff;
   text-decoration: none;
 }
+
 /* --- Trending Creators Container --- */
 .trending-creators-container {
   padding: 20px;
@@ -1972,6 +2271,7 @@ html, body {
   border-radius: 50%;
   z-index: 10;
 }
+
 .left-nav { left: 10px; }
 .right-nav { right: 10px; }
 
@@ -2081,7 +2381,11 @@ html, body {
   overflow: hidden;
 }
 
-.fullscreen-overlay img {
+.fullscreen-overlay.active {
+  display: flex;
+}
+
+.fullscreen-media {
   width: 100vw;
   height: 100vh;
   min-height: 100vh;
@@ -2089,13 +2393,9 @@ html, body {
   margin: 0;
   padding: 0;
   border: none;
+  background: none;
 }
 
-.fullscreen-overlay.active {
-  display: flex;
-}
-
-/* Close button */
 .close-fullscreen {
   position: absolute;
   top: 15px;
@@ -2117,10 +2417,11 @@ html, body {
 .post-image.fullscreenable {
   cursor: pointer;
 }
+
 /********************************************
  * PROFILE ACTIONS (Chat, Tip, Broadcast Icons)
  ********************************************/
- .profile-actions {
+.profile-actions {
   position: absolute;
   /* Aligns with bottom of profile picture (350px + 60px below cover) */
   right: 30px; /* Aligns to the right with padding */
@@ -2201,9 +2502,11 @@ html, body {
   justify-content: center;
   align-items: center;
 }
+
 .tip-modal.active {
   display: flex;
 }
+
 .tip-modal-content {
   background: #fff;
   padding: 20px;
@@ -2213,16 +2516,19 @@ html, body {
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
   position: relative;
 }
+
 .tip-modal-content h3 {
   margin: 0 0 15px;
   color: #ff69b4;
   text-align: center;
 }
+
 .tip-modal-content label {
   display: block;
   margin: 10px 0 5px;
   color: #333;
 }
+
 .tip-modal-content input,
 .tip-modal-content textarea {
   width: 100%;
@@ -2232,6 +2538,7 @@ html, body {
   border-radius: 5px;
   box-sizing: border-box;
 }
+
 .tip-modal-content button {
   width: 100%;
   padding: 10px;
@@ -2242,9 +2549,11 @@ html, body {
   cursor: pointer;
   transition: background-color 0.3s;
 }
+
 .tip-modal-content button:hover {
   background-color: #e53647;
 }
+
 .tip-modal-content .close-tip-modal {
   background: none;
   border: none;
@@ -2280,6 +2589,7 @@ html, body {
 .like-button i.liked {
   color: #ff0000; /* Red color for liked state */
 }
+
 .tip-info {
   margin-left: 10px;
   display: inline-flex;
@@ -2294,6 +2604,7 @@ html, body {
 .tip-amount {
   font-weight: bold;
 }
+
 .purchased-content-link a {
   margin-top: 10px;
   display: inline-block;
@@ -2301,6 +2612,7 @@ html, body {
   font-weight: bold;
   text-decoration: none;
 }
+
 .purchased-content-link a:hover {
   text-decoration: underline;
 }

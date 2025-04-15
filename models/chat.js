@@ -2,16 +2,20 @@ const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema({
   sender: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  text: { type: String, required: true },
+  text: { type: String },
+  media: {
+    type: { type: String, enum: ['image', 'video', null], default: null },
+    url: { type: String },
+  },
   timestamp: { type: Date, default: Date.now },
   isTip: { type: Boolean, default: false },
   tipAmount: { type: Number },
-  read: { type: Boolean, default: false } // Added to track if the message is read
+  readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }], // Array of user IDs who have read the message
 });
 
 const chatSchema = new mongoose.Schema({
   participants: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true }],
-  messages: [messageSchema]
+  messages: [messageSchema],
 }, { timestamps: true });
 
 module.exports = mongoose.model('Chat', chatSchema);

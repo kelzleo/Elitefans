@@ -76,7 +76,7 @@ const userSchema = new mongoose.Schema({
   ],
   purchasedContent: [
     {
-      contentId: { type: mongoose.Schema.Types.ObjectId },
+      contentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
       purchasedAt: { type: Date, default: Date.now },
       amount: { type: Number }
     }
@@ -98,7 +98,7 @@ const userSchema = new mongoose.Schema({
     {
       tx_ref: { type: String, required: true },
       creatorId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-      bundleId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionBundle'},
+      bundleId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionBundle' },
       postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
       amount: { type: Number, required: true },
       message: { type: String }, 
@@ -128,13 +128,21 @@ const userSchema = new mongoose.Schema({
   bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
   referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   creatorSince: { type: Date, default: null },
+  // Add lastSeen and isOnline fields
+  lastSeen: {
+    type: Date,
+    default: Date.now, // Default to current time for existing users
+  },
+  isOnline: {
+    type: Boolean,
+    default: false, // Default to offline for existing users
+  },
 });
 
 // Pre-save middleware to update subscription statuses and clean up bookmarks
 userSchema.pre('save', async function (next) {
   const now = new Date();
   if (this.isModified('subscriptions')) {
-    // Update subscription statuses
     let subscriptionsChanged = false;
     this.subscriptions.forEach((sub) => {
       if (
@@ -147,7 +155,6 @@ userSchema.pre('save', async function (next) {
       }
     });
 
-    // If subscriptions changed, clean up bookmarks
     if (subscriptionsChanged && this.bookmarks.length > 0) {
       try {
         await this.removeBookmarksForExpiredSubscriptions();
@@ -162,7 +169,6 @@ userSchema.pre('save', async function (next) {
 // Method to calculate subscriberCount based on users subscribed to this creator
 userSchema.methods.updateSubscriberCount = async function () {
   const now = new Date();
-  // Count users who have an active subscription to this creator
   const subscriberCount = await mongoose.model('User').countDocuments({
     'subscriptions': {
       $elemMatch: {
@@ -193,7 +199,6 @@ userSchema.methods.checkExpiredSubscriptions = async function () {
 // Method to remove bookmarks from creators with expired subscriptions
 userSchema.methods.removeBookmarksForExpiredSubscriptions = async function () {
   const now = new Date();
-  // Get creator IDs with active subscriptions
   const activeCreatorIds = this.subscriptions
     .filter(
       (sub) =>
@@ -203,7 +208,6 @@ userSchema.methods.removeBookmarksForExpiredSubscriptions = async function () {
     )
     .map((sub) => sub.creatorId.toString());
 
-  // Filter bookmarks to keep only those from active creators, non-special posts, or purchased posts
   const updatedBookmarks = await Promise.all(
     this.bookmarks.map(async (bookmarkId) => {
       try {
@@ -225,7 +229,6 @@ userSchema.methods.removeBookmarksForExpiredSubscriptions = async function () {
     })
   );
 
-  // Update bookmarks if there are changes
   const validBookmarks = updatedBookmarks.filter((id) => id !== false);
   if (validBookmarks.length !== this.bookmarks.length) {
     this.bookmarks = validBookmarks;

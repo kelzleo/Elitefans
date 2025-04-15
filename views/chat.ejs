@@ -1,38 +1,85 @@
+<!-- views/chat.ejs -->
 <div class="chat-container">
   <div class="chat-header">
-    <h2>Chat with <%= creator ? creator.username : 'Group Chat' %></h2>
-    <% if (creator) { %>
-      <p>
-        <% if (creator.isOnline) { %>
-          Available Now
-        <% } else if (creator.lastSeen) { %>
-          Last seen: <%= new Date(creator.lastSeen).toLocaleString('en-US', { weekday: 'long', hour: '2-digit', minute: '2-digit' }) %>
+    <a href="/chats" class="back-arrow"><i class="fa fa-arrow-left"></i></a>
+    <div class="chat-header-info">
+      <div class="chat-header-title">
+        <h2>
+          <%= creator ? creator.username : 'Group Chat' %>
+          <% if (creator && creator.role === 'creator') { %>
+            <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
+          <% } %>
+        </h2>
+        <% if (creator) { %>
+          <% 
+            let lastSeenDisplay = 'Unknown';
+            if (creator.isOnline) {
+              lastSeenDisplay = 'Available Now';
+            } else if (creator.lastSeen) {
+              let timeDiff = Math.floor((Date.now() - new Date(creator.lastSeen)) / (1000 * 60));
+              if (timeDiff < 1) {
+                lastSeenDisplay = 'Last seen less than a minute ago';
+              } else if (timeDiff < 60) {
+                lastSeenDisplay = `Last seen ${timeDiff} min${timeDiff === 1 ? '' : 's'} ago`;
+              } else {
+                let hours = Math.floor(timeDiff / 60);
+                lastSeenDisplay = `Last seen ${hours} hour${hours === 1 ? '' : 's'} ago`;
+              }
+            } else {
+              lastSeenDisplay = 'Not available';
+            }
+          %>
+          <p class="last-seen"><%= lastSeenDisplay %></p>
         <% } else { %>
-          Offline
+          <p class="last-seen">Group Chat</p>
         <% } %>
-      </p>
-    <% } else { %>
-      <p>Group Chat</p>
-    <% } %>
+      </div>
+    </div>
+    <div class="chat-header-icon">
+      <span class="initial-circle"><%= creator ? creator.username.charAt(0).toUpperCase() : 'G' %></span>
+    </div>
   </div>
   <div id="chatWindow" class="chat-window">
     <% if (chat.messages && chat.messages.length > 0) { %>
+      <% let lastDate = null; %>
       <% chat.messages.forEach(function(message) { %>
+        <% 
+          const messageDate = new Date(message.timestamp).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+          if (lastDate !== messageDate) { %>
+            <div class="date-divider"><%= messageDate %></div>
+        <% 
+            lastDate = messageDate;
+          }
+        %>
         <div class="message-container <%= message.sender.toString() === currentUser._id.toString() ? 'sent' : 'received' %>">
-          <div class="message">
-            <span class="text"><%= message.text %></span>
-            <% if (message.isTip) { %>
-              <span class="tip-info">
-                <i class="fa fa-gift" title="Sent with a tip"></i>
-                <span class="tip-amount">₦<%= message.tipAmount %></span>
-              </span>
-            <% } %>
-          </div>
-          <div class="info">
-            <span class="time"><%= new Date(message.timestamp).toLocaleTimeString() %></span>
-            <% if (message.sender.toString() === currentUser._id.toString()) { %>
-              <span class="status"><%= message.read ? '✓✓' : '✓' %></span>
-            <% } %>
+          <!-- Show profile picture for both sent and received messages -->
+          <img src="<%= message.sender.toString() === currentUser._id.toString() ? (currentUser.profilePicture || '/images/default-profile.png') : (creator && creator.profilePicture ? creator.profilePicture : '/images/default-profile.png') %>" alt="Profile Picture" class="message-profile-pic">
+          <div class="message-wrapper">
+            <div class="message">
+              <% if (message.media && message.media.type) { %>
+                <% if (message.media.type === 'image') { %>
+                  <img src="" data-url="<%= message.media.url %>" alt="Chat Image" class="chat-media fullscreenable" data-fullscreen-url="">
+                <% } else if (message.media.type === 'video') { %>
+                  <video src="" data-url="<%= message.media.url %>" controls class="chat-media fullscreenable" data-fullscreen-url=""></video>
+                <% } %>
+              <% } %>
+              <% if (message.text) { %>
+                <span class="text"><%= message.text %></span>
+              <% } %>
+              <% if (message.isTip) { %>
+                <span class="tip-info">
+                  <i class="fa fa-gift" title="Sent with a tip"></i>
+                  <span class="tip-amount">₦<%= message.tipAmount %></span>
+                </span>
+              <% } %>
+            </div>
+            <div class="info">
+  <span class="time"><%= new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) %></span>
+  <% if (message.sender.toString() === currentUser._id.toString()) { %>
+    <!-- Update the read status display to use readBy array -->
+    <span class="status"><%= message.readBy && message.readBy.length > 0 ? 'Read' : 'Sent' %></span>
+  <% } %>
+</div>
           </div>
         </div>
       <% }); %>
@@ -40,49 +87,225 @@
       <p>No messages yet. Start the conversation!</p>
     <% } %>
   </div>
-  <form id="messageForm" class="message-form">
+  <form id="messageForm" class="message-form" enctype="multipart/form-data">
     <input type="hidden" id="chatId" value="<%= chat._id %>">
     <input type="hidden" id="sender" value="<%= currentUser._id %>">
-    <input type="text" id="messageInput" placeholder="Type your message..." autocomplete="off" required>
-    <button type="submit">Send</button>
+    <div class="message-input-wrapper">
+      <label for="mediaInput" class="input-icon media-icon"><i class="fa fa-image"></i></label>
+      <input type="file" id="mediaInput" accept="image/*,video/*" style="display: none;">
+      <div id="mediaPreview" class="media-preview"></div>
+      <input type="text" id="messageInput" placeholder="Type your message here..." autocomplete="off">
+      <span class="input-icon smiley-icon" id="emojiToggle"><i class="fa fa-smile"></i></span>
+      <div id="emojiPicker" style="display: none; position: absolute; bottom: 60px;"></div>
+      <button type="submit" class="send-button"><i class="fa fa-paper-plane"></i></button>
+    </div>
   </form>
 </div>
 
-<!-- Socket.io Client -->
+<!-- Compute lastDate on the server-side -->
+<% 
+  let lastDateValue = null;
+  if (chat.messages && chat.messages.length > 0) {
+    lastDateValue = new Date(chat.messages[chat.messages.length - 1].timestamp).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+%>
+
+<!-- Socket.io and Emoji Picker -->
 <script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emoji-mart/core@1.1.2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@emoji-mart/data@1.1.2"></script>
 <script>
   const socket = io();
   const chatId = document.getElementById('chatId').value;
   const sender = document.getElementById('sender').value;
-  
+  let lastDate = '<%= lastDateValue %>';
+  let userHasScrolled = false;
+
+  // Function to check if the user has scrolled up
+  function checkScrollPosition() {
+    const chatWindow = document.getElementById('chatWindow');
+    const scrollPosition = chatWindow.scrollTop + chatWindow.clientHeight;
+    const scrollHeight = chatWindow.scrollHeight;
+    // Consider the user at the bottom if they're within 10 pixels of the bottom
+    return scrollPosition >= scrollHeight - 10;
+  }
+
   socket.on('connect', () => {
     console.log('Connected to Socket.io server');
     socket.emit('joinRoom', { chatId });
+
+    // Send heartbeat every 15 seconds
+    setInterval(() => {
+      socket.emit('heartbeat');
+    }, 15000); // HEARTBEAT_INTERVAL
+
+    // Scroll to the bottom after the DOM is fully loaded
+    const chatWindow = document.getElementById('chatWindow');
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+
+    // Add scroll event listener to detect if the user has scrolled up
+    chatWindow.addEventListener('scroll', () => {
+      userHasScrolled = !checkScrollPosition();
+    });
   });
 
   socket.on('connect_error', (error) => {
     console.error('Socket.io connection error:', error);
+    alert('Failed to connect to the chat server. Please try refreshing the page.');
   });
 
-  document.getElementById('messageForm').addEventListener('submit', function(e) {
-    e.preventDefault();
-    const messageInput = document.getElementById('messageInput');
-    const text = messageInput.value.trim();
-    if (text) {
-      socket.emit('sendMessage', { chatId, sender, text });
-      messageInput.value = '';
+  // Fetch signed URLs for existing messages on page load and add fullscreen attributes
+  document.querySelectorAll('.chat-media').forEach(async (element) => {
+    const rawUrl = element.getAttribute('data-url');
+    const filename = rawUrl.split('/').pop();
+    try {
+      const response = await fetch(`/chat/media/${chatId}/${encodeURIComponent(filename)}`);
+      if (!response.ok) throw new Error(`Failed to fetch signed URL: ${response.status} ${response.statusText}`);
+      const data = await response.json();
+      element.src = data.url;
+      // Add fullscreen attributes for existing messages
+      element.setAttribute('data-fullscreen-url', data.url);
+      element.classList.add('fullscreenable'); // Ensure the class is present
+      element.onerror = () => {
+        console.error('Image failed to load:', data.url);
+        element.src = '/images/fallback-image.png';
+        element.alt = 'Failed to load media';
+      };
+    } catch (err) {
+      console.error('Error fetching signed URL for existing message:', err.message);
+      element.src = '/images/fallback-image.png';
+      element.alt = 'Failed to load media';
     }
   });
-  
-  socket.on('newMessage', function(message) {
-    console.log('Received new message:', message);
+
+  // Initialize Emoji Picker
+  import('https://cdn.jsdelivr.net/npm/@emoji-mart/core@1.1.2')
+    .then(({ default: EmojiMart }) => {
+      const picker = new EmojiMart.Picker({
+        data: async () => {
+          const response = await fetch('https://cdn.jsdelivr.net/npm/@emoji-mart/data@1.1.2');
+          return response.json();
+        },
+        onEmojiSelect: (emoji) => {
+          const messageInput = document.getElementById('messageInput');
+          messageInput.value += emoji.native;
+          messageInput.focus();
+        },
+      });
+      document.getElementById('emojiPicker').appendChild(picker);
+    });
+
+  // Toggle Emoji Picker
+  document.getElementById('emojiToggle').addEventListener('click', () => {
+    const picker = document.getElementById('emojiPicker');
+    picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+  });
+
+  // Show preview of selected media
+  document.getElementById('mediaInput').addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    const previewContainer = document.getElementById('mediaPreview');
+    previewContainer.innerHTML = '';
+    if (file) {
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          img.className = 'media-preview-img';
+          previewContainer.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      } else if (file.type.startsWith('video/')) {
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(file);
+        video.className = 'media-preview-video';
+        video.muted = true;
+        video.autoplay = true;
+        video.loop = true;
+        previewContainer.appendChild(video);
+      }
+    }
+  });
+
+  // Function to append a message to the chat window
+  async function appendMessage(message, isSender = false) {
     const chatWindow = document.getElementById('chatWindow');
+    if (!chatWindow) {
+      console.error('chatWindow element not found');
+      return;
+    }
+
+    console.log('Appending message:', message, 'isSender:', isSender);
+
+    // Check if we need a date divider
+    const messageDate = new Date(message.timestamp).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    if (lastDate !== messageDate) {
+      const dateDivider = document.createElement('div');
+      dateDivider.className = 'date-divider';
+      dateDivider.textContent = messageDate;
+      chatWindow.appendChild(dateDivider);
+      lastDate = messageDate;
+      console.log('Added date divider:', messageDate);
+    }
+
+    // Remove "No messages yet" message if present
+    const noMessages = chatWindow.querySelector('p');
+    if (noMessages && noMessages.textContent === 'No messages yet. Start the conversation!') {
+      noMessages.remove();
+      console.log('Removed "No messages yet" placeholder');
+    }
+
+    // Create the message container
     const container = document.createElement('div');
     container.className = 'message-container ' + (message.sender === sender ? 'sent' : 'received');
-    
+
+    // Add profile picture for both sent and received messages
+    const img = document.createElement('img');
+    img.src = message.sender === sender ?
+      '<%= currentUser.profilePicture || "/images/default-profile.png" %>' :
+      '<%= creator && creator.profilePicture ? creator.profilePicture : "/images/default-profile.png" %>';
+    img.alt = 'Profile Picture';
+    img.className = 'message-profile-pic';
+    container.appendChild(img);
+
+    // Create a wrapper for the message and info
+    const messageWrapper = document.createElement('div');
+    messageWrapper.className = 'message-wrapper';
+
     const bubble = document.createElement('div');
     bubble.className = 'message';
-    let messageContent = `<span class="text">${message.text}</span>`;
+    let messageContent = '';
+    if (message.media && message.media.type) {
+      let mediaUrl = '';
+      const filename = message.media.url.split('/').pop();
+      try {
+        const response = await fetch(`/chat/media/${chatId}/${encodeURIComponent(filename)}`);
+        if (!response.ok) throw new Error(`Failed to fetch signed URL: ${response.status} ${response.statusText}`);
+        const data = await response.json();
+        mediaUrl = data.url;
+      } catch (err) {
+        console.error('Error fetching signed URL for new message:', err.message);
+        try {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const retryResponse = await fetch(`/chat/media/${chatId}/${encodeURIComponent(filename)}`);
+          if (!retryResponse.ok) throw new Error(`Retry failed: ${retryResponse.status} ${retryResponse.statusText}`);
+          const retryData = await retryResponse.json();
+          mediaUrl = retryData.url;
+        } catch (retryErr) {
+          console.error('Retry failed for signed URL:', retryErr.message);
+          mediaUrl = '/images/fallback-image.png';
+        }
+      }
+      if (message.media.type === 'image') {
+        messageContent += `<img src="${mediaUrl}" alt="Chat Image" class="chat-media fullscreenable" data-fullscreen-url="${mediaUrl}" onerror="this.src='/images/fallback-image.png'; this.alt='Failed to load media';">`;
+      } else if (message.media.type === 'video') {
+        messageContent += `<video src="${mediaUrl}" controls class="chat-media fullscreenable" data-fullscreen-url="${mediaUrl}" onerror="this.nextSibling.style.display='block';"><p style="display: none;">Failed to load video</p></video>`;
+      }
+    }
+    if (message.text) {
+      messageContent += `<span class="text">${message.text}</span>`;
+    }
     if (message.isTip) {
       messageContent += `
         <span class="tip-info">
@@ -91,17 +314,141 @@
         </span>`;
     }
     bubble.innerHTML = messageContent;
-    
+
     const info = document.createElement('div');
-    info.className = 'info';
-    info.innerHTML = `<span class="time">${new Date(message.timestamp).toLocaleTimeString()}</span>`;
-    if (message.sender === sender) {
-      info.innerHTML += `<span class="status">${message.read ? '✓✓' : '✓'}</span>`;
-    }
-    
-    container.appendChild(bubble);
-    container.appendChild(info);
+info.className = 'info';
+info.innerHTML = `<span class="time">${new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</span>`;
+if (message.sender === sender) {
+  // Updated to check readBy array length
+  info.innerHTML += `<span class="status">${message.readBy && message.readBy.length > 0 ? 'Read' : 'Sent'}</span>`;
+}
+
+    messageWrapper.appendChild(bubble);
+    messageWrapper.appendChild(info);
+    container.appendChild(messageWrapper);
     chatWindow.appendChild(container);
-    chatWindow.scrollTop = chatWindow.scrollHeight;
+
+    // Only auto-scroll to bottom if the user is already at the bottom or hasn't scrolled up
+    if (!userHasScrolled) {
+      chatWindow.scrollTop = chatWindow.scrollHeight;
+    }
+
+    console.log('Message appended to DOM:', message);
+
+    // Force a DOM repaint to ensure visibility
+    chatWindow.style.display = 'none';
+    chatWindow.offsetHeight; // Trigger reflow
+    chatWindow.style.display = 'flex';
+  }
+
+  // Handle form submission
+  document.getElementById('messageForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const messageInput = document.getElementById('messageInput');
+    const mediaInput = document.getElementById('mediaInput');
+    const text = messageInput.value.trim();
+    const file = mediaInput.files[0];
+
+    if (!text && !file) return;
+
+    const message = {
+      chatId,
+      sender,
+      text: text || null,
+      media: null,
+      timestamp: new Date(),
+      isTip: false,
+      tipAmount: null,
+      read: false,
+    };
+
+    if (file) {
+      const formData = new FormData();
+      formData.append('media', file);
+
+      try {
+        const response = await fetch('/chat/upload-media', {
+          method: 'POST',
+          body: formData,
+        });
+        const result = await response.json();
+        if (result.success) {
+          message.media = {
+            type: file.type.startsWith('image/') ? 'image' : 'video',
+            url: result.url,
+          };
+          console.log('Media uploaded successfully:', result.url);
+        } else {
+          alert('Failed to upload media: ' + result.message);
+          return;
+        }
+      } catch (err) {
+        console.error('Media upload error:', err);
+        alert('Error uploading media.');
+        return;
+      }
+    }
+
+    console.log('Sending message:', message);
+    appendMessage(message, true); // Append immediately for sender
+    socket.emit('sendMessage', message);
+    messageInput.value = '';
+    mediaInput.value = '';
+    document.getElementById('mediaPreview').innerHTML = '';
+  });
+
+  socket.on('newMessage', function(message) {
+    console.log('Received new message from server:', message);
+    if (message.sender !== sender) {
+      appendMessage(message); // Only append if not the sender
+    } else {
+      console.log('Skipping append for sender’s own message');
+    }
+  });
+
+  // Full-screen functionality for images and videos
+  const fullscreenOverlay = document.createElement('div');
+  fullscreenOverlay.className = 'fullscreen-overlay';
+  fullscreenOverlay.innerHTML = `
+    <button class="close-fullscreen">×</button>
+    <img src="" alt="Full-screen media" class="fullscreen-media">
+    <video controls class="fullscreen-media" style="display: none;"></video>
+  `;
+  document.body.appendChild(fullscreenOverlay);
+
+  const fullscreenMediaImg = fullscreenOverlay.querySelector('img');
+  const fullscreenMediaVideo = fullscreenOverlay.querySelector('video');
+  const closeFullscreen = fullscreenOverlay.querySelector('.close-fullscreen');
+
+  document.addEventListener('click', (e) => {
+    if (e.target.classList.contains('fullscreenable')) {
+      const url = e.target.getAttribute('data-fullscreen-url');
+      if (!url) {
+        console.error('No fullscreen URL found for element:', e.target);
+        return;
+      }
+      if (e.target.tagName === 'IMG') {
+        fullscreenMediaImg.src = url;
+        fullscreenMediaImg.style.display = 'block';
+        fullscreenMediaVideo.style.display = 'none';
+      } else if (e.target.tagName === 'VIDEO') {
+        fullscreenMediaVideo.src = url;
+        fullscreenMediaVideo.style.display = 'block';
+        fullscreenMediaImg.style.display = 'none';
+      }
+      fullscreenOverlay.classList.add('active');
+    }
+  });
+
+  closeFullscreen.addEventListener('click', () => {
+    fullscreenOverlay.classList.remove('active');
+    fullscreenMediaVideo.pause();
+  });
+
+  fullscreenOverlay.addEventListener('click', (e) => {
+    if (e.target === fullscreenOverlay) {
+      fullscreenOverlay.classList.remove('active');
+      fullscreenMediaVideo.pause();
+    }
   });
 </script>
