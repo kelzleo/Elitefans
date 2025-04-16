@@ -1,14 +1,12 @@
 <h1>Our Logo</h1>
 <h2>Sign up to meet and support your favorite creators</h2>
 
-<!-- Display Error Messages -->
 <% if (errorMessage && errorMessage.length > 0) { %>
   <div class="error-message">
     <%= errorMessage %>
   </div>
 <% } %>
 
-<!-- Login Form -->
 <form action="/login" method="POST" class="login-form">
     <input type="text" name="usernameOrEmail" placeholder="Email or Username" required>
     <input type="password" name="password" placeholder="Password" required>
@@ -17,10 +15,10 @@
 
 <div class="sign-options">
     <a href="google" class="a-sign">Sign In With Google</a> 
-    <a href="" class="a-sign"> Sign In With X</a>
+    <a href="" class="a-sign">Sign In With X</a>
 </div>
 
 <div class="signup-options">
     <a href="" class="g-sign">Forgot Password?</a>
-    <a href="/signup" class="g-sign">Sign up Now</a>
+    <a href="/signup<% if (typeof ref !== 'undefined' && ref) { %>?ref=<%= ref %><% } %>" class="g-sign">Sign up Now</a>
 </div>
