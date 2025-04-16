@@ -653,62 +653,141 @@ a {
   }
 }
 
-
 /********************************************
- * SEARCH FORM
+ * SEARCH SECTION
  ********************************************/
-.search-form {
-  margin-top: 20px;
+ .search-section {
+  position: relative;
   display: flex;
-  justify-content: center;
-  align-items: center;
-  border: 2px solid #ff4081;
-  border-radius: 25px;
-  background-color: #fff;
-  padding: 10px;
-  max-width: 90%;
-  margin-bottom: 30px;
+  justify-content: flex-end;
+  padding: 10px 20px;
 }
-.search-form input {
-  padding: 12px;
-  width: 70%;
-  border: none;
-  border-radius: 20px;
-  font-size: 1rem;
+
+.search-icon-container {
+  cursor: pointer;
+  padding: 8px;
+}
+
+.search-icon {
+  font-size: 1.2rem;
   color: #333;
-  background-color: #f9f9f9;
+}
+
+.search-container {
+  position: absolute;
+  top: 100%;
+  right: 20px;
+  width: 300px;
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+.search-input-form {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.search-input-form input {
+  flex: 1;
+  border: none;
+  outline: none;
+  font-size: 1rem;
+  padding: 5px;
+  background-color: transparent;
+}
+
+.search-input-form .search-submit-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+}
+
+.search-input-form .search-submit-btn i {
+  font-size: 1rem;
+  color: #666;
+}
+
+.suggestions-container {
+  max-height: 200px;
+  overflow-y: auto;
+  border-radius: 0 0 10px 10px;
+}
+
+.suggestion-item {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  cursor: pointer;
+  border-bottom: 1px solid #eee;
+}
+
+.suggestion-item:hover {
+  background-color: #f5f5f5;
+}
+/* Add styling for suggestion links */
+.suggestion-link {
+  color: #ff4081; /* Match the search results link color */
+  text-decoration: none;
+  font-weight: bold;
+}
+
+/* Ensure suggestion-item hover matches the search results */
+.suggestion-item:hover {
+  background-color: #f5f5f5; /* Same hover effect as search results */
+}
+
+.suggestion-profile-pic {
   margin-right: 10px;
 }
-.search-form button {
-  padding: 12px 20px;
-  font-size: 1rem;
-  background-color: #ff4081;
-  color: #fff;
-  border: none;
-  border-radius: 20px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
-}
-.search-form button:hover {
-  background-color: #e91e63;
-}
-.search-form button:active {
-  background-color: #c2185b;
+
+.no-suggestions {
+  padding: 10px;
+  color: #666;
+  text-align: center;
 }
 
-@media (min-width: 768px) {
-  .search-form {
-    max-width: 50%;
-    margin-top: 30px;
-  }
-  .search-form input {
-    width: 80%;
-  }
-  .search-form button {
-    padding: 14px 25px;
-  }
+/* Creator Result Styling */
+.creator-result {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #eee;
+}
+.creator-info {
+  display: flex;
+  flex-direction: column;
 }
 
+.creator-info a {
+  color: #ff4081;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.creator-info p {
+  margin: 2px 0;
+  color: #666;
+  font-size: 0.9rem;
+}
+.creator-profile-pic {
+  margin-right: 5px; /* Reduced from 10px to 5px */
+}
+/* Ensure subscriber count stays on one line */
+.creator-info p:last-child {
+  white-space: nowrap; /* Prevent wrapping */
+}
+
+@media (max-width: 768px) {
+  .search-container {
+    width: 250px;
+    right: 10px;
+  }
+}
 /********************************************
  * PROFILE PICTURE (Legacy - For other pages)
  ********************************************/
@@ -942,7 +1021,6 @@ a {
     font-size: 24px;
   }
 }
-
 /********************************************
  * CHAT CONTAINERS
  ********************************************/
@@ -1081,8 +1159,8 @@ a {
   width: 30px;
   height: 30px;
   border-radius: 50%;
-  margin-right: 10px; /* Space between profile pic and message for received messages */
-  margin-left: 10px; /* Space between profile pic and message for sent messages */
+  margin-right: 10px;
+  margin-left: 10px;
 }
 
 .message-wrapper {
@@ -1116,7 +1194,6 @@ a {
   border-bottom-left-radius: 5px;
 }
 
-/* Apply background only to text and tip-info, not media */
 .message .text,
 .message .tip-info {
   background-color: inherit;
@@ -1140,11 +1217,11 @@ a {
   margin-top: 5px;
   font-size: 10px;
   color: #888;
-  text-align: left; /* Default for received messages */
+  text-align: left;
 }
 
 .message-container.sent .info {
-  text-align: right; /* Align timestamp/status to the right for sent messages */
+  text-align: right;
 }
 
 .message-input-wrapper {
@@ -1155,6 +1232,8 @@ a {
   border-radius: 25px;
   padding: 5px 10px;
   position: relative;
+  z-index: 10;
+  overflow: visible; /* Prevent clipping */
 }
 
 .media-preview {
@@ -1189,16 +1268,6 @@ a {
   border-top: 1px solid #e0e0e0;
 }
 
-.message-input-wrapper {
-  display: flex;
-  align-items: center;
-  flex-grow: 1;
-  background: #f0f0f0;
-  border-radius: 25px;
-  padding: 5px 10px;
-  position: relative;
-}
-
 .message-form input {
   flex-grow: 1;
   padding: 10px;
@@ -1212,14 +1281,73 @@ a {
   color: #888;
   margin: 0 5px;
   cursor: pointer;
+  font-size: 18px;
+  transition: color 0.2s ease;
+  background: none;
+  border: none;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+  z-index: 11;
 }
 
-.media-icon {
-  cursor: pointer;
+.input-icon:hover:not(:disabled) {
+  color: #ff69b4;
+}
+
+.input-icon:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.input-icon i {
+  font-size: 18px;
+}
+
+.media-icon,
+.tip-icon,
+.smiley-icon {
+  /* Inherit .input-icon styles */
+  display: inline-flex;
+  visibility: visible;
+  min-width: 24px; /* Ensure button has space */
+  min-height: 24px;
+  line-height: 24px;
+}
+
+.message-input-wrapper .tip-icon {
+  background: none;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  color: #888;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.message-input-wrapper .tip-icon:hover {
+  background: none;
+  color: #ff69b4;
+}
+
+.message-input-wrapper .tip-icon i {
+  font-size: 18px;
+}
+
+.smiley-icon {
+  pointer-events: auto;
+  background: none; /* Ensure no background hides it */
 }
 
 #emojiPicker {
   z-index: 1000;
+  min-width: 250px;
+  background: white;
+  border-radius: 5px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
 }
 
 .send-button {
@@ -1234,6 +1362,7 @@ a {
   justify-content: center;
   cursor: pointer;
   margin-left: 10px;
+  z-index: 11;
 }
 
 .send-button:hover {
@@ -1265,7 +1394,7 @@ a {
 /********************************************
  * CHAT LIST
  ********************************************/
-.chat-list-container {
+ .chat-list-container {
   width: 90%;
   max-width: 500px;
   margin: 20px auto;
@@ -1292,6 +1421,8 @@ a {
 .chat-list-controls {
   display: flex;
   align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
 }
 
 .chat-list-controls select {
@@ -1299,34 +1430,38 @@ a {
   border: 1px solid #e0e0e0;
   border-radius: 5px;
   font-size: 14px;
-  margin-right: 10px;
   background: #fff;
   cursor: pointer;
+  min-width: 120px;
 }
 
-.search-container {
+.chat-list-controls .search-container {
   position: relative;
+  flex-grow: 1;
+  min-width: 150px;
+  max-width: 200px;
 }
 
-#searchInput {
+.chat-list-controls #searchInput {
+  width: 100%;
   padding: 5px 30px 5px 10px;
   border: 1px solid #e0e0e0;
   border-radius: 15px;
   font-size: 14px;
-  width: 150px;
+  box-sizing: border-box;
 }
 
-#searchInput::placeholder {
-  color: #888;
-}
-
-.search-container::after {
+.chat-list-controls .search-container::after {
   content: '\f002';
   font-family: 'FontAwesome';
   position: absolute;
   right: 10px;
   top: 50%;
   transform: translateY(-50%);
+  color: #888;
+}
+
+#searchInput::placeholder {
   color: #888;
 }
 
@@ -1341,8 +1476,8 @@ a {
 
 .chat-item.unread .chat-item-header h3,
 .chat-item.unread .chat-preview {
-  font-weight: bold; /* Bold text for username and preview text in unread chats */
-  color: black; /* Black text for unread chats */
+  font-weight: bold;
+  color: black;
 }
 
 .chat-item.unread .unread-dot {
@@ -1433,6 +1568,34 @@ a {
   .chat-preview {
     font-size: 16px;
   }
+}
+
+@media (max-width: 500px) {
+  .chat-list-controls {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .chat-list-controls select {
+    width: 100%;
+    min-width: unset;
+  }
+  .chat-list-controls .search-container {
+    max-width: unset;
+    width: 100%;
+  }
+}
+
+/* Scope home page search to prevent interference */
+.search-section .search-container {
+  position: absolute;
+  top: 100%;
+  right: 20px;
+  width: 300px;
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
 }
 .dashboard-container {
   max-width: 95%;
@@ -2615,4 +2778,16 @@ html, body {
 
 .purchased-content-link a:hover {
   text-decoration: underline;
+}
+
+.online-status {
+  font-size: 0.9em;
+  color: #28a745; /* Green for online */
+  margin: 5px 0 0 0;
+}
+
+.last-seen-status {
+  font-size: 0.9em;
+  color: #6c757d; /* Gray for last seen */
+  margin: 5px 0 0 0;
 }

@@ -7,7 +7,10 @@ const { generateSignedUrl } = require('../utilis/cloudStorage');
 
 // Authentication middleware
 const authCheck = (req, res, next) => {
-  if (!req.user) return res.redirect('/');
+  if (!req.user) {
+    console.log('authCheck failed: No user found in session');
+    return res.redirect('/');
+  }
   next();
 };
 
@@ -127,6 +130,69 @@ router.get('/', authCheck, async (req, res) => {
   } catch (err) {
     console.error('Error in home route:', err);
     res.status(500).send('Error loading home page');
+  }
+});
+
+// Search suggestions route for autocomplete
+router.get('/search-suggestions', authCheck, async (req, res) => {
+  try {
+    console.log('User in session for /search-suggestions:', req.user); // Debug log
+    const query = req.query.query;
+    console.log('Search suggestions query:', query); // Debug log
+    if (!query || query.trim() === '') {
+      return res.json({ creators: [] });
+    }
+
+    const matchingCreators = await User.find({
+      role: 'creator',
+      $or: [
+        { username: { $regex: query, $options: 'i' } },
+        { profileName: { $regex: query, $options: 'i' } },
+      ],
+    })
+      .select('username profileName profilePicture')
+      .limit(5); // Limit to 5 suggestions
+
+    console.log('Matching creators for suggestions:', matchingCreators); // Debug log
+    res.json({ creators: matchingCreators });
+  } catch (err) {
+    console.error('Error in search-suggestions route:', err);
+    res.status(500).json({ message: 'Error fetching suggestions', error: err.message });
+  }
+});
+
+// Search creators route for dynamic results
+// routes/home.js
+// routes/home.js
+router.get('/search-suggestions', authCheck, async (req, res) => {
+  try {
+    console.log('User in session for /search-suggestions:', req.user);
+    const query = req.query.query;
+    console.log('Search suggestions query:', query);
+    if (!query || query.trim() === '') {
+      return res.json({ creators: [] });
+    }
+
+    const matchingCreators = await User.find({
+      role: 'creator',
+      $or: [
+        { username: { $regex: query, $options: 'i' } },
+        { profileName: { $regex: query, $options: 'i' } },
+      ],
+    })
+      .select('username profileName profilePicture subscriberCount')
+      .limit(5);
+
+    // Update subscriberCount for each creator
+    for (const creator of matchingCreators) {
+      await creator.updateSubscriberCount();
+    }
+
+    console.log('Matching creators for suggestions:', matchingCreators);
+    res.json({ creators: matchingCreators });
+  } catch (err) {
+    console.error('Error in search-suggestions route:', err);
+    res.status(500).json({ message: 'Error fetching suggestions', error: err.message });
   }
 });
 

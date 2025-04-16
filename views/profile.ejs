@@ -69,6 +69,11 @@
           <% } %>
         </h1>
         <p class="username">@<%= user.username %></p>
+        <% if (user.isOnline) { %>
+          <p class="online-status">Available now</p>
+        <% } else { %>
+          <p class="last-seen-status">Last seen <%= formatRelativeTime(user.lastSeen) %></p>
+        <% } %>
       </div>
 
       <% if (user.bio) { %>
@@ -928,90 +933,87 @@
           });
       });
 
-      // --- Tip Modal Logic for Creator Tips ---
-      const initializeTipModal = () => {
-        const tipProfileButtons = document.querySelectorAll('.tip-profile-button');
-        const tipModal = document.getElementById('tipModal');
-        const closeTipModal = document.getElementById('closeTipModal');
-        const tipForm = document.getElementById('tipForm');
+      // Initialize tip modal only if the user is subscribed and not viewing their own profile
+  if (isVisitorSubscribed && !isCreatorViewingOwnProfile) {
+    const initializeTipModal = () => {
+      const tipProfileButtons = document.querySelectorAll('.tip-profile-button');
+      const tipModal = document.getElementById('tipModal');
+      const closeTipModal = document.getElementById('closeTipModal');
+      const tipForm = document.getElementById('tipForm');
 
-        let currentCreatorId = null;
+      let currentCreatorId = null;
 
-        console.log('Tip Profile Buttons:', tipProfileButtons);
-        console.log('Tip Modal:', tipModal);
+      if (!tipModal || tipProfileButtons.length === 0) {
+        console.log('Tip modal or buttons not found, initialization skipped.');
+        return;
+      }
 
-        if (!tipModal || tipProfileButtons.length === 0) {
-          console.log('Tip modal or buttons not found, retrying...');
-          setTimeout(initializeTipModal, 500); // Retry after 500ms
+      tipProfileButtons.forEach(button => {
+        console.log('Adding event listener to button:', button);
+        button.addEventListener('click', function() {
+          console.log('Tip button clicked! Creator ID:', this.dataset.creatorId);
+          currentCreatorId = this.dataset.creatorId;
+          tipModal.classList.add('active');
+          console.log('Modal active class added. Modal classes:', tipModal.classList);
+        });
+      });
+
+      closeTipModal.addEventListener('click', () => {
+        tipModal.classList.remove('active');
+        tipForm.reset();
+      });
+
+      tipModal.addEventListener('click', (e) => {
+        if (e.target === tipModal) {
+          tipModal.classList.remove('active');
+          tipForm.reset();
+        }
+      });
+
+      tipForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        const tipAmount = parseFloat(document.getElementById('tipAmount').value);
+        const tipMessage = document.getElementById('tipMessage').value.trim();
+        const submitButton = tipForm.querySelector('.send-tip-button');
+        const originalText = submitButton.textContent;
+
+        if (!tipAmount || tipAmount <= 0) {
+          alert('Please enter a valid tip amount greater than 0.');
           return;
         }
 
-        tipProfileButtons.forEach(button => {
-          console.log('Adding event listener to button:', button);
-          button.addEventListener('click', function() {
-            console.log('Tip button clicked! Creator ID:', this.dataset.creatorId);
-            currentCreatorId = this.dataset.creatorId;
-            tipModal.classList.add('active');
-            console.log('Modal active class added. Modal classes:', tipModal.classList);
+        submitButton.textContent = 'Processing...';
+        submitButton.disabled = true;
+
+        try {
+          const response = await fetch(`/profile/tip-creator/${currentCreatorId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tipAmount, tipMessage })
           });
-        });
-
-        closeTipModal.addEventListener('click', () => {
-          tipModal.classList.remove('active');
-          tipForm.reset();
-        });
-
-        tipModal.addEventListener('click', (e) => {
-          if (e.target === tipModal) {
-            tipModal.classList.remove('active');
-            tipForm.reset();
-          }
-        });
-
-        tipForm.addEventListener('submit', async function(e) {
-          e.preventDefault();
-          const tipAmount = parseFloat(document.getElementById('tipAmount').value);
-          const tipMessage = document.getElementById('tipMessage').value.trim();
-          const submitButton = tipForm.querySelector('.send-tip-button');
-          const originalText = submitButton.textContent;
-
-          if (!tipAmount || tipAmount <= 0) {
-            alert('Please enter a valid tip amount greater than 0.');
-            return;
-          }
-
-          submitButton.textContent = 'Processing...';
-          submitButton.disabled = true;
-
-          try {
-            const response = await fetch(`/profile/tip-creator/${currentCreatorId}`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ tipAmount, tipMessage })
-            });
-            const result = await response.json();
-            if (response.ok && result.status === 'success' && result.data.paymentLink) {
-              submitButton.textContent = 'Redirecting...';
-              window.location.href = result.data.paymentLink;
-            } else {
-              alert(result.message || `Failed to initialize tip payment (Status: ${response.status})`);
-              submitButton.textContent = originalText;
-              submitButton.disabled = false;
-            }
-          } catch (err) {
-            console.error('Profile Tip Error:', err);
-            alert('Error processing tip.');
+          const result = await response.json();
+          if (response.ok && result.status === 'success' && result.data.paymentLink) {
+            submitButton.textContent = 'Redirecting...';
+            window.location.href = result.data.paymentLink;
+          } else {
+            alert(result.message || `Failed to initialize tip payment (Status: ${response.status})`);
             submitButton.textContent = originalText;
             submitButton.disabled = false;
-          } finally {
-            tipModal.classList.remove('active');
-            tipForm.reset();
           }
-        });
-      };
+        } catch (err) {
+          console.error('Profile Tip Error:', err);
+          alert('Error processing tip.');
+          submitButton.textContent = originalText;
+          submitButton.disabled = false;
+        } finally {
+          tipModal.classList.remove('active');
+          tipForm.reset();
+        }
+      });
+    };
 
-      initializeTipModal();
-
+    initializeTipModal();
+  }
       // --- Tab Switching ---
       const tabButtons = document.querySelectorAll('.tab-button');
       const tabContents = document.querySelectorAll('.tab-content');

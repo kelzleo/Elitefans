@@ -19,6 +19,9 @@ const multer = require('multer');
 const keys = require('./config/keys');
 require('./config/passport-setup');
 
+// Import middleware
+const updateUserStatus = require('./middleware/updateUserStatus'); // Add this line
+
 // Import routes
 const indexRoutes = require('./routes/index');
 const profileRoutes = require('./routes/profile');
@@ -83,6 +86,9 @@ app.use(sessionMiddleware);
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Apply updateUserStatus middleware
+app.use(updateUserStatus); // Add this line after Passport middleware
+
 // Flash middleware
 app.use(flash());
 app.use((req, res, next) => {
@@ -92,6 +98,30 @@ app.use((req, res, next) => {
   res.locals.currentUser = req.user;
   next();
 });
+
+app.locals.formatRelativeTime = (date) => {
+  const now = new Date();
+  const lastSeen = new Date(date);
+  const diffMs = now - lastSeen;
+
+  const diffSeconds = Math.floor(diffMs / 1000);
+  const diffMinutes = Math.floor(diffSeconds / 60);
+  const diffHours = Math.floor(diffMinutes / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSeconds < 60) {
+    return `${diffSeconds} second${diffSeconds === 1 ? '' : 's'} ago`;
+  } else if (diffMinutes < 60) {
+    return `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+  } else if (diffHours < 24) {
+    return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  } else if (diffDays < 7) {
+    return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+  } else {
+    const diffWeeks = Math.floor(diffDays / 7);
+    return `${diffWeeks} week${diffWeeks === 1 ? '' : 's'} ago`;
+  }
+};
 
 // Media upload route for chat
 const { chatBucket: bucket } = require('./utilis/cloudStorage');

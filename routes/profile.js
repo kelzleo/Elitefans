@@ -1,6 +1,7 @@
 // routes/profile.js
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose'); // Add this line
 const User = require('../models/users');
 const Post = require('../models/Post'); 
 const multer = require('multer');
@@ -10,10 +11,10 @@ const { bucket, profileBucket, generateSignedUrl } = require('../utilis/cloudSto
 const SubscriptionBundle = require('../models/SubscriptionBundle');
 const flutter = require('../utilis/flutter');
 const Transaction = require('../models/Transaction');
-
-
-// Require Notification model with postId, creatorId, creatorName
 const Notification = require('../models/notifications');
+
+
+
 
 // Set up multer to store files in memory
 const multerStorage = multer.memoryStorage();
@@ -79,10 +80,8 @@ router.get('/', authCheck, async (req, res) => {
   try {
     console.log('Loading profile for owner...');
     const user = await User.findById(req.user._id);
-    
-    // Clean up the user's own subscriptions (e.g., mark expired ones)
+
     await user.checkExpiredSubscriptions();
-    // Update subscriberCount based on users subscribed to this creator
     await user.updateSubscriberCount();
 
     const posts = await Post.find({ creator: req.user._id })
@@ -91,14 +90,37 @@ router.get('/', authCheck, async (req, res) => {
     await processPostUrls(posts, req.user, user);
     const bundles = await SubscriptionBundle.find({ creatorId: req.user._id });
 
-    // Calculate stats
-    const imagesCount = posts.filter(post => post.type === 'image').length;
-    const videosCount = posts.filter(post => post.type === 'video').length;
-    const totalLikes = posts.reduce((sum, post) => sum + (post.likes ? post.likes.length : 0), 0);
+    const stats = await Post.aggregate([
+      { $match: { creator: new mongoose.Types.ObjectId(req.user._id) } },
+      {
+        $group: {
+          _id: null,
+          imagesCount: {
+            $sum: { $cond: [{ $eq: ['$type', 'image'] }, 1, 0] },
+          },
+          videosCount: {
+            $sum: { $cond: [{ $eq: ['$type', 'video'] }, 1, 0] },
+          },
+          totalLikes: {
+            $sum: { $size: { $ifNull: ['$likes', []] } },
+          },
+        },
+      },
+    ]);
+
+    const imagesCount = stats[0]?.imagesCount || 0;
+    const videosCount = stats[0]?.videosCount || 0;
+    const totalLikes = stats[0]?.totalLikes || 0;
     const subscriberCount = user.subscriberCount;
 
     res.render('profile', {
-      user: { ...user.toObject(), imagesCount, videosCount, totalLikes, subscriberCount },
+      user: {
+        ...user.toObject(),
+        imagesCount,
+        videosCount,
+        totalLikes,
+        subscriberCount,
+      },
       currentUser: req.user,
       isSubscribed: false,
       posts,
@@ -116,17 +138,16 @@ router.get('/view/:id', authCheck, async (req, res) => {
     const ownerUser = await User.findById(req.params.id);
     if (!ownerUser) return res.status(404).send('User not found');
 
-    // Update subscriberCount based on users subscribed to this creator
     await ownerUser.updateSubscriberCount();
 
     const currentUser = await User.findById(req.user._id);
-    // Clean up the current user's own subscriptions
     await currentUser.checkExpiredSubscriptions();
     const now = new Date();
-    const isSubscribed = currentUser.subscriptions.some(sub =>
-      sub.creatorId.toString() === ownerUser._id.toString() &&
-      sub.status === 'active' &&
-      sub.subscriptionExpiry > now
+    const isSubscribed = currentUser.subscriptions.some(
+      (sub) =>
+        sub.creatorId.toString() === ownerUser._id.toString() &&
+        sub.status === 'active' &&
+        sub.subscriptionExpiry > now
     );
     const bundles = await SubscriptionBundle.find({ creatorId: req.params.id });
     const adminView = req.query.adminView && req.user.role === 'admin';
@@ -139,13 +160,37 @@ router.get('/view/:id', authCheck, async (req, res) => {
       await processPostUrls(posts, currentUser, ownerUser, adminView);
     }
 
-    const imagesCount = posts.filter(post => post.type === 'image').length;
-    const videosCount = posts.filter(post => post.type === 'video').length;
-    const totalLikes = posts.reduce((sum, post) => sum + (post.likes ? post.likes.length : 0), 0);
+    const stats = await Post.aggregate([
+      { $match: { creator: new mongoose.Types.ObjectId(req.params.id) } },
+      {
+        $group: {
+          _id: null,
+          imagesCount: {
+            $sum: { $cond: [{ $eq: ['$type', 'image'] }, 1, 0] },
+          },
+          videosCount: {
+            $sum: { $cond: [{ $eq: ['$type', 'video'] }, 1, 0] },
+          },
+          totalLikes: {
+            $sum: { $size: { $ifNull: ['$likes', []] } },
+          },
+        },
+      },
+    ]);
+
+    const imagesCount = stats[0]?.imagesCount || 0;
+    const videosCount = stats[0]?.videosCount || 0;
+    const totalLikes = stats[0]?.totalLikes || 0;
     const subscriberCount = ownerUser.subscriberCount;
 
     res.render('profile', {
-      user: { ...ownerUser.toObject(), imagesCount, videosCount, totalLikes, subscriberCount },
+      user: {
+        ...ownerUser.toObject(),
+        imagesCount,
+        videosCount,
+        totalLikes,
+        subscriberCount,
+      },
       currentUser,
       isSubscribed: isSubscribed || adminView,
       posts,

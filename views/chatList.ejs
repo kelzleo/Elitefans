@@ -1,4 +1,60 @@
 <!-- views/chatList.ejs -->
+<style>
+  .chat-list-controls {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+  }
+  .chat-list-controls select {
+    padding: 5px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 5px;
+    font-size: 14px;
+    background: #fff;
+    cursor: pointer;
+    min-width: 120px;
+  }
+  .chat-list-controls .search-container {
+    position: relative;
+    flex-grow: 1;
+    min-width: 150px;
+    max-width: 200px;
+  }
+  .chat-list-controls #searchInput {
+    width: 100%;
+    padding: 5px 30px 5px 10px;
+    border: 1px solid #e0e0e0;
+    border-radius: 15px;
+    font-size: 14px;
+    box-sizing: border-box;
+  }
+  .chat-list-controls .search-container::after {
+    content: '\f002';
+    font-family: 'FontAwesome';
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #888;
+  }
+  @media (max-width: 500px) {
+    .chat-list-controls {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 10px;
+    }
+    .chat-list-controls select {
+      width: 100%;
+      min-width: unset;
+    }
+    .chat-list-controls .search-container {
+      max-width: unset;
+      width: 100%;
+    }
+  }
+</style>
+
 <div class="chat-list-container">
   <div class="chat-list-header">
     <h2>Chat</h2>
@@ -13,7 +69,7 @@
       </select>
       <!-- Search Bar -->
       <div class="search-container">
-        <input type="text" id="searchInput" placeholder="Search users" onkeyup="searchChats()">
+        <input type="text" id="searchInput" placeholder="Search users">
       </div>
     </div>
   </div>
@@ -113,11 +169,9 @@
 
   socket.on('connect', () => {
     console.log('Connected to Socket.io server for chat list');
-
-    // Send heartbeat every 15 seconds
     setInterval(() => {
       socket.emit('heartbeat');
-    }, 15000); // HEARTBEAT_INTERVAL
+    }, 15000);
   });
 
   socket.on('connect_error', (error) => {
@@ -128,8 +182,8 @@
   function filterChats(filter) {
     const chatItems = document.querySelectorAll('.chat-item');
     chatItems.forEach(item => {
-      const username = item.getAttribute('data-username').toLowerCase();
-      const tipAmount = parseFloat(item.getAttribute('data-tip'));
+      const username = item.getAttribute('data-username')?.toLowerCase() || '';
+      const tipAmount = parseFloat(item.getAttribute('data-tip')) || 0;
       const isOnline = item.getAttribute('data-online') === 'true';
       const isUnread = item.classList.contains('unread');
 
@@ -144,12 +198,12 @@
     if (filter === 'a-z' || filter === 'highest-tips') {
       const sortedItems = Array.from(chatItems).sort((a, b) => {
         if (filter === 'a-z') {
-          const nameA = a.getAttribute('data-username').toLowerCase();
-          const nameB = b.getAttribute('data-username').toLowerCase();
+          const nameA = a.getAttribute('data-username')?.toLowerCase() || '';
+          const nameB = b.getAttribute('data-username')?.toLowerCase() || '';
           return nameA.localeCompare(nameB);
         } else if (filter === 'highest-tips') {
-          const tipA = parseFloat(a.getAttribute('data-tip'));
-          const tipB = parseFloat(b.getAttribute('data-tip'));
+          const tipA = parseFloat(a.getAttribute('data-tip')) || 0;
+          const tipB = parseFloat(a.getAttribute('data-tip')) || 0;
           return tipB - tipA;
         }
       });
@@ -159,11 +213,22 @@
   }
 
   function searchChats() {
-    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) {
+      console.error('searchInput element not found');
+      return;
+    }
+    const searchTerm = searchInput.value.toLowerCase().trim();
     const chatItems = document.querySelectorAll('.chat-item');
     chatItems.forEach(item => {
-      const username = item.getAttribute('data-username').toLowerCase();
+      const username = item.getAttribute('data-username')?.toLowerCase() || '';
       item.style.display = username.includes(searchTerm) ? 'block' : 'none';
     });
   }
+
+  // Debounced search event listener
+  document.getElementById('searchInput')?.addEventListener('input', () => {
+    clearTimeout(window.searchChatsTimeout);
+    window.searchChatsTimeout = setTimeout(searchChats, 300);
+  });
 </script>
