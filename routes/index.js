@@ -1,3 +1,4 @@
+// routes/index.js
 const express = require('express');
 const router = express.Router();
 const passport = require('passport');
@@ -148,6 +149,208 @@ router.post('/login', (req, res, next) => {
       }
     });
   })(req, res, next);
+});
+
+// Route to render the change password form (protected route)
+router.get('/change-password', (req, res) => {
+  if (!req.user) {
+    return res.redirect('/'); // Redirect to login if not authenticated
+  }
+  res.render('change-password', { errorMessage: '', successMessage: '' });
+});
+
+// Route to handle password change
+router.post('/change-password', async (req, res) => {
+  if (!req.user) {
+    return res.redirect('/'); // Redirect to login if not authenticated
+  }
+
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+
+  try {
+    const user = await User.findById(req.user._id);
+
+    // Check if user signed up with Google (no password to change)
+    if (user.googleId && !user.password) {
+      return res.render('change-password', {
+        errorMessage: 'Cannot change password for Google accounts.',
+        successMessage: '',
+      });
+    }
+
+    // Verify current password
+    const isMatch = await bcrypt.compare(currentPassword, user.password);
+    if (!isMatch) {
+      return res.render('change-password', {
+        errorMessage: 'Current password is incorrect.',
+        successMessage: '',
+      });
+    }
+
+    // Check if new passwords match
+    if (newPassword !== confirmPassword) {
+      return res.render('change-password', {
+        errorMessage: 'New passwords do not match.',
+        successMessage: '',
+      });
+    }
+
+    // Validate new password length
+    if (newPassword.length < 6) {
+      return res.render('change-password', {
+        errorMessage: 'New password must be at least 6 characters long.',
+        successMessage: '',
+      });
+    }
+
+    // Hash the new password and save
+    user.password = await bcrypt.hash(newPassword, 10);
+    await user.save();
+
+    res.render('change-password', {
+      errorMessage: '',
+      successMessage: 'Password changed successfully!',
+    });
+  } catch (error) {
+    console.error('Error changing password:', error);
+    res.render('change-password', {
+      errorMessage: 'An error occurred. Please try again.',
+      successMessage: '',
+    });
+  }
+});
+
+// Route to render the forgot password form
+router.get('/forgot-password', (req, res) => {
+  res.render('forgot-password', { errorMessage: '', successMessage: '' });
+});
+
+// Route to handle forgot password request
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.render('forgot-password', {
+        errorMessage: 'No account with that email address exists.',
+        successMessage: '',
+      });
+    }
+
+    // Check if user signed up with Google
+    if (user.googleId && !user.password) {
+      return res.render('forgot-password', {
+        errorMessage: 'Cannot reset password for Google accounts.',
+        successMessage: '',
+      });
+    }
+
+    // Generate a reset token
+    const resetToken = crypto.randomBytes(32).toString('hex');
+    user.resetPasswordToken = resetToken;
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiry
+    await user.save();
+
+    // Send reset email
+    const resetLink = `https://onlyaccess.onrender.com/reset-password/${resetToken}`;
+    await sendEmail(
+      email,
+      'Password Reset Request',
+      `<p>You requested a password reset. Click the link below to reset your password:</p>
+       <a href="${resetLink}">Reset Password</a>
+       <p>This link will expire in 1 hour.</p>`
+    );
+
+    res.render('forgot-password', {
+      errorMessage: '',
+      successMessage: 'A password reset link has been sent to your email.',
+    });
+  } catch (error) {
+    console.error('Error in forgot password:', error);
+    res.render('forgot-password', {
+      errorMessage: 'An error occurred. Please try again.',
+      successMessage: '',
+    });
+  }
+});
+
+// Route to render the reset password form
+router.get('/reset-password/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.render('welcome', {
+        errorMessage: 'Password reset link is invalid or has expired.',
+      });
+    }
+
+    res.render('reset-password', { token, errorMessage: '', successMessage: '' });
+  } catch (error) {
+    console.error('Error rendering reset password form:', error);
+    res.render('welcome', {
+      errorMessage: 'An error occurred. Please try again.',
+    });
+  }
+});
+
+// Route to handle password reset
+router.post('/reset-password/:token', async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { newPassword, confirmPassword } = req.body;
+
+    const user = await User.findOne({
+      resetPasswordToken: token,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.render('welcome', {
+        errorMessage: 'Password reset link is invalid or has expired.',
+      });
+    }
+
+    // Check if new passwords match
+    if (newPassword !== confirmPassword) {
+      return res.render('reset-password', {
+        token,
+        errorMessage: 'Passwords do not match.',
+        successMessage: '',
+      });
+    }
+
+    // Validate new password length
+    if (newPassword.length < 6) {
+      return res.render('reset-password', {
+        token,
+        errorMessage: 'Password must be at least 6 characters long.',
+        successMessage: '',
+      });
+    }
+
+    // Update the password
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    res.render('welcome', {
+      errorMessage: 'Your password has been reset successfully. Please log in.',
+    });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    res.render('reset-password', {
+      token: req.params.token,
+      errorMessage: 'An error occurred. Please try again.',
+      successMessage: '',
+    });
+  }
 });
 
 module.exports = router;

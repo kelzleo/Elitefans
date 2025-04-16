@@ -26,6 +26,12 @@ const userSchema = new mongoose.Schema({
       message: 'Password must be at least 6 characters long.'
     }
   },
+  resetPasswordToken: {
+    type: String,
+  },
+  resetPasswordExpires: {
+    type: Date,
+  },
   googleId: {
     type: String,
     unique: true,

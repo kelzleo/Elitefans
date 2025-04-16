@@ -73,10 +73,12 @@
       <% if (currentUser && currentUser.role === 'user') { %>
         <li><a href="/request-creator">Request to be a Creator</a></li>
         <li><a href="/purchased-content">Purchased Content</a></li>
+        
       <% } %>
       <li><a href="/dashboard">Dashboards</a></li>
       <li><a href="">Subscriptions</a></li>
       <li><a href="">Help and Support</a></li>
+   
       <li><a href="/purchase">Purchase</a></li>
       <li><a href="/profile/edit">Edit Profile</a></li>
       <% if (currentUser && currentUser.role === 'creator') { %>
@@ -84,7 +86,9 @@
 
       <% } %>
       <% if (currentUser) { %>
+        <li><a href="/change-password">Change Password</a></li>
         <li><a href="/logout">Logout</a></li>
+        
       <% } else { %>
         <li><a href="/users/login">Login</a></li>
       <% } %>

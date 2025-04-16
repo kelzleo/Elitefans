@@ -2791,3 +2791,125 @@ html, body {
   color: #6c757d; /* Gray for last seen */
   margin: 5px 0 0 0;
 }
+
+/* public/styles.css */
+
+/* Add these styles to the end of your existing styles.css file */
+
+/* Change Password Styles */
+.cp-form-container {
+  max-width: 400px;
+  margin: 50px auto;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  text-align: center;
+}
+
+.cp-input {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+
+.cp-button {
+  width: 100%;
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.cp-button:hover {
+  background-color: #0056b3;
+}
+
+.cp-error-message,
+.cp-success-message {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.cp-error-message {
+  color: red;
+}
+
+.cp-success-message {
+  color: green;
+}
+
+.cp-back-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: #007bff;
+  text-decoration: none;
+}
+
+.cp-back-link:hover {
+  text-decoration: underline;
+}
+
+/* Forgot Password and Reset Password Styles */
+.fp-form-container {
+  max-width: 400px;
+  margin: 50px auto;
+  padding: 20px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  text-align: center;
+}
+
+.fp-input {
+  width: 100%;
+  padding: 10px;
+  margin: 10px 0;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+
+.fp-button {
+  width: 100%;
+  padding: 10px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 16px;
+}
+
+.fp-button:hover {
+  background-color: #0056b3;
+}
+
+.fp-error-message,
+.fp-success-message {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.fp-error-message {
+  color: red;
+}
+
+.fp-success-message {
+  color: green;
+}
+
+.fp-back-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: #007bff;
+  text-decoration: none;
+}
+
+.fp-back-link:hover {
+  text-decoration: underline;
+}
