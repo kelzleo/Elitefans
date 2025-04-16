@@ -12,9 +12,12 @@ module.exports = {
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
   },
-  email: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+  //email: {
+    //user: process.env.EMAIL_USER,
+    //pass: process.env.EMAIL_PASS,
+  //},
+  brevo: {
+    apiKey: process.env.BREVO_API_KEY,
   },
   session: {
     // Use the provided cookie key or generate one if not set

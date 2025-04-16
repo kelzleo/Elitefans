@@ -15,6 +15,7 @@ router.get('/', (req, res) => {
 });
 
 router.post('/signup', async (req, res) => {
+  const startTime = Date.now();
   const { username, email, password } = req.body;
   try {
     console.log('Signup Request - URL:', req.url, 'Query:', req.query, 'Body:', req.body, 'Session:', req.session);
@@ -50,12 +51,20 @@ router.post('/signup', async (req, res) => {
     console.log('User saved:', { id: newUser._id, referredBy: newUser.referredBy });
     delete req.session.referralId;
     const verificationLink = `https://onlyaccess.onrender.com/verify/${verificationToken}`;
+    
+    const emailStartTime = Date.now();
     await sendEmail(
       email,
       'Verify Your Email',
       `<p>Thank you for signing up! Please verify your email by clicking the link below:</p>
        <a href="${verificationLink}">Verify Email</a>`
     );
+    const emailEndTime = Date.now();
+    console.log(`Total time for signup email sending: ${(emailEndTime - emailStartTime) / 1000} seconds`);
+    
+    const endTime = Date.now();
+    console.log(`Total signup route time: ${(endTime - startTime) / 1000} seconds`);
+    
     res.render('welcome', { errorMessage: 'Check your email to verify your account.' });
   } catch (error) {
     console.error('Error signing up user:', error);
@@ -227,6 +236,7 @@ router.get('/forgot-password', (req, res) => {
 
 // Route to handle forgot password request
 router.post('/forgot-password', async (req, res) => {
+  const startTime = Date.now();
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
@@ -254,18 +264,39 @@ router.post('/forgot-password', async (req, res) => {
 
     // Send reset email
     const resetLink = `https://onlyaccess.onrender.com/reset-password/${resetToken}`;
-    await sendEmail(
-      email,
-      'Password Reset Request',
-      `<p>You requested a password reset. Click the link below to reset your password:</p>
-       <a href="${resetLink}">Reset Password</a>
-       <p>This link will expire in 1 hour.</p>`
-    );
-
-    res.render('forgot-password', {
-      errorMessage: '',
-      successMessage: 'A password reset link has been sent to your email.',
-    });
+    console.log('Attempting to send email to:', email);
+    console.log('Reset Link:', resetLink);
+    
+    const emailStartTime = Date.now();
+    try {
+      const emailResponse = await sendEmail(
+        email,
+        'Password Reset Request',
+        `<p>You requested a password reset. Click the link below to reset your password:</p>
+         <a href="${resetLink}">Reset Password</a>
+         <p>This link will expire in 1 hour.</p>`
+      );
+      const emailEndTime = Date.now();
+      console.log(`Total time for forgot-password email sending: ${(emailEndTime - emailStartTime) / 1000} seconds`);
+      console.log('Email sent successfully:', emailResponse);
+      res.render('forgot-password', {
+        errorMessage: '',
+        successMessage: 'A password reset link has been sent to your email. It may take a few minutes to arrive.',
+      });
+    } catch (emailError) {
+      console.error('Failed to send email:', emailError);
+      // Roll back the token since the email failed to send
+      user.resetPasswordToken = undefined;
+      user.resetPasswordExpires = undefined;
+      await user.save();
+      res.render('forgot-password', {
+        errorMessage: 'Failed to send reset email. Please try again later.',
+        successMessage: '',
+      });
+    }
+    
+    const endTime = Date.now();
+    console.log(`Total forgot-password route time: ${(endTime - startTime) / 1000} seconds`);
   } catch (error) {
     console.error('Error in forgot password:', error);
     res.render('forgot-password', {
