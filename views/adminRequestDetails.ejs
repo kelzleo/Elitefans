@@ -3,14 +3,9 @@
 <div style="border: 1px solid #ccc; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
   <p><strong>User:</strong> <%= request.user.username %> (<%= request.user.email %>)</p>
   <p><strong>Name:</strong> <%= request.firstName %> <%= request.lastName %></p>
+  <p><strong>BVN:</strong> <%= request.bvn ? request.bvn : 'N/A' %></p>
+  <p><strong>Estimated Age:</strong> <%= request.estimatedAge ? request.estimatedAge : 'Not detected' %></p>
   <p><strong>Requested At:</strong> <%= request.requestedAt.toLocaleString() %></p>
-  <% if (request.bvnVerificationData && request.bvnVerificationData.verifiedAt) { %>
-    <p><strong>BVN Verification:</strong> Verified</p>
-    <p><strong>Verified Name:</strong> <%= request.bvnVerificationData.verifiedFirstName %> <%= request.bvnVerificationData.verifiedLastName %></p>
-    <p><strong>Verified At:</strong> <%= new Date(request.bvnVerificationData.verifiedAt).toLocaleString() %></p>
-  <% } else { %>
-    <p><strong>BVN Verification:</strong> Not verified</p>
-  <% } %>
   <p>
     <strong>Passport Photo:</strong>
     <% if (signedUrl) { %>
@@ -23,6 +18,7 @@
     <strong>User Profile:</strong>
     <a href="/profile/view/<%= request.user._id %>" target="_blank">View Profile</a>
   </p>
+  <p><strong>Note:</strong> Estimated age is from an automated system. Verify photo authenticity. BVN will be deleted after action.</p>
 </div>
 
 <div>

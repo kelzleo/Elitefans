@@ -26,6 +26,7 @@ const processPostUrls = async (posts, currentUser) => {
         }
       } else {
         post.contentUrl = '/uploads/locked-placeholder.png';
+        post.locked = true;
       }
     } else {
       if (!post.contentUrl.startsWith('http')) {
@@ -38,13 +39,18 @@ const processPostUrls = async (posts, currentUser) => {
 // Render Bookmarks Page
 router.get('/', authCheck, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id).populate({
+    // Fetch user and ensure subscriptions are up-to-date
+    let user = await User.findById(req.user._id);
+    await user.checkExpiredSubscriptions(); // Update subscription statuses
+
+    // Re-fetch user with populated bookmarks
+    user = await User.findById(req.user._id).populate({
       path: 'bookmarks',
       populate: { path: 'creator', select: 'username profilePicture' }
     });
 
     const now = new Date();
-    // Get the user's active subscriptions
+    // Get active subscriptions
     const activeCreatorIds = user.subscriptions
       .filter(
         (sub) =>
@@ -54,27 +60,53 @@ router.get('/', authCheck, async (req, res) => {
       )
       .map((sub) => sub.creatorId.toString());
 
-    // Filter bookmarked posts to include only those from creators with active subscriptions
-    // or posts that are not special (free content) or purchased
+    // Log for debugging
+    console.log('Active Creator IDs:', activeCreatorIds);
+    console.log('User Subscriptions:', user.subscriptions.map(sub => ({
+      creatorId: sub.creatorId,
+      status: sub.status,
+      expiry: sub.subscriptionExpiry
+    })));
+
+    // Filter valid bookmarked posts
     let bookmarkedPosts = user.bookmarks || [];
     bookmarkedPosts = bookmarkedPosts.filter((post) => {
-      const isCreatorSubscribed = activeCreatorIds.includes(
-        post.creator._id.toString()
-      );
+      if (!post || !post.creator) {
+        console.log('Skipping invalid post:', post);
+        return false;
+      }
+
+      const creatorId = post.creator._id.toString();
+      const isCreatorSubscribed = activeCreatorIds.includes(creatorId);
       const isPurchased = user.purchasedContent.some(
         (p) => p.contentId.toString() === post._id.toString()
       );
-      // Include post if:
-      // - User has an active subscription to the creator, OR
-      // - Post is not special (free), OR
-      // - Post is special but has been purchased
+
+      // Log filtering decision
+      console.log(`Post ID: ${post._id}, Creator: ${creatorId}, Subscribed: ${isCreatorSubscribed}, Special: ${post.special}, Purchased: ${isPurchased}`);
+
       return isCreatorSubscribed || !post.special || isPurchased;
     });
 
-    // Reverse the filtered bookmarked posts so newest additions appear first
+    // Clean up invalid bookmarks
+    const validBookmarkIds = bookmarkedPosts.map((post) => post._id.toString());
+    if (user.bookmarks.length !== validBookmarkIds.length) {
+      user.bookmarks = validBookmarkIds;
+      await user.save();
+      console.log('Cleaned up invalid bookmarks');
+    }
+
+    // Reverse posts to show newest first
     const reversedBookmarkedPosts = bookmarkedPosts.reverse();
 
-    // Process post URLs for display only for allowed posts
+    // Log final posts
+    console.log('Filtered Bookmarked Posts:', reversedBookmarkedPosts.map(p => ({
+      id: p._id,
+      creator: p.creator._id,
+      special: p.special
+    })));
+
+    // Process URLs for accessible posts
     await processPostUrls(reversedBookmarkedPosts, user);
 
     res.render('bookmarks', {
@@ -85,6 +117,20 @@ router.get('/', authCheck, async (req, res) => {
     console.error('Bookmarks Error:', error);
     req.flash('error', 'Error loading bookmarks.');
     res.redirect('/home');
+  }
+});
+
+// Bookmark status endpoint
+router.get('/:postId/bookmark-status', authCheck, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    const isBookmarked = user.bookmarks.some(
+      (bookmark) => bookmark.toString() === req.params.postId
+    );
+    res.json({ isBookmarked });
+  } catch (error) {
+    console.error('Bookmark Status Error:', error);
+    res.status(500).json({ message: 'Error checking bookmark status' });
   }
 });
 

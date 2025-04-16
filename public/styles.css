@@ -2913,3 +2913,300 @@ html, body {
 .fp-back-link:hover {
   text-decoration: underline;
 }
+/********************************************
+ * PROFILE MENU DESKTOP ADJUSTMENTS
+ ********************************************/
+
+ @media (min-width: 768px) {
+  /* Keep the profile menu toggleable, but style it for desktop */
+  .profile-menu {
+    position: fixed;
+    top: 0;
+    right: -250px; /* Hidden by default */
+    width: 250px;
+    height: 100vh;
+    background-color: #ffffff;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.3);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    transition: right 0.3s ease; /* Retain slide animation */
+  }
+
+  .profile-menu.open {
+    right: 0; /* Slide in when open */
+  }
+
+  /* Adjust header padding and styling to match the image */
+  .profile-menu-header {
+    padding: 15px;
+    background-color: #f5f5f5;
+    display: flex;
+    flex-direction: column; /* Stack avatar and username vertically */
+    align-items: center;
+    text-align: center;
+  }
+
+  /* Adjust avatar size and styling */
+  .profile-menu-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-bottom: 10px;
+  }
+
+  /* Username styling */
+  .profile-menu-username {
+    font-size: 1.1rem;
+    font-weight: bold;
+    color: #333;
+  }
+
+  /* Links styling to match the image */
+  .profile-menu-links li a {
+    padding: 10px 15px;
+    font-size: 1rem;
+    color: #555;
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Space for icons */
+  }
+
+  .profile-menu-links li a:hover {
+    background-color: #f0f0f0;
+    color: #333;
+  }
+
+  /* Add icons to menu items (matching the image) */
+  .profile-menu-links li a[href="/profile"]::before {
+    content: "\f007"; /* Font Awesome user icon */
+    font-family: "FontAwesome";
+  }
+  .profile-menu-links li a[href="/bookmarks"]::before {
+    content: "\f02e"; /* Font Awesome bookmark icon */
+    font-family: "FontAwesome";
+  }
+  .profile-menu-links li a[href="/profile/edit"]::before {
+    content: "\f044"; /* Font Awesome edit icon */
+    font-family: "FontAwesome";
+  }
+  .profile-menu-links li a[href="/request-creator"]::before {
+    content: "\f0c0"; /* Font Awesome users icon */
+    font-family: "FontAwesome";
+  }
+  .profile-menu-links li a[href="/purchased-content"]::before {
+    content: "\f07a"; /* Font Awesome shopping-cart icon */
+    font-family: "FontAwesome";
+  }
+  .profile-menu-links li a[href="/dashboard"]::before {
+    content: "\f0e4"; /* Font Awesome dashboard icon */
+    font-family: "FontAwesome";
+  }
+  .profile-menu-links li a[href="/subscriptions"]::before {
+    content: "\f3d1"; /* Font Awesome dollar-sign icon */
+    font-family: "FontAwesome";
+  }
+  .profile-menu-links li a[href="/help"]::before {
+    content: "\f059"; /* Font Awesome question-circle icon */
+    font-family: "FontAwesome";
+  }
+  .profile-menu-links li a[href="/purchase"]::before {
+    content: "\f07a"; /* Font Awesome shopping-cart icon */
+    font-family: "FontAwesome";
+  }
+  .profile-menu-links li a[href="/referrals"]::before {
+    content: "\f234"; /* Font Awesome user-plus icon */
+    font-family: "FontAwesome";
+  }
+  .profile-menu-links li a[href="/change-password"]::before {
+    content: "\f023"; /* Font Awesome lock icon */
+    font-family: "FontAwesome";
+  }
+  .profile-menu-links li a[href="/logout"]::before {
+    content: "\f2f5"; /* Font Awesome sign-out icon */
+    font-family: "FontAwesome";
+  }
+  .profile-menu-links li a[href="/users/login"]::before {
+    content: "\f090"; /* Font Awesome sign-in icon */
+    font-family: "FontAwesome";
+  }
+
+  /* Night mode toggle (simplified for demo; you may need to adjust based on your implementation) */
+  .profile-menu-links li a[href="#"]::before {
+    content: "\f186"; /* Font Awesome moon icon for night mode */
+    font-family: "FontAwesome";
+  }
+
+  /* UPDATED: Cover Photo Adjustments for Desktop */
+  .cover-photo-container {
+    width: 100%; /* Full width of the parent container */
+    max-width: 100%; /* Prevent exceeding content-wrapper */
+    height: 300px; /* Suitable height for desktop */
+    overflow: hidden; /* Hide overflow to maintain aspect ratio */
+    position: relative;
+    margin: 0; /* Remove margins */
+    padding: 0; /* Remove padding */
+    box-sizing: border-box; /* Ensure no extra space */
+  }
+
+  .cover-photo {
+    width: 100%; /* Full width of the container */
+    height: 100%; /* Fill the container height */
+    object-fit: cover; /* Cover the area without distortion */
+    display: block;
+    margin: 0; /* Remove margins */
+    padding: 0; /* Remove padding */
+  }
+
+  /* Ensure parent containers allow full width */
+  .profile-header,
+  .profile-container,
+  .container {
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  /* UPDATED: Bottom Nav Centering Fix */
+  .bottom-nav {
+    max-width: 400px; /* Match content-wrapper width */
+    width: 100%; /* Full width of the constrained max-width */
+    position: fixed;
+    bottom: 0;
+    left: 0; /* Align with content-wrapper */
+    right: 0; /* Align with content-wrapper */
+    margin: 0 auto; /* Center horizontally */
+    background-color: #ffffff;
+    box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.15);
+    z-index: 999;
+    box-sizing: border-box; /* Prevent padding issues */
+    transform: none; /* Remove transform to avoid offsets */
+  }
+}
+
+/* Ensure mobile view remains unchanged */
+@media (max-width: 767px) {
+  .profile-menu {
+    right: -250px; /* Hidden by default on mobile */
+    transition: right 0.3s ease; /* Retain slide animation */
+  }
+  .profile-menu.open {
+    right: 0;
+  }
+  .profile-menu-header {
+    flex-direction: row; /* Horizontal layout on mobile */
+    align-items: center;
+  }
+}
+
+/********************************************
+ * DESKTOP LAYOUT ADJUSTMENTS (Except Welcome Page)
+ ********************************************/
+
+/* Ensure the body takes the full viewport width and handles the background */
+html, body {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+  background-color: #f7f7f7; /* Default mobile background */
+}
+
+/* Desktop view adjustments for screens 768px and above */
+@media (min-width: 768px) {
+  /* Body background for desktop to create gray sidebars */
+  body:not(.welcome-page) {
+    background-color: #d3d3d3; /* Gray background for sidebars */
+  }
+
+  /* Center the content wrapper with a narrower max-width and white background for non-welcome pages */
+  .content-wrapper {
+    margin: 0 auto; /* Center the content by default */
+    background-color: #f7f7f7; /* White background for the content area */
+    padding-bottom: 80px; /* Add padding to account for the bottom nav height (60px + some buffer) */
+    min-height: 100vh; /* Ensure it takes full height */
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1); /* Optional: subtle shadow for separation */
+  }
+
+  /* Apply centering and width constraints only to non-welcome pages */
+  body:not(.welcome-page) .content-wrapper {
+    max-width: 400px; /* Narrow width for non-welcome pages */
+  }
+
+  /* Ensure the welcome page takes full width */
+  body.welcome-page .content-wrapper {
+    max-width: 100%; /* Full width for welcome page */
+    margin: 0; /* Remove centering */
+    background-color: #f7f7f7; /* Keep the same background */
+    box-shadow: none; /* Remove shadow for welcome page */
+  }
+
+  /* Ensure the container inside content-wrapper doesn't add extra padding for non-welcome pages */
+  body:not(.welcome-page) .container {
+    padding: 1rem;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* For welcome page, allow container to take full width */
+  body.welcome-page .container {
+    padding: 1rem;
+    width: 100%;
+    max-width: 100%;
+  }
+
+  /* Adjust specific containers to ensure they don't exceed the content-wrapper width for non-welcome pages */
+  body:not(.welcome-page) .post-card,
+  body:not(.welcome-page) .trending-creators-container,
+  body:not(.welcome-page) .search-section,
+  body:not(.welcome-page) .search-results-container,
+  body:not(.welcome-page) .feed-mode-container,
+  body:not(.welcome-page) .chat-container,
+  body:not(.welcome-page) .chat-list-container,
+  body:not(.welcome-page) .dashboard-container,
+  body:not(.welcome-page) .profile-container,
+  body:not(.welcome-page) .notifications-container,
+  body:not(.welcome-page) .request-creator-container,
+  body:not(.welcome-page) .edit-profile-form,
+  body:not(.welcome-page) .cp-form-container,
+  body:not(.welcome-page) .fp-form-container {
+    max-width: 100%; /* Ensure they fit within the content-wrapper */
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Fix search container positioning on desktop for non-welcome pages */
+  body:not(.welcome-page) .search-section .search-container {
+    right: 20px; /* Align with the padding of the container */
+  }
+}
+
+/* Larger desktop screens */
+@media (min-width: 1024px) {
+  body:not(.welcome-page) .content-wrapper {
+    max-width: 450px; /* Slightly wider for larger screens */
+  }
+  .bottom-nav {
+    max-width: 450px; /* Match the content-wrapper width */
+  }
+
+  /* UPDATED: Cover Photo Height Consistency for Larger Screens */
+  .cover-photo-container {
+    height: 300px; /* Maintain consistent height */
+  }
+}
+
+/* Additional styling for welcome page to ensure full-width elements */
+body.welcome-page .login-form,
+body.welcome-page .sign-options,
+body.welcome-page .signup-options {
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}

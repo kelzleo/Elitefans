@@ -41,12 +41,10 @@
       <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
         <!-- Creator/User View: Chat, Broadcast, and Bookmarks -->
         <% if (user.role === 'creator') { %>
-        
           <a href="/broadcast" class="action-button broadcast-icon" title="Start Broadcast">
             <i class="fa fa-video"></i>
           </a>
         <% } %>
-        
       <% } else if (currentUser && isSubscribed && user.role === 'creator') { %>
         <!-- Visitor View (Subscribed): Chat, Tip, and Bookmarks -->
         <a href="/chat?creatorId=<%= user._id %>" class="action-button chat-icon" title="Chat with <%= user.username %>">
@@ -55,7 +53,6 @@
         <button class="action-button tip-icon tip-profile-button" data-creator-id="<%= user._id %>" title="Tip <%= user.username %>">
           <i class="fa fa-gift"></i>
         </button>
-       
       <% } %>
     </div>
 
@@ -208,7 +205,7 @@
                 <% if (post.comments && post.comments.length > 0) { %>
                   <% post.comments.slice(0, 2).forEach(comment => { %>
                     <div class="comment">
-                      <strong><%= comment.user.username %>:</strong> <%= comment.text %>
+                      <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
                     </div>
                   <% }); %>
                   <% if (post.comments.length > 2) { %>
@@ -291,7 +288,7 @@
                   <% if (post.comments && post.comments.length > 0) { %>
                     <% post.comments.slice(0, 2).forEach(comment => { %>
                       <div class="comment">
-                        <strong><%= comment.user.username %>:</strong> <%= comment.text %>
+                        <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
                       </div>
                     <% }); %>
                     <% if (post.comments.length > 2) { %>
@@ -382,7 +379,7 @@
                     <% if (post.comments && post.comments.length > 0) { %>
                       <% post.comments.slice(0, 2).forEach(comment => { %>
                         <div class="comment">
-                          <strong><%= comment.user.username %>:</strong> <%= comment.text %>
+                          <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
                         </div>
                       <% }); %>
                       <% if (post.comments.length > 2) { %>
@@ -462,7 +459,7 @@
                     <% if (post.comments && post.comments.length > 0) { %>
                       <% post.comments.slice(0, 2).forEach(comment => { %>
                         <div class="comment">
-                          <strong><%= comment.user.username %>:</strong> <%= comment.text %>
+                          <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
                         </div>
                       <% }); %>
                       <% if (post.comments.length > 2) { %>
@@ -545,7 +542,7 @@
                     <% if (post.comments && post.comments.length > 0) { %>
                       <% post.comments.slice(0, 2).forEach(comment => { %>
                         <div class="comment">
-                          <strong><%= comment.user.username %>:</strong> <%= comment.text %>
+                          <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
                         </div>
                       <% }); %>
                       <% if (post.comments.length > 2) { %>
@@ -676,7 +673,6 @@
     </form>
   </div>
 </div>
-
 <script>
   // Helper function to safely get data attribute boolean
   function getDataBoolean(element, attributeName) {

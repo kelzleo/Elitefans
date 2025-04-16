@@ -87,7 +87,23 @@ router.get('/', authCheck, async (req, res) => {
       // Filter out posts where creator is null (e.g., deleted user)
       const validPosts = posts.filter(post => post.creator !== null);
 
+      // Filter out comments with invalid users and process post URLs
       for (const post of validPosts) {
+        // Log comments before filtering for debugging
+        console.log(`Post ${post._id} comments before filtering:`, post.comments);
+
+        // Filter out comments where the user is null (i.e., deleted user)
+        post.comments = post.comments.filter(comment => {
+          if (comment.user === null) {
+            console.log(`Removing invalid comment on post ${post._id}:`, comment);
+            return false;
+          }
+          return true;
+        });
+
+        // Log comments after filtering for debugging
+        console.log(`Post ${post._id} comments after filtering:`, post.comments);
+
         await processPostUrlForFeed(post, currentUser);
       }
 
@@ -136,9 +152,9 @@ router.get('/', authCheck, async (req, res) => {
 // Search suggestions route for autocomplete
 router.get('/search-suggestions', authCheck, async (req, res) => {
   try {
-    console.log('User in session for /search-suggestions:', req.user); // Debug log
+    console.log('User in session for /search-suggestions:', req.user);
     const query = req.query.query;
-    console.log('Search suggestions query:', query); // Debug log
+    console.log('Search suggestions query:', query);
     if (!query || query.trim() === '') {
       return res.json({ creators: [] });
     }
@@ -151,9 +167,9 @@ router.get('/search-suggestions', authCheck, async (req, res) => {
       ],
     })
       .select('username profileName profilePicture')
-      .limit(5); // Limit to 5 suggestions
+      .limit(5);
 
-    console.log('Matching creators for suggestions:', matchingCreators); // Debug log
+    console.log('Matching creators for suggestions:', matchingCreators);
     res.json({ creators: matchingCreators });
   } catch (err) {
     console.error('Error in search-suggestions route:', err);
@@ -162,13 +178,11 @@ router.get('/search-suggestions', authCheck, async (req, res) => {
 });
 
 // Search creators route for dynamic results
-// routes/home.js
-// routes/home.js
-router.get('/search-suggestions', authCheck, async (req, res) => {
+router.get('/search-creators', authCheck, async (req, res) => {
   try {
-    console.log('User in session for /search-suggestions:', req.user);
+    console.log('User in session for /search-creators:', req.user);
     const query = req.query.query;
-    console.log('Search suggestions query:', query);
+    console.log('Search creators query:', query);
     if (!query || query.trim() === '') {
       return res.json({ creators: [] });
     }
@@ -188,11 +202,11 @@ router.get('/search-suggestions', authCheck, async (req, res) => {
       await creator.updateSubscriberCount();
     }
 
-    console.log('Matching creators for suggestions:', matchingCreators);
+    console.log('Matching creators for search:', matchingCreators);
     res.json({ creators: matchingCreators });
   } catch (err) {
-    console.error('Error in search-suggestions route:', err);
-    res.status(500).json({ message: 'Error fetching suggestions', error: err.message });
+    console.error('Error in search-creators route:', err);
+    res.status(500).json({ message: 'Error fetching search results', error: err.message });
   }
 });
 

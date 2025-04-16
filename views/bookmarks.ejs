@@ -5,7 +5,7 @@
 
   <% if (posts && posts.length > 0) { %>
     <% posts.forEach(post => { %>
-      <% if (post.creator) { %>
+      <% if (post && post.creator) { %>
         <div class="post-card">
           <div class="post-header">
             <img
@@ -99,10 +99,10 @@
                 </video>
               <% } %>
             <% } else if (post.type === 'text') { %>
-              <p class="post-text"><%= post.writeUp %></p>
+              <p class="post-text"><%= post.caption %></p>
             <% } %>
-            <% if (post.writeUp && post.type !== 'text') { %>
-              <p class="post-text" style="margin-top: 10px;"><%= post.writeUp %></p>
+            <% if (post.caption && post.type !== 'text') { %>
+              <p class="post-text" style="margin-top: 10px;"><%= post.caption %></p>
             <% } %>
           </div>
           <div class="post-actions">
@@ -140,8 +140,6 @@
             </form>
           </div>
         </div>
-      <% } else { %>
-        <p>Post creator not found.</p>
       <% } %>
     <% }); %>
   <% } else { %>
@@ -211,7 +209,7 @@
       });
     });
 
-    // Comment Icon Functionality: toggle the inline comment form
+    // Comment Icon Functionality
     document.querySelectorAll('.comment-icon').forEach(button => {
       button.addEventListener('click', function() {
         const postId = this.dataset.postId;

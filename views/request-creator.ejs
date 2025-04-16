@@ -6,6 +6,7 @@
     <p>Your creator request is currently being processed. Approval could take 24–72 hours.</p>
   <% } else { %>
     <p>Please fill in the details below. Your sensitive information will only be visible to our admin team.</p>
+    <p style="font-size: 0.9em; color: #666;">Your photo is processed to verify eligibility, and BVN is deleted after admin review.</p>
   
     <form id="creatorRequestForm" action="/request-creator" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 15px;">
       <!-- BVN -->
@@ -54,18 +55,20 @@
         <label style="display: block; margin-bottom: 5px;">Passport Photograph</label>
         <button type="button" id="openCameraModal" style="padding: 10px 20px;">Open Camera</button>
         <div id="capturedPhotoPreview" style="margin-top: 10px; display: none;">
-           <img id="capturedPhoto" src="" alt="Captured Photo" style="max-width: 100%; border: 1px solid #ccc;"/>
-           <button type="button" id="retakeButton" style="margin-top: 10px; padding: 10px 20px;">Retake Photo</button>
+          <img id="capturedPhoto" src="" alt="Captured Photo" style="max-width: 100%; border: 1px solid #ccc;"/>
+          <button type="button" id="retakeButton" style="margin-top: 10px; padding: 10px 20px;">Retake Photo</button>
         </div>
         <input type="hidden" name="passportPhotoData" id="passportPhotoData" />
+        <input type="hidden" name="estimatedAge" id="estimatedAge" />
         <p style="font-size: 0.9em; color: #666;">Capture a clear, passport-style photograph using your device camera.</p>
+        <p id="photoMessage" style="font-size: 0.9em; display: none; color: #666;"></p>
       </div>
 
       <!-- Submit Button -->
-      <button type="submit" id="submitButton" style="padding: 10px 20px; background-color: #f00; color: #fff; border: none; border-radius: 4px; cursor: pointer;">
+      <button type="submit" id="submitButton" disabled style="padding: 10px 20px; background-color: #ccc; color: #fff; border: none; border-radius: 4px; cursor: not-allowed;">
         Submit Creator Request
       </button>
-      <p id="loadingMessage" style="display: none; color: #666;">Verifying your details, please wait...</p>
+      <p id="loadingMessage" style="display: none; color: #666;">Processing your photo, please wait...</p>
     </form>
   <% } %>
 </div>
@@ -86,6 +89,7 @@
   const capturedPhotoPreview = document.getElementById('capturedPhotoPreview');
   const capturedPhoto = document.getElementById('capturedPhoto');
   const passportPhotoDataInput = document.getElementById('passportPhotoData');
+  const estimatedAgeInput = document.getElementById('estimatedAge');
   const retakeButton = document.getElementById('retakeButton');
   const cameraModal = document.getElementById('cameraModal');
   const modalVideo = document.getElementById('modalVideo');
@@ -96,6 +100,7 @@
   const bvnError = document.getElementById('bvnError');
   const submitButton = document.getElementById('submitButton');
   const loadingMessage = document.getElementById('loadingMessage');
+  const photoMessage = document.getElementById('photoMessage');
 
   let stream;
 
@@ -124,10 +129,47 @@
     }
   }
 
+  async function estimateAge(photoData) {
+    loadingMessage.style.display = 'block';
+    photoMessage.style.display = 'block';
+    photoMessage.textContent = 'Processing photo...';
+
+    try {
+      const response = await fetch('/request-creator/estimate-age', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoData })
+      });
+      const result = await response.json();
+      if (result.success) {
+        estimatedAgeInput.value = result.age || '';
+        photoMessage.textContent = 'Photo captured successfully.';
+        submitButton.disabled = false;
+        submitButton.style.backgroundColor = '#f00';
+        submitButton.style.cursor = 'pointer';
+      } else {
+        estimatedAgeInput.value = '';
+        photoMessage.style.color = 'red';
+        photoMessage.textContent = 'Error processing photo. You can still submit.';
+        submitButton.disabled = false;
+        submitButton.style.backgroundColor = '#f00';
+        submitButton.style.cursor = 'pointer';
+      }
+    } catch (err) {
+      estimatedAgeInput.value = '';
+      photoMessage.style.color = 'red';
+      photoMessage.textContent = 'Error processing photo. You can still submit.';
+      submitButton.disabled = false;
+      submitButton.style.backgroundColor = '#f00';
+      submitButton.style.cursor = 'pointer';
+    }
+    loadingMessage.style.display = 'none';
+  }
+
   openCameraModalButton.addEventListener('click', openCameraModalFunc);
   closeCameraModal.addEventListener('click', closeCameraModalFunc);
 
-  captureButtonModal.addEventListener('click', function() {
+  captureButtonModal.addEventListener('click', async function() {
     const canvas = document.createElement('canvas');
     canvas.width = modalVideo.videoWidth || 300;
     canvas.height = modalVideo.videoHeight || 225;
@@ -138,9 +180,18 @@
     capturedPhoto.src = dataURL;
     capturedPhotoPreview.style.display = 'block';
     closeCameraModalFunc();
+    await estimateAge(dataURL);
   });
 
-  retakeButton.addEventListener('click', openCameraModalFunc);
+  retakeButton.addEventListener('click', function() {
+    openCameraModalFunc();
+    capturedPhotoPreview.style.display = 'none';
+    photoMessage.style.display = 'none';
+    estimatedAgeInput.value = '';
+    submitButton.disabled = true;
+    submitButton.style.backgroundColor = '#ccc';
+    submitButton.style.cursor = 'not-allowed';
+  });
 
   form.addEventListener('submit', function(e) {
     if (!/^\d{11}$/.test(bvnInput.value)) {

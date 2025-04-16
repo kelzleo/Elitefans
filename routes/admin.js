@@ -16,7 +16,7 @@ router.get('/', (req, res) => {
 
 router.get('/creator-requests', adminCheck, async (req, res) => {
   try {
-    const pending = await CreatorRequest.find({ status: 'pending' }).populate('user', 'username email requestedAt');
+    const pending = await CreatorRequest.find({ status: 'pending' }).populate('user', 'username email');
     const approved = await User.find({ role: 'creator' }, 'username email');
     res.render('admin', { creatorRequests: { pending, approved } });
   } catch (err) {
@@ -69,16 +69,18 @@ router.post('/approve/:id', adminCheck, async (req, res) => {
       const user = await User.findById(requestDoc.user);
       if (user) {
         user.role = 'creator';
-        user.creatorSince = new Date(); // Set creatorSince here
+        user.creatorSince = new Date();
+        user.requestToBeCreator = false;
         await user.save();
       }
       requestDoc.status = 'approved';
+      requestDoc.bvn = null; // Delete BVN
       await requestDoc.save();
       req.flash('success_msg', `${user.username} has been approved as a creator.`);
       res.redirect('/admin/creator-requests');
     } else {
       req.flash('error_msg', 'Creator request not found.');
-      res.redirect('/admin/creator-requests');
+      return res.redirect('/admin/creator-requests');
     }
   } catch (err) {
     console.error('Error approving creator request:', err);
@@ -98,12 +100,13 @@ router.post('/reject/:id', adminCheck, async (req, res) => {
         await user.save();
       }
       requestDoc.status = 'rejected';
+      requestDoc.bvn = null; // Delete BVN
       await requestDoc.save();
       req.flash('success_msg', `Creator request from ${user.username} has been rejected.`);
       res.redirect('/admin/creator-requests');
     } else {
       req.flash('error_msg', 'Creator request not found.');
-      res.redirect('/admin/creator-requests');
+      return res.redirect('/admin/creator-requests');
     }
   } catch (err) {
     console.error('Error rejecting creator request:', err);

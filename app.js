@@ -88,6 +88,10 @@ app.use(passport.session());
 
 // Apply updateUserStatus middleware
 app.use(updateUserStatus); // Add this line after Passport middleware
+app.use((req, res, next) => {
+  res.locals.isWelcomePage = req.path === '/'; // Set to true for the root route
+  next();
+});
 
 // Flash middleware
 app.use(flash());

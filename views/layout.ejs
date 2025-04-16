@@ -1,3 +1,4 @@
+<!-- layout.ejs -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,7 +23,7 @@
 
   <title>APP</title>
 </head>
-<body>
+<body class="<%= isWelcomePage ? 'welcome-page' : '' %>">
   <!-- Content wrapper to enforce navbar clearance -->
   <div class="content-wrapper">
     <div class="container">
@@ -73,22 +74,16 @@
       <% if (currentUser && currentUser.role === 'user') { %>
         <li><a href="/request-creator">Request to be a Creator</a></li>
         <li><a href="/purchased-content">Purchased Content</a></li>
-        
       <% } %>
       <li><a href="/dashboard">Dashboards</a></li>
       <li><a href="">Subscriptions</a></li>
       <li><a href="">Help and Support</a></li>
-   
-      <li><a href="/purchase">Purchase</a></li>
-      <li><a href="/profile/edit">Edit Profile</a></li>
       <% if (currentUser && currentUser.role === 'creator') { %>
         <li><a href="/referrals">Referrals</a></li>
-
       <% } %>
       <% if (currentUser) { %>
         <li><a href="/change-password">Change Password</a></li>
         <li><a href="/logout">Logout</a></li>
-        
       <% } else { %>
         <li><a href="/users/login">Login</a></li>
       <% } %>
@@ -99,17 +94,17 @@
     document.addEventListener('DOMContentLoaded', () => {
       const profileNavTrigger = document.querySelector('.profile-nav-trigger');
       const profileMenu = document.getElementById('profileMenu');
-
-      // 1) Toggle menu on icon click
+  
+      // Toggle menu on icon click (works for both mobile and desktop)
       profileNavTrigger.addEventListener('click', () => {
         profileMenu.classList.toggle('open');
       });
-
-      // 2) Close menu if clicking outside of it
+  
+      // Close menu if clicking outside of it (works for both mobile and desktop)
       document.addEventListener('click', (event) => {
         if (
           profileMenu.classList.contains('open') &&
-          !profileMenu.contains(event.target) && 
+          !profileMenu.contains(event.target) &&
           !profileNavTrigger.contains(event.target)
         ) {
           profileMenu.classList.remove('open');

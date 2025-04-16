@@ -1,9 +1,9 @@
 // routes/profile.js
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose'); // Add this line
+const mongoose = require('mongoose');
 const User = require('../models/users');
-const Post = require('../models/Post'); 
+const Post = require('../models/Post');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
@@ -13,9 +13,6 @@ const flutter = require('../utilis/flutter');
 const Transaction = require('../models/Transaction');
 const Notification = require('../models/notifications');
 
-
-
-
 // Set up multer to store files in memory
 const multerStorage = multer.memoryStorage();
 const upload = multer({ storage: multerStorage });
@@ -23,7 +20,6 @@ const uploadFields = upload.fields([
   { name: 'profilePicture', maxCount: 1 },
   { name: 'coverPhoto', maxCount: 1 }
 ]);
-
 
 // Authentication middleware
 const authCheck = (req, res, next) => {
@@ -74,6 +70,7 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
     }
   }
 };
+
 // Owner's profile route
 // View own profile
 router.get('/', authCheck, async (req, res) => {
@@ -87,6 +84,20 @@ router.get('/', authCheck, async (req, res) => {
     const posts = await Post.find({ creator: req.user._id })
       .populate('comments.user', 'username')
       .sort({ createdAt: -1 });
+
+    // Filter out comments with invalid users
+    for (const post of posts) {
+      console.log(`Post ${post._id} comments before filtering:`, post.comments);
+      post.comments = post.comments.filter(comment => {
+        if (comment.user === null) {
+          console.log(`Removing invalid comment on post ${post._id}:`, comment);
+          return false;
+        }
+        return true;
+      });
+      console.log(`Post ${post._id} comments after filtering:`, post.comments);
+    }
+
     await processPostUrls(posts, req.user, user);
     const bundles = await SubscriptionBundle.find({ creatorId: req.user._id });
 
@@ -157,6 +168,20 @@ router.get('/view/:id', authCheck, async (req, res) => {
       posts = await Post.find({ creator: ownerUser._id })
         .populate('comments.user', 'username')
         .sort({ createdAt: -1 });
+
+      // Filter out comments with invalid users
+      for (const post of posts) {
+        console.log(`Post ${post._id} comments before filtering:`, post.comments);
+        post.comments = post.comments.filter(comment => {
+          if (comment.user === null) {
+            console.log(`Removing invalid comment on post ${post._id}:`, comment);
+            return false;
+          }
+          return true;
+        });
+        console.log(`Post ${post._id} comments after filtering:`, post.comments);
+      }
+
       await processPostUrls(posts, currentUser, ownerUser, adminView);
     }
 
@@ -201,6 +226,7 @@ router.get('/view/:id', authCheck, async (req, res) => {
     res.status(500).send('Error loading profile');
   }
 });
+
 // Unlock special content route (using the Post model)
 router.post('/unlock-special-content', authCheck, async (req, res) => {
   try {
@@ -288,7 +314,6 @@ router.post('/unlock-special-content', authCheck, async (req, res) => {
   }
 });
 
-// Verify subscription payment and update subscriptions
 // Verify subscription payment and update subscriptions
 router.get('/verify-payment', async (req, res) => {
   try {
@@ -414,7 +439,7 @@ router.get('/verify-payment', async (req, res) => {
     return res.redirect('/profile?payment=error');
   }
 });
-// Verify special payment and update purchasedContent
+
 // Verify special payment and update purchasedContent
 router.get('/verify-special-payment', async (req, res) => {
   try {
@@ -516,13 +541,14 @@ router.get('/verify-special-payment', async (req, res) => {
     return res.redirect('/profile?specialPayment=error');
   }
 });
+
 // for tip amounts
 router.post('/posts/:postId/tip', authCheck, async (req, res) => {
   try {
     const { tipAmount } = req.body;
     // Convert tipAmount to a number
     const numericTip = Number(tipAmount);
-    
+
     const post = await Post.findById(req.params.postId);
     if (!post) return res.status(404).json({ message: 'Post not found' });
 
@@ -579,7 +605,6 @@ router.post('/posts/:postId/tip', authCheck, async (req, res) => {
     });
   }
 });
-
 
 // Verify tip payment route
 router.get('/verify-tip-payment', async (req, res) => {
@@ -718,6 +743,7 @@ router.get('/verify-tip-payment', async (req, res) => {
     return res.redirect('/profile?tipPayment=error');
   }
 });
+
 router.post('/tip-creator/:creatorId', authCheck, async (req, res) => {
   try {
     const { tipAmount, tipMessage } = req.body;
@@ -778,7 +804,6 @@ router.post('/tip-creator/:creatorId', authCheck, async (req, res) => {
 });
 
 // Toggle Like a post
-// routes/profile.js
 router.post('/posts/:postId/like', authCheck, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
@@ -805,7 +830,7 @@ router.post('/posts/:postId/like', authCheck, async (req, res) => {
     res.json({
       message: alreadyLiked ? 'Post unliked successfully' : 'Post liked successfully',
       likes: post.likes.length,
-      liked: !alreadyLiked,
+      userLiked: !alreadyLiked,
     });
   } catch (err) {
     console.error('Error toggling like:', err);
@@ -880,6 +905,7 @@ router.post('/posts/:postId/bookmark', authCheck, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
 router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
@@ -892,12 +918,6 @@ router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
 });
 
 // Edit profile route
-router.get('/edit', authCheck, (req, res) => {
-  res.render('edit-profile', { user: req.user, currentUser: req.user });
-});
-
-// Edit profile route
-// GET route to render the edit profile page
 router.get('/edit', authCheck, (req, res) => {
   res.render('edit-profile', { user: req.user, currentUser: req.user });
 });
@@ -960,9 +980,6 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
     res.status(500).send('Error updating profile');
   }
 });
-
-
-
 
 router.post(
   '/uploadContent',
@@ -1097,7 +1114,6 @@ router.post(
 );
 
 // Delete post route
-// profile.js
 router.post('/delete-post/:postId', authCheck, async (req, res) => {
   try {
     const post = await Post.findOne({ _id: req.params.postId, creator: req.user._id });
@@ -1120,8 +1136,6 @@ router.post('/delete-post/:postId', authCheck, async (req, res) => {
   }
 });
 
-
-// Create a new subscription bundle
 // Create a new subscription bundle
 router.post('/create-bundle', authCheck, async (req, res) => {
   try {
@@ -1184,7 +1198,6 @@ router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
     res.status(500).send('Error deleting bundle');
   }
 });
-
 
 // Subscribe to a creator's subscription bundle
 router.post('/subscribe', authCheck, async (req, res) => {
@@ -1270,7 +1283,6 @@ router.post('/subscribe', authCheck, async (req, res) => {
 });
 
 // Webhook route to handle payment notifications
-// Webhook route to handle payment notifications
 router.post('/webhook', async (req, res) => {
   try {
     const event = req.body;
@@ -1325,6 +1337,5 @@ router.post('/webhook', async (req, res) => {
     res.status(500).send('Error processing webhook');
   }
 });
-
 
 module.exports = router;

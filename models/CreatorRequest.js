@@ -23,6 +23,10 @@ const CreatorRequestSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  estimatedAge: {
+    type: Number, // For admin only
+    required: false,
+  },
   status: {
     type: String,
     enum: ['pending', 'approved', 'rejected'],
@@ -32,11 +36,6 @@ const CreatorRequestSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-  bvnVerificationData: {
-    verifiedFirstName: { type: String },
-    verifiedLastName: { type: String },
-    verifiedAt: { type: Date }
-  }
 });
 
 module.exports = mongoose.model('CreatorRequest', CreatorRequestSchema);

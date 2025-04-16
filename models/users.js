@@ -26,51 +26,18 @@ const userSchema = new mongoose.Schema({
       message: 'Password must be at least 6 characters long.'
     }
   },
-  resetPasswordToken: {
-    type: String,
-  },
-  resetPasswordExpires: {
-    type: Date,
-  },
-  googleId: {
-    type: String,
-    unique: true,
-    sparse: true,
-  },
-  verified: {
-    type: Boolean,
-    default: false,
-  },
-  verificationToken: {
-    type: String,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-  },
-  role: {
-    type: String,
-    enum: ['user', 'creator', 'admin'],
-    default: 'user',
-  },
-  requestToBeCreator: {
-    type: Boolean,
-    default: false,
-  },
-  profileName: {
-    type: String,
-  },
-  bio: {
-    type: String,
-  },
-  profilePicture: {
-    type: String,
-    default: 'a1.png'
-  },
-  coverPhoto: {
-    type: String,
-    default: '/uploads/default-cover.jpg'
-  },
+  resetPasswordToken: { type: String },
+  resetPasswordExpires: { type: Date },
+  googleId: { type: String, unique: true, sparse: true },
+  verified: { type: Boolean, default: false },
+  verificationToken: { type: String },
+  createdAt: { type: Date, default: Date.now },
+  role: { type: String, enum: ['user', 'creator', 'admin'], default: 'user' },
+  requestToBeCreator: { type: Boolean, default: false },
+  profileName: { type: String },
+  bio: { type: String },
+  profilePicture: { type: String, default: 'a1.png' },
+  coverPhoto: { type: String, default: '/uploads/default-cover.jpg' },
   uploadedContent: [
     {
       filename: { type: String, required: true },
@@ -107,7 +74,7 @@ const userSchema = new mongoose.Schema({
       bundleId: { type: mongoose.Schema.Types.ObjectId, ref: 'SubscriptionBundle' },
       postId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
       amount: { type: Number, required: true },
-      message: { type: String }, 
+      message: { type: String },
       status: { type: String, enum: ['pending', 'completed', 'failed'], default: 'pending' },
       createdAt: { type: Date, default: Date.now },
       type: { type: String, enum: ['special', 'subscription', 'tip'], required: true }
@@ -116,14 +83,8 @@ const userSchema = new mongoose.Schema({
   imagesCount: { type: Number, default: 0 },
   videosCount: { type: Number, default: 0 },
   totalLikes: { type: Number, default: 0 },
-  subscriberCount: {
-    type: Number,
-    default: 0,
-  },
-  totalEarnings: {
-    type: Number,
-    default: 0
-  },
+  subscriberCount: { type: Number, default: 0 },
+  totalEarnings: { type: Number, default: 0 },
   banks: [
     {
       _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
@@ -134,45 +95,40 @@ const userSchema = new mongoose.Schema({
   bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],
   referredBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   creatorSince: { type: Date, default: null },
-  // Add lastSeen and isOnline fields
-  lastSeen: {
-    type: Date,
-    default: Date.now, // Default to current time for existing users
-  },
-  isOnline: {
-    type: Boolean,
-    default: false, // Default to offline for existing users
-  },
+  lastSeen: { type: Date, default: Date.now },
+  isOnline: { type: Boolean, default: false },
 });
 
-// Pre-save middleware to update subscription statuses and clean up bookmarks
+// Pre-save middleware to update subscription statuses
 userSchema.pre('save', async function (next) {
   const now = new Date();
-  if (this.isModified('subscriptions')) {
-    let subscriptionsChanged = false;
-    this.subscriptions.forEach((sub) => {
-      if (
-        sub.status === 'active' &&
-        sub.subscriptionExpiry &&
-        sub.subscriptionExpiry < now
-      ) {
-        sub.status = 'expired';
-        subscriptionsChanged = true;
-      }
-    });
+  let subscriptionsChanged = false;
 
-    if (subscriptionsChanged && this.bookmarks.length > 0) {
-      try {
-        await this.removeBookmarksForExpiredSubscriptions();
-      } catch (error) {
-        console.error('Error cleaning bookmarks:', error);
-      }
+  // Update expired subscriptions
+  this.subscriptions.forEach((sub) => {
+    if (
+      sub.status === 'active' &&
+      sub.subscriptionExpiry &&
+      sub.subscriptionExpiry < now
+    ) {
+      sub.status = 'expired';
+      subscriptionsChanged = true;
+    }
+  });
+
+  // Clean up bookmarks if subscriptions changed
+  if (subscriptionsChanged && this.bookmarks.length > 0) {
+    try {
+      await this.removeBookmarksForExpiredSubscriptions();
+    } catch (error) {
+      console.error('Error cleaning bookmarks in pre-save:', error);
     }
   }
+
   next();
 });
 
-// Method to calculate subscriberCount based on users subscribed to this creator
+// Method to calculate subscriberCount
 userSchema.methods.updateSubscriberCount = async function () {
   const now = new Date();
   const subscriberCount = await mongoose.model('User').countDocuments({
@@ -189,17 +145,23 @@ userSchema.methods.updateSubscriberCount = async function () {
   return subscriberCount;
 };
 
-// Method to check and update expired subscriptions for this user
+// Method to check and update expired subscriptions
 userSchema.methods.checkExpiredSubscriptions = async function () {
   const now = new Date();
   let changed = false;
   this.subscriptions.forEach((sub) => {
-    if (sub.status === 'active' && sub.subscriptionExpiry && sub.subscriptionExpiry < now) {
+    if (
+      sub.status === 'active' &&
+      sub.subscriptionExpiry &&
+      sub.subscriptionExpiry < now
+    ) {
       sub.status = 'expired';
       changed = true;
     }
   });
-  if (changed) await this.save();
+  if (changed) {
+    await this.save(); // This will trigger pre-save middleware
+  }
 };
 
 // Method to remove bookmarks from creators with expired subscriptions
@@ -217,19 +179,26 @@ userSchema.methods.removeBookmarksForExpiredSubscriptions = async function () {
   const updatedBookmarks = await Promise.all(
     this.bookmarks.map(async (bookmarkId) => {
       try {
-        const post = await this.model('Post')
+        const post = await mongoose.model('Post')
           .findById(bookmarkId)
           .populate('creator', '_id');
-        if (!post || !post.creator) return false;
+        if (!post || !post.creator) {
+          console.log(`Removing invalid bookmark: ${bookmarkId}`);
+          return false;
+        }
         const isCreatorSubscribed = activeCreatorIds.includes(
           post.creator._id.toString()
         );
         const isPurchased = this.purchasedContent.some(
           (p) => p.contentId.toString() === bookmarkId.toString()
         );
-        return (isCreatorSubscribed || !post.special || isPurchased) ? bookmarkId : false;
+        const keepBookmark = isCreatorSubscribed || !post.special || isPurchased;
+        if (!keepBookmark) {
+          console.log(`Removing bookmark ${bookmarkId} (expired subscription, special, not purchased)`);
+        }
+        return keepBookmark ? bookmarkId : false;
       } catch (error) {
-        console.error('Error checking bookmark:', bookmarkId, error);
+        console.error(`Error checking bookmark ${bookmarkId}:`, error);
         return false;
       }
     })
@@ -238,8 +207,32 @@ userSchema.methods.removeBookmarksForExpiredSubscriptions = async function () {
   const validBookmarks = updatedBookmarks.filter((id) => id !== false);
   if (validBookmarks.length !== this.bookmarks.length) {
     this.bookmarks = validBookmarks;
+    console.log(`Updated bookmarks: ${validBookmarks.length} remaining`);
     await this.save();
   }
+};
+
+// Method to force clean subscriptions and bookmarks
+userSchema.statics.cleanupAllUsers = async function () {
+  const users = await this.find({ 'subscriptions.0': { $exists: true } });
+  const now = new Date();
+  for (const user of users) {
+    let changed = false;
+    user.subscriptions.forEach((sub) => {
+      if (
+        sub.status === 'active' &&
+        sub.subscriptionExpiry &&
+        sub.subscriptionExpiry < now
+      ) {
+        sub.status = 'expired';
+        changed = true;
+      }
+    });
+    if (changed) {
+      await user.save(); // Triggers pre-save middleware
+    }
+  }
+  console.log('Cleaned up all users’ subscriptions and bookmarks');
 };
 
 module.exports = mongoose.model('User', userSchema);
