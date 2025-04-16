@@ -20,7 +20,7 @@ const keys = require('./config/keys');
 require('./config/passport-setup');
 
 // Import middleware
-const updateUserStatus = require('./middleware/updateUserStatus'); // Add this line
+const updateUserStatus = require('./middleware/updateUserStatus');
 
 // Import routes
 const indexRoutes = require('./routes/index');
@@ -67,8 +67,8 @@ const upload = multer({
 app.use(expressLayouts);
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
-app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.urlencoded({ extended: true, limit: '5mb' })); // Increased limit
+app.use(express.json({ limit: '5mb' })); // Increased limit
 
 // Session middleware
 const sessionMiddleware = session({
@@ -87,9 +87,9 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 // Apply updateUserStatus middleware
-app.use(updateUserStatus); // Add this line after Passport middleware
+app.use(updateUserStatus);
 app.use((req, res, next) => {
-  res.locals.isWelcomePage = req.path === '/'; // Set to true for the root route
+  res.locals.isWelcomePage = req.path === '/';
   next();
 });
 
@@ -228,7 +228,7 @@ io.use((socket, next) => {
 });
 
 // Store connected users and their last heartbeat
-const connectedUsers = new Map(); // Map<userId, { socketId: string, lastHeartbeat: Date }>
+const connectedUsers = new Map();
 
 // Heartbeat interval and timeout (in milliseconds)
 const HEARTBEAT_INTERVAL = 15000; // 15 seconds

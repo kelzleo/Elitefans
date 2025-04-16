@@ -75,14 +75,14 @@ router.post('/estimate-age', authCheck, async (req, res) => {
 
     const faces = response.data.faces || [];
     if (faces.length === 0) {
-      return res.json({ success: true, age: null });
+      return res.status(400).json({ success: false, message: 'No face detected in the photo.' });
     }
 
     const age = faces[0].age;
     return res.json({ success: true, age });
   } catch (err) {
     console.error('Error estimating age:', err.response?.data || err.message);
-    return res.json({ success: true, age: null }); // Allow submission
+    return res.status(500).json({ success: false, message: 'Error processing photo.' });
   }
 });
 
@@ -95,8 +95,8 @@ router.post('/', authCheck, upload.none(), async (req, res) => {
     if (!bvn || !/^\d{11}$/.test(bvn)) {
       throw new Error('BVN must be an 11-digit number.');
     }
-    if (!firstName || !lastName || !passportPhotoData) {
-      throw new Error('All fields are required.');
+    if (!firstName || !lastName || !passportPhotoData || !estimatedAge) {
+      throw new Error('All fields are required, and photo must be processed successfully.');
     }
 
     // Check for existing pending request
@@ -115,7 +115,7 @@ router.post('/', authCheck, upload.none(), async (req, res) => {
     const base64Data = matches[2];
     const buffer = Buffer.from(base64Data, 'base64');
 
-    const fileName = `${req.user.id}-${Date.now()}-passport.png`;
+    const fileName = `${req.user.id}-${Date.now()}-passport.jpg`;
     const storedFileName = await uploadToCreatorRequestsBucket(buffer, fileName, mimeType);
 
     // Create a new CreatorRequest document
@@ -125,7 +125,7 @@ router.post('/', authCheck, upload.none(), async (req, res) => {
       firstName,
       lastName,
       passportPhotoUrl: storedFileName,
-      estimatedAge: estimatedAge ? parseInt(estimatedAge) : null,
+      estimatedAge: parseInt(estimatedAge),
     });
 
     await newRequest.save();

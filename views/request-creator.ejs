@@ -142,7 +142,7 @@
       });
       const result = await response.json();
       if (result.success) {
-        estimatedAgeInput.value = result.age || '';
+        estimatedAgeInput.value = result.age;
         photoMessage.textContent = 'Photo captured successfully.';
         submitButton.disabled = false;
         submitButton.style.backgroundColor = '#f00';
@@ -150,18 +150,18 @@
       } else {
         estimatedAgeInput.value = '';
         photoMessage.style.color = 'red';
-        photoMessage.textContent = 'Error processing photo. You can still submit.';
-        submitButton.disabled = false;
-        submitButton.style.backgroundColor = '#f00';
-        submitButton.style.cursor = 'pointer';
+        photoMessage.textContent = result.message || 'Error processing photo. Please try again.';
+        submitButton.disabled = true;
+        submitButton.style.backgroundColor = '#ccc';
+        submitButton.style.cursor = 'not-allowed';
       }
     } catch (err) {
       estimatedAgeInput.value = '';
       photoMessage.style.color = 'red';
-      photoMessage.textContent = 'Error processing photo. You can still submit.';
-      submitButton.disabled = false;
-      submitButton.style.backgroundColor = '#f00';
-      submitButton.style.cursor = 'pointer';
+      photoMessage.textContent = 'Error processing photo. Please try again.';
+      submitButton.disabled = true;
+      submitButton.style.backgroundColor = '#ccc';
+      submitButton.style.cursor = 'not-allowed';
     }
     loadingMessage.style.display = 'none';
   }
@@ -171,11 +171,11 @@
 
   captureButtonModal.addEventListener('click', async function() {
     const canvas = document.createElement('canvas');
-    canvas.width = modalVideo.videoWidth || 300;
-    canvas.height = modalVideo.videoHeight || 225;
+    canvas.width = 640;
+    canvas.height = 480;
     const context = canvas.getContext('2d');
-    context.drawImage(modalVideo, 0, 0, canvas.width, canvas.height);
-    const dataURL = canvas.toDataURL('image/png');
+    context.drawImage(modalVideo, 0, 0, 640, 480);
+    const dataURL = canvas.toDataURL('image/jpeg', 0.7);
     passportPhotoDataInput.value = dataURL;
     capturedPhoto.src = dataURL;
     capturedPhotoPreview.style.display = 'block';
@@ -197,6 +197,13 @@
     if (!/^\d{11}$/.test(bvnInput.value)) {
       e.preventDefault();
       bvnError.style.display = 'block';
+      return;
+    }
+    if (!estimatedAgeInput.value) {
+      e.preventDefault();
+      photoMessage.style.display = 'block';
+      photoMessage.style.color = 'red';
+      photoMessage.textContent = 'Photo must be processed successfully.';
       return;
     }
     bvnError.style.display = 'none';
