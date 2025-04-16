@@ -46,12 +46,14 @@ router.post('/estimate-age', authCheck, async (req, res) => {
   try {
     const { photoData } = req.body;
     if (!photoData) {
+      console.error('No photoData received in /estimate-age');
       return res.status(400).json({ success: false, message: 'Photo data is required.' });
     }
 
     // Extract base64 data
     const matches = photoData.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
+      console.error('Invalid photoData format:', photoData.substring(0, 50));
       return res.status(400).json({ success: false, message: 'Invalid photo data.' });
     }
     const base64Data = matches[2];
@@ -59,7 +61,12 @@ router.post('/estimate-age', authCheck, async (req, res) => {
     // Call Luxand API
     const luxandUrl = `${process.env.LUXAND_API_ENDPOINT}?attributes=1`;
     const luxandKey = process.env.LUXAND_API_KEY;
+    if (!luxandUrl || !luxandKey) {
+      console.error('Luxand config missing:', { url: luxandUrl, key: luxandKey ? 'Set' : 'Missing' });
+      return res.status(500).json({ success: false, message: 'Server configuration error.' });
+    }
 
+    console.log('Sending request to Luxand for user:', req.user.id);
     const response = await axios.post(
       luxandUrl,
       {
@@ -75,13 +82,19 @@ router.post('/estimate-age', authCheck, async (req, res) => {
 
     const faces = response.data.faces || [];
     if (faces.length === 0) {
+      console.log('No face detected for user:', req.user.id);
       return res.status(400).json({ success: false, message: 'No face detected in the photo.' });
     }
 
     const age = faces[0].age;
+    console.log('Age estimated:', age, 'for user:', req.user.id);
     return res.json({ success: true, age });
   } catch (err) {
-    console.error('Error estimating age:', err.response?.data || err.message);
+    console.error('Luxand API error for user:', req.user.id, {
+      message: err.message,
+      status: err.response?.status,
+      data: err.response?.data,
+    });
     return res.status(500).json({ success: false, message: 'Error processing photo.' });
   }
 });
