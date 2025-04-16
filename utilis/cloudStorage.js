@@ -1,18 +1,25 @@
 const { Storage } = require('@google-cloud/storage');
 const path = require('path');
 
-// Set the GOOGLE_APPLICATION_CREDENTIALS environment variable
-process.env.GOOGLE_APPLICATION_CREDENTIALS = './google.json';
+// Decode the Base64-encoded credentials from GCLOUD_CREDS_BASE64
+const credentialsBase64 = process.env.GCLOUD_CREDS_BASE64;
+if (!credentialsBase64) {
+  throw new Error('GCLOUD_CREDS_BASE64 environment variable is not set');
+}
+const credentialsJson = Buffer.from(credentialsBase64, 'base64').toString('utf-8');
+const credentials = JSON.parse(credentialsJson);
 
-// Initialize Google Cloud Storage client
-const storage = new Storage();
+// Initialize Google Cloud Storage client with the credentials
+const storage = new Storage({
+  credentials: credentials,
+});
 
 // Existing bucket for private content (e.g., posts)
 const bucketName = 'kaccessfans';
 const bucket = storage.bucket(bucketName);
 
 // New bucket for chat media
-const chatBucketName = 'kaccessfans-chat'; // Ensure this matches the exact bucket name you created
+const chatBucketName = 'kaccessfans-chat';
 const chatBucket = storage.bucket(chatBucketName);
 
 // New public bucket for profile pictures
@@ -41,7 +48,7 @@ const generateSignedUrl = async (filename) => {
 
 // Function to generate a signed URL for chat media, with authorization check
 const generateSignedUrlForChatMedia = async (filename, userId, chatId) => {
-  const Chat = require('../models/chat'); // Adjust path to your Chat model if needed
+  const Chat = require('../models/chat');
   const chat = await Chat.findById(chatId);
   if (!chat || !chat.participants.some(p => p.toString() === userId.toString())) {
     throw new Error('Unauthorized access to chat media');
