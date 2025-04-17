@@ -250,27 +250,35 @@ router.get('/:username', authCheck, async (req, res) => {
     // Handle admin view
     const adminView = req.query.adminView === 'true' && req.user.role === 'admin';
 
-    // Fetch subscription status
+    // FIX 1: Replaced incorrect Subscription model query with check on User.subscriptions array
+    // Since there is no separate Subscription model, check subscriptions in the current user's subscriptions array
     let isSubscribed = false;
     if (!isOwnProfile && ownerUser.role === 'creator') {
-      const subscription = await Subscription.findOne({
-        subscriber: req.user._id,
-        creator: ownerUser._id,
-        status: 'active',
-      });
-      isSubscribed = !!subscription;
+      const now = new Date();
+      isSubscribed = req.user.subscriptions.some(
+        (sub) =>
+          sub.creatorId.toString() === ownerUser._id.toString() &&
+          sub.status === 'active' &&
+          sub.subscriptionExpiry > now
+      );
     }
 
-    // Fetch bundles
-    const bundles = ownerUser.role === 'creator' ? await Bundle.find({ creator: ownerUser._id }) : [];
+    // FIX 2: Corrected Bundle model to SubscriptionBundle and used creatorId field
+    // Replaced 'Bundle' with 'SubscriptionBundle' and corrected field name from 'creator' to 'creatorId'
+    const bundles = ownerUser.role === 'creator' ? await SubscriptionBundle.find({ creatorId: ownerUser._id }) : [];
 
     // Fetch posts
     let posts = [];
     if (isOwnProfile || isSubscribed || adminView) {
-      posts = await Post.find({ user: ownerUser._id })
-        .populate('user')
-        .sort({ createdAt: -1 });
-      posts = await processPostUrls(posts, req.user, ownerUser, adminView);
+      // FIX 3: Corrected Post query field from 'user' to 'creator' and added populate for comments.user
+      // Changed 'user' to 'creator' to match Post model schema, and populated comments.user for consistency
+      posts = (await Post.find({ creator: ownerUser._id })
+        .populate('comments.user', 'username')
+        .sort({ createdAt: -1 })) || [];
+
+      // FIX 4: Removed incorrect assignment from processPostUrls
+      // processPostUrls modifies posts in place and does not return a value, so remove the assignment to prevent posts becoming undefined
+      await processPostUrls(posts, req.user, ownerUser, adminView);
     }
 
     // Update counts
@@ -278,11 +286,19 @@ router.get('/:username', authCheck, async (req, res) => {
     const videosCount = posts.filter(post => post.type === 'video').length;
     const totalLikes = posts.reduce((sum, post) => sum + (post.likes ? post.likes.length : 0), 0);
 
+    // FIX 5: Corrected subscriber count query to check User.subscriptions
+    // Replaced incorrect SubscriptionBundle.countDocuments with User.countDocuments to count active subscriptions
     await User.findByIdAndUpdate(ownerUser._id, {
       imagesCount,
       videosCount,
       totalLikes,
-      subscriberCount: ownerUser.role === 'creator' ? await Subscription.countDocuments({ creator: ownerUser._id, status: 'active' }) : 0,
+      subscriberCount: ownerUser.role === 'creator'
+        ? await User.countDocuments({
+            'subscriptions.creatorId': ownerUser._id,
+            'subscriptions.status': 'active',
+            'subscriptions.subscriptionExpiry': { $gt: new Date() },
+          })
+        : 0,
     });
 
     // Render the profile view
@@ -299,8 +315,6 @@ router.get('/:username', authCheck, async (req, res) => {
     res.status(500).send('Error loading profile');
   }
 });
-
-
 
 // View another user's profile
 router.get('/view/:id', authCheck, async (req, res) => {
