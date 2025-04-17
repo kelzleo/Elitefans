@@ -1,0 +1,28 @@
+<h1>Post Deletion Logs</h1>
+  <a href="/admin/creator-requests">Back to Admin Dashboard</a>
+  <% if (deletionLogs.length === 0) { %>
+    <p>No posts have been deleted.</p>
+  <% } else { %>
+    <table>
+      <thead>
+        <tr>
+          <th>Post ID</th>
+          <th>Creator Name</th>
+          <th>Admin Name</th>
+          <th>Reason</th>
+          <th>Deleted At</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% deletionLogs.forEach(log => { %>
+          <tr>
+            <td><%= log.postId %></td>
+            <td><%= log.creatorName %></td>
+            <td><%= log.adminName %></td>
+            <td><%= log.reason %></td>
+            <td><%= new Date(log.deletedAt).toLocaleString() %></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>

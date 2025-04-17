@@ -1,6 +1,27 @@
 <h1 class="edit-profile-title">Edit Profile</h1>
 
+<% if (success_msg && success_msg.length > 0) { %>
+  <div class="flash-message success"><%= success_msg %></div>
+<% } %>
+<% if (error_msg && error_msg.length > 0) { %>
+  <div class="flash-message error"><%= error_msg %></div>
+<% } %>
+<% if (error && error.length > 0) { %>
+  <div class="flash-message error"><%= error %></div>
+<% } %>
+
 <form class="edit-profile-form" action="/profile/edit" method="POST" enctype="multipart/form-data">
+    <label class="edit-profile-label" for="username">Username:</label>
+    <input class="edit-profile-input" type="text" id="username" name="username" value="<%= user.username || '' %>" required>
+    <p class="input-hint">
+      Your username is unique and used in your profile URL (e.g., /profile/yourusername). 
+      <% if (user.googleId) { %>
+        It was auto-generated from your Google account. Customize it to make it your own!
+      <% } else { %>
+        Choose carefully as it identifies you across the platform.
+      <% } %>
+    </p>
+
     <label class="edit-profile-label" for="profileName">Profile Name:</label>
     <input class="edit-profile-input" type="text" id="profileName" name="profileName" value="<%= user.profileName %>">
 
@@ -34,3 +55,26 @@
 
     <button class="edit-profile-button" type="submit">Save Changes</button>
 </form>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('.edit-profile-form');
+    const usernameInput = document.getElementById('username');
+    const originalUsername = usernameInput.value;
+
+    form.addEventListener('submit', function (e) {
+      const newUsername = usernameInput.value.trim();
+      const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+      if (!usernameRegex.test(newUsername)) {
+        e.preventDefault();
+        alert('Username must be 3-20 characters long, alphanumeric, and can include underscores.');
+        return;
+      }
+      if (newUsername !== originalUsername) {
+        if (!confirm('Changing your username will update your profile URL. Existing links to your profile may break. Are you sure you want to proceed?')) {
+          e.preventDefault();
+        }
+      }
+    });
+  });
+</script>

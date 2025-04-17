@@ -31,86 +31,77 @@
     </div>
   </div>
 
-  <!-- Bottom nav bar -->
-  <nav class="bottom-nav">
-    <a href="/home" class="nav-item">
-      <i class="fa-solid fa-home"></i>
-    </a>
-    <a href="/notifications" class="nav-item">
-      <i class="fa-solid fa-bell"></i>
-    </a>
-    <a href="/chats" class="nav-item">
-      <i class="fa-solid fa-comments"></i>
-    </a>
-    <a href="javascript:void(0)" class="nav-item profile-nav-trigger">
-      <i class="fa-solid fa-user"></i>
-    </a>
-  </nav>
+  <% if (currentUser) { %>
+    <!-- Bottom nav bar -->
+    <nav class="bottom-nav">
+      <a href="/home" class="nav-item">
+        <i class="fa-solid fa-home"></i>
+      </a>
+      <a href="/notifications" class="nav-item">
+        <i class="fa-solid fa-bell"></i>
+      </a>
+      <a href="/chats" class="nav-item">
+        <i class="fa-solid fa-comments"></i>
+      </a>
+      <a href="javascript:void(0)" class="nav-item profile-nav-trigger">
+        <i class="fa-solid fa-user"></i>
+      </a>
+    </nav>
 
-  <!-- Slide-Out Profile Menu -->
-  <aside class="profile-menu" id="profileMenu">
-    <div class="profile-menu-header">
-      <% if (currentUser) { %>
+    <!-- Slide-Out Profile Menu -->
+    <aside class="profile-menu" id="profileMenu">
+      <div class="profile-menu-header">
         <img
-          src="<%= currentUser.profilePicture || '/uploads/default-profile-picture.jpg' %>"
+          src="<%= currentUser.profilePicture || '/Uploads/default-profile-picture.jpg' %>"
           alt="<%= currentUser.username %>"
           class="profile-menu-avatar"
         />
         <span class="profile-menu-username"><%= currentUser.username %></span>
-      <% } else { %>
-        <img
-          src="/uploads/default-profile-picture.jpg"
-          alt="Guest avatar"
-          class="profile-menu-avatar"
-        />
-        <span class="profile-menu-username">Guest</span>
-      <% } %>
-    </div>
+      </div>
 
-    <ul class="profile-menu-links">
-      <li><a href="/profile">My Profile</a></li>
-      <li><a href="/bookmarks">Bookmarks</a></li>
-      <li><a href="/profile/edit">Edit Profile</a></li>
-      <% if (currentUser && currentUser.role === 'user') { %>
-        <li><a href="/request-creator">Request to be a Creator</a></li>
-        <li><a href="/purchased-content">Purchased Content</a></li>
-      <% } %>
-      <li><a href="/dashboard">Dashboards</a></li>
-      <li><a href="">Subscriptions</a></li>
-      <li><a href="">Help and Support</a></li>
-      <% if (currentUser && currentUser.role === 'creator') { %>
-        <li><a href="/referrals">Referrals</a></li>
-      <% } %>
-      <% if (currentUser) { %>
+      <ul class="profile-menu-links">
+        <li><a href="/profile">My Profile</a></li>
+        <li><a href="/bookmarks">Bookmarks</a></li>
+        <li><a href="/profile/edit">Edit Profile</a></li>
+        <% if (currentUser && currentUser.role === 'user') { %>
+          <li><a href="/request-creator">Request to be a Creator</a></li>
+          <li><a href="/purchased-content">Purchased Content</a></li>
+        <% } %>
+        <li><a href="/dashboard">Dashboards</a></li>
+        <li><a href="">Subscriptions</a></li>
+        <li><a href="">Help and Support</a></li>
+        <% if (currentUser && currentUser.role === 'creator') { %>
+          <li><a href="/referrals">Referrals</a></li>
+        <% } %>
         <li><a href="/change-password">Change Password</a></li>
         <li><a href="/logout">Logout</a></li>
-      <% } else { %>
-        <li><a href="/users/login">Login</a></li>
-      <% } %>
-    </ul>
-  </aside>
+      </ul>
+    </aside>
+  <% } %>
 
-  <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const profileNavTrigger = document.querySelector('.profile-nav-trigger');
-      const profileMenu = document.getElementById('profileMenu');
-  
-      // Toggle menu on icon click (works for both mobile and desktop)
-      profileNavTrigger.addEventListener('click', () => {
-        profileMenu.classList.toggle('open');
+  <% if (currentUser) { %>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const profileNavTrigger = document.querySelector('.profile-nav-trigger');
+        const profileMenu = document.getElementById('profileMenu');
+    
+        // Toggle menu on icon click (works for both mobile and desktop)
+        profileNavTrigger.addEventListener('click', () => {
+          profileMenu.classList.toggle('open');
+        });
+    
+        // Close menu if clicking outside of it (works for both mobile and desktop)
+        document.addEventListener('click', (event) => {
+          if (
+            profileMenu.classList.contains('open') &&
+            !profileMenu.contains(event.target) &&
+            !profileNavTrigger.contains(event.target)
+          ) {
+            profileMenu.classList.remove('open');
+          }
+        });
       });
-  
-      // Close menu if clicking outside of it (works for both mobile and desktop)
-      document.addEventListener('click', (event) => {
-        if (
-          profileMenu.classList.contains('open') &&
-          !profileMenu.contains(event.target) &&
-          !profileNavTrigger.contains(event.target)
-        ) {
-          profileMenu.classList.remove('open');
-        }
-      });
-    });
-  </script>
+    </script>
+  <% } %>
 </body>
 </html>

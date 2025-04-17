@@ -41,61 +41,166 @@ const uploadToCreatorRequestsBucket = (fileBuffer, fileName, mimeType) => {
   });
 };
 
-// Estimate age using Luxand.cloud API
+// Retry helper for transient errors
+const retry = async (fn, retries = 3, delay = 1000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i === retries - 1 || err.response?.status === 400 || err.response?.status === 401 || err.response?.status === 405) {
+        throw err;
+      }
+      console.log(`Retry ${i + 1}/${retries} for API request`);
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+};
+
+// Estimate age using configured API
 router.post('/estimate-age', authCheck, async (req, res) => {
   try {
     const { photoData } = req.body;
     if (!photoData) {
-      console.error('No photoData received in /estimate-age');
+      console.error('No photoData received in /estimate-age for user:', req.user.id);
       return res.status(400).json({ success: false, message: 'Photo data is required.' });
     }
 
     // Extract base64 data
     const matches = photoData.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
-      console.error('Invalid photoData format:', photoData.substring(0, 50));
+      console.error('Invalid photoData format for user:', req.user.id);
       return res.status(400).json({ success: false, message: 'Invalid photo data.' });
     }
     const base64Data = matches[2];
+    const payloadSize = Buffer.from(base64Data, 'base64').length / 1024;
+    console.log('Base64 payload size:', payloadSize, 'KB for user:', req.user.id);
 
-    // Call Luxand API
-    const luxandUrl = `${process.env.LUXAND_API_ENDPOINT}?attributes=1`;
-    const luxandKey = process.env.LUXAND_API_KEY;
-    if (!luxandUrl || !luxandKey) {
-      console.error('Luxand config missing:', { url: luxandUrl, key: luxandKey ? 'Set' : 'Missing' });
-      return res.status(500).json({ success: false, message: 'Server configuration error.' });
-    }
+    // Select API provider
+    const provider = process.env.AGE_API_PROVIDER || 'facepp'; // Default to Face++
+    let age;
 
-    console.log('Sending request to Luxand for user:', req.user.id);
-    const response = await axios.post(
-      luxandUrl,
-      {
-        photo: base64Data,
-      },
-      {
-        headers: {
-          'token': luxandKey,
-          'Content-Type': 'application/json',
-        },
+    if (provider === 'facepp') {
+      // Face++ API
+      const faceppKey = process.env.FACEPP_API_KEY;
+      const faceppSecret = process.env.FACEPP_API_SECRET;
+      const faceppDetectEndpoint = process.env.FACEPP_API_ENDPOINT; // https://api-us.faceplusplus.com/facepp/v3/detect
+      if (!faceppKey || !faceppSecret || !faceppDetectEndpoint) {
+        console.error('Face++ configuration missing:', {
+          detectEndpoint: faceppDetectEndpoint,
+          key: faceppKey ? 'Set' : 'Missing',
+          secret: faceppSecret ? 'Set' : 'Missing',
+          userId: req.user.id,
+        });
+        return res.status(500).json({
+          success: false,
+          message: 'Photo processing is temporarily unavailable. Please try again later.',
+        });
       }
-    );
 
-    const faces = response.data.faces || [];
-    if (faces.length === 0) {
-      console.log('No face detected for user:', req.user.id);
-      return res.status(400).json({ success: false, message: 'No face detected in the photo.' });
+      // Step 1: Call Detect API to get face_token
+      const detectUrl = `${faceppDetectEndpoint}?api_key=${faceppKey}&api_secret=${faceppSecret}`;
+      console.log('Sending Face++ Detect API request for user:', req.user.id, 'to URL:', detectUrl);
+
+      const cleanBase64 = base64Data;
+
+      let detectResponse;
+      try {
+        detectResponse = await retry(() =>
+          axios.post(
+            detectUrl,
+            `image_base64=${encodeURIComponent(cleanBase64)}`,
+            {
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              timeout: 10000,
+            }
+          )
+        );
+      } catch (err) {
+        console.error('Face++ Detect API error for user:', req.user.id, {
+          message: err.message,
+          status: err.response?.status,
+          data: err.response?.data,
+        });
+        return res.status(500).json({
+          success: false,
+          message: 'Error processing photo. Please try again.',
+        });
+      }
+
+      const faces = detectResponse.data.faces || [];
+      if (faces.length === 0) {
+        console.log('No face detected in photo (Face++ Detect) for user:', req.user.id);
+        return res.status(400).json({
+          success: false,
+          message: 'No face detected in the photo. Please ensure your face is clearly visible.',
+        });
+      }
+
+      const faceToken = faces[0].face_token;
+      console.log('Face++ Detect API face_token:', faceToken, 'for user:', req.user.id);
+
+      // Step 2: Call Analyze API to get age
+      const analyzeUrl = `https://api-us.faceplusplus.com/facepp/v3/face/analyze?api_key=${faceppKey}&api_secret=${faceppSecret}&face_tokens=${faceToken}&return_attributes=age`;
+      console.log('Sending Face++ Analyze API request for user:', req.user.id, 'to URL:', analyzeUrl);
+
+      let analyzeResponse;
+      try {
+        analyzeResponse = await retry(() =>
+          axios.post(
+            analyzeUrl,
+            {},
+            {
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+              },
+              timeout: 10000,
+            }
+          )
+        );
+      } catch (err) {
+        console.error('Face++ Analyze API error for user:', req.user.id, {
+          message: err.message,
+          status: err.response?.status,
+          data: err.response?.data,
+        });
+        return res.status(500).json({
+          success: false,
+          message: 'Error processing photo. Please try again.',
+        });
+      }
+
+      const analyzedFaces = analyzeResponse.data.faces || [];
+      if (analyzedFaces.length === 0) {
+        console.log('No face analyzed (Face++ Analyze) for user:', req.user.id);
+        return res.status(400).json({
+          success: false,
+          message: 'Failed to analyze face. Please try again.',
+        });
+      }
+
+      age = analyzedFaces[0].attributes.age.value;
+      console.log('Age estimated (Face++):', age, 'for user:', req.user.id);
+    } else {
+      return res.status(500).json({
+        success: false,
+        message: 'Unsupported API provider configured.',
+      });
     }
 
-    const age = faces[0].age;
-    console.log('Age estimated:', age, 'for user:', req.user.id);
     return res.json({ success: true, age });
   } catch (err) {
-    console.error('Luxand API error for user:', req.user.id, {
+    console.error('API error for user:', req.user.id, {
       message: err.message,
       status: err.response?.status,
       data: err.response?.data,
     });
-    return res.status(500).json({ success: false, message: 'Error processing photo.' });
+    const userMessage =
+      err.response?.status === 405
+        ? 'Photo processing is temporarily unavailable. Please try again later.'
+        : 'Error processing photo. Please ensure a clear face is visible and try again.';
+    return res.status(500).json({ success: false, message: userMessage });
   }
 });
 

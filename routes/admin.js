@@ -115,4 +115,16 @@ router.post('/reject/:id', adminCheck, async (req, res) => {
   }
 });
 
+router.get('/delete-logs', adminCheck, async (req, res) => {
+  try {
+    const PostDeletionLog = require('../models/PostDeletionLog');
+    const deletionLogs = await PostDeletionLog.find().sort({ deletedAt: -1 });
+    res.render('adminDeleteLogs', { deletionLogs });
+  } catch (err) {
+    console.error('Error fetching deletion logs:', err);
+    req.flash('error_msg', 'Error fetching deletion logs.');
+    res.redirect('/admin/creator-requests');
+  }
+});
+
 module.exports = router;

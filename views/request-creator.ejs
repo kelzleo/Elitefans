@@ -135,6 +135,7 @@
     photoMessage.textContent = 'Processing photo...';
 
     try {
+      console.log('Captured photo data:', photoData.substring(0, 50));
       const response = await fetch('/request-creator/estimate-age', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -150,15 +151,16 @@
       } else {
         estimatedAgeInput.value = '';
         photoMessage.style.color = 'red';
-        photoMessage.textContent = result.message || 'Error processing photo. Please try again.';
+        photoMessage.textContent = result.message || 'Failed to process photo. Please try again with a clear face.';
         submitButton.disabled = true;
         submitButton.style.backgroundColor = '#ccc';
         submitButton.style.cursor = 'not-allowed';
       }
     } catch (err) {
+      console.error('Client-side error:', err);
       estimatedAgeInput.value = '';
       photoMessage.style.color = 'red';
-      photoMessage.textContent = 'Error processing photo. Please try again.';
+      photoMessage.textContent = 'Failed to process photo. Please check your connection and try again.';
       submitButton.disabled = true;
       submitButton.style.backgroundColor = '#ccc';
       submitButton.style.cursor = 'not-allowed';
@@ -171,11 +173,11 @@
 
   captureButtonModal.addEventListener('click', async function() {
     const canvas = document.createElement('canvas');
-    canvas.width = 640;
-    canvas.height = 480;
+    canvas.width = 480;
+    canvas.height = 360;
     const context = canvas.getContext('2d');
-    context.drawImage(modalVideo, 0, 0, 640, 480);
-    const dataURL = canvas.toDataURL('image/jpeg', 0.7);
+    context.drawImage(modalVideo, 0, 0, 480, 360);
+    const dataURL = canvas.toDataURL('image/jpeg', 0.6);
     passportPhotoDataInput.value = dataURL;
     capturedPhoto.src = dataURL;
     capturedPhotoPreview.style.display = 'block';

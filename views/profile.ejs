@@ -36,26 +36,36 @@
       </div>
     </div>
 
-    <!-- Profile Actions (Chat, Tip, Broadcast, Bookmarks Icons) -->
-    <div class="profile-actions">
-      <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-        <!-- Creator/User View: Chat, Broadcast, and Bookmarks -->
-        <% if (user.role === 'creator') { %>
-          <a href="/broadcast" class="action-button broadcast-icon" title="Start Broadcast">
-            <i class="fa fa-video"></i>
-          </a>
-        <% } %>
-      <% } else if (currentUser && isSubscribed && user.role === 'creator') { %>
-        <!-- Visitor View (Subscribed): Chat, Tip, and Bookmarks -->
-        <a href="/chat?creatorId=<%= user._id %>" class="action-button chat-icon" title="Chat with <%= user.username %>">
-          <i class="fa fa-comment"></i>
-        </a>
-        <button class="action-button tip-icon tip-profile-button" data-creator-id="<%= user._id %>" title="Tip <%= user.username %>">
-          <i class="fa fa-gift"></i>
-        </button>
-      <% } %>
-    </div>
-
+   <!-- Profile Actions (Chat, Tip, Share Icons) -->
+<div class="profile-actions">
+  <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+    <!-- Creator/User View: Broadcast, Share -->
+    <% if (user.role === 'creator') { %>
+      <a href="/broadcast" class="action-button broadcast-icon" title="Start Broadcast">
+        <i class="fa fa-video"></i>
+      </a>
+    <% } %>
+    <button class="action-button share-icon" title="Share Profile" data-username="<%= user.username %>">
+      <i class="fa fa-share-alt"></i>
+    </button>
+  <% } else if (currentUser && isSubscribed && user.role === 'creator') { %>
+    <!-- Visitor View (Subscribed): Chat, Tip, Share -->
+    <a href="/chat?creatorId=<%= user._id %>" class="action-button chat-icon" title="Chat with <%= user.username %>">
+      <i class="fa fa-comment"></i>
+    </a>
+    <button class="action-button tip-icon tip-profile-button" data-creator-id="<%= user._id %>" title="Tip <%= user.username %>">
+      <i class="fa fa-gift"></i>
+    </button>
+    <button class="action-button share-icon" title="Share Profile" data-username="<%= user.username %>">
+      <i class="fa fa-share-alt"></i>
+    </button>
+  <% } else { %>
+    <!-- Visitor View (Not Subscribed): Share -->
+    <button class="action-button share-icon" title="Share Profile" data-username="<%= user.username %>">
+      <i class="fa fa-share-alt"></i>
+    </button>
+  <% } %>
+</div>
     <div class="profile-details">
       <img class="profile-picture" src="<%= user.profilePicture ? user.profilePicture : '/uploads/default-profile-picture.jpg' %>" alt="Profile Picture">
       <div class="profile-names">
@@ -222,6 +232,7 @@
               <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
                 <button type="submit" class="delete-post-btn">Delete Post</button>
               </form>
+             
             </div>
           <% }); %>
         </div>
@@ -235,22 +246,29 @@
           <div class="posts-list">
             <% posts.forEach(post => { %>
               <div class="post-card" id="post-<%= post._id %>">
-                <% let showLocked = post.special && !(currentUser.purchasedContent && currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString())); %>
-                <% if (showLocked) { %>
-                  <div class="locked-content-container">
-                    <% if (post.type === 'image' || post.type === 'video') { %>
-                      <img src="/uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                    <% } %>
-                    <% if (post.writeUp) { %>
-                      <p class="post-writeUp preview-text"><%= post.writeUp.substring(0, 100) %><% if (post.writeUp.length > 100) { %>...<% } %></p>
-                    <% } %>
-                    <div class="unlock-overlay">
-                      <i class="fa fa-lock"></i>
-                      <div>Unlock for ₦<%= post.unlockPrice %></div>
+                <% 
+                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+                  currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
+                const showLocked = post.special && !isAdminView && !hasPurchased;
+              %>
+              <% if (showLocked) { %>
+                <div class="locked-content-container">
+                  <% if (post.type === 'image' || post.type === 'video') { %>
+                    <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+                  <% } %>
+                  <% if (post.writeUp) { %>
+                    <p class="post-writeUp preview-text"><%= post.writeUp.substring(0, 100) %><% if (post.writeUp.length > 100) { %>...<% } %></p>
+                  <% } %>
+                  <div class="unlock-overlay">
+                    <i class="fa fa-lock"></i>
+                    <div>Unlock for ₦<%= post.unlockPrice %></div>
+                    <% if (!isAdminView) { %>
                       <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock Post</button>
-                    </div>
+                    <% } %>
                   </div>
-                <% } else { %>
+                </div>
+              <% } else { %>
                   <div class="post-content">
                     <% if (post.type === 'image') { %>
                       <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
@@ -302,6 +320,13 @@
                     <button type="submit">Post</button>
                   </form>
                 </div>
+                <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
+                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                    <label for="reason-<%= post._id %>">Reason for deletion:</label>
+                    <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
+                    <button type="submit" class="delete-post-btn">Delete Post</button>
+                  </form>
+                <% } %>
               </div>
             <% }); %>
           </div>
@@ -330,17 +355,24 @@
           <div class="media-content posts-list">
             <% posts.filter(post => post.type === 'image' || post.type === 'video').forEach(post => { %>
               <div class="media-item" id="media-post-<%= post._id %>">
-                <% let showLocked = post.special && !(currentUser && currentUser.purchasedContent && currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString())); %>
-                <% if (showLocked) { %>
-                  <div class="locked-content-container">
-                    <img src="/uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                    <div class="unlock-overlay">
-                      <i class="fa fa-lock"></i>
-                      <div>Unlock for ₦<%= post.unlockPrice %></div>
+                <% 
+                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+                  currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
+                const showLocked = post.special && !isAdminView && !hasPurchased;
+              %>
+              <% if (showLocked) { %>
+                <div class="locked-content-container">
+                  <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+                  <div class="unlock-overlay">
+                    <i class="fa fa-lock"></i>
+                    <div>Unlock for ₦<%= post.unlockPrice %></div>
+                    <% if (!isAdminView) { %>
                       <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
-                    </div>
+                    <% } %>
                   </div>
-                <% } else { %>
+                </div>
+              <% } else { %>
                   <% if (post.type === 'image') { %>
                     <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
                   <% } else if (post.type === 'video') { %>
@@ -397,6 +429,14 @@
                     <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
                       <button type="submit" class="delete-post-btn">Delete Post</button>
                     </form>
+                   
+                  <% } %>
+                  <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
+                    <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                      <label for="reason-<%= post._id %>">Reason for deletion:</label>
+                      <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
+                      <button type="submit" class="delete-post-btn">Delete Post</button>
+                    </form>
                   <% } %>
                 </div>
               </div>
@@ -417,17 +457,24 @@
           <div class="media-content posts-list">
             <% posts.filter(post => post.type === 'image').forEach(post => { %>
               <div class="media-item" id="media-post-<%= post._id %>">
-                <% let showLocked = post.special && !(currentUser && currentUser.purchasedContent && currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString())); %>
-                <% if (showLocked) { %>
-                  <div class="locked-content-container">
-                    <img src="/uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                    <div class="unlock-overlay">
-                      <i class="fa fa-lock"></i>
-                      <div>Unlock for ₦<%= post.unlockPrice %></div>
+                <% 
+                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+                  currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
+                const showLocked = post.special && !isAdminView && !hasPurchased;
+              %>
+              <% if (showLocked) { %>
+                <div class="locked-content-container">
+                  <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+                  <div class="unlock-overlay">
+                    <i class="fa fa-lock"></i>
+                    <div>Unlock for ₦<%= post.unlockPrice %></div>
+                    <% if (!isAdminView) { %>
                       <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
-                    </div>
+                    <% } %>
                   </div>
-                <% } else { %>
+                </div>
+              <% } else { %>
                   <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
                 <% } %>
                 <!-- Normal View Content -->
@@ -477,6 +524,7 @@
                     <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
                       <button type="submit" class="delete-post-btn">Delete Post</button>
                     </form>
+                    
                   <% } %>
                 </div>
               </div>
@@ -497,17 +545,24 @@
           <div class="media-content posts-list">
             <% posts.filter(post => post.type === 'video').forEach(post => { %>
               <div class="media-item" id="media-post-<%= post._id %>">
-                <% let showLocked = post.special && !(currentUser && currentUser.purchasedContent && currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString())); %>
-                <% if (showLocked) { %>
-                  <div class="locked-content-container">
-                    <img src="/uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                    <div class="unlock-overlay">
-                      <i class="fa fa-lock"></i>
-                      <div>Unlock for ₦<%= post.unlockPrice %></div>
+                <% 
+                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+                  currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
+                const showLocked = post.special && !isAdminView && !hasPurchased;
+              %>
+              <% if (showLocked) { %>
+                <div class="locked-content-container">
+                  <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+                  <div class="unlock-overlay">
+                    <i class="fa fa-lock"></i>
+                    <div>Unlock for ₦<%= post.unlockPrice %></div>
+                    <% if (!isAdminView) { %>
                       <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
-                    </div>
+                    <% } %>
                   </div>
-                <% } else { %>
+                </div>
+              <% } else { %>
                   <video controls class="post-video">
                     <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
                     Your browser does not support the video tag.
@@ -560,6 +615,7 @@
                     <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
                       <button type="submit" class="delete-post-btn">Delete Post</button>
                     </form>
+                    
                   <% } %>
                 </div>
               </div>
@@ -671,6 +727,33 @@
       <textarea id="tipMessage" name="tipMessage" placeholder="Write a kind message..."></textarea>
       <button type="submit" class="send-tip-button">Send Tip</button>
     </form>
+  </div>
+</div>
+<!-- Share Modal -->
+<div id="shareModal" class="share-modal hidden">
+  <div class="share-modal-content">
+    <span id="closeShareModal" class="close-share-modal">×</span>
+    <h3>Share <%= user.username %>'s Profile</h3>
+    <div class="share-options">
+      <button id="copyLinkButton" class="share-option-button" data-link="">
+        <i class="fa fa-copy"></i> Copy Link
+      </button>
+      <a href="#" id="shareTwitter" class="share-option-button" target="_blank">
+        <i class="fa fa-twitter"></i> Share on Twitter/X
+      </a>
+      <a href="#" id="shareWhatsApp" class="share-option-button" target="_blank">
+        <i class="fa fa-whatsapp"></i> Share on WhatsApp
+      </a>
+      <a href="#" id="shareTelegram" class="share-option-button" target="_blank">
+        <i class="fa fa-telegram"></i> Share on Telegram
+      </a>
+      <a href="#" id="shareFacebook" class="share-option-button" target="_blank">
+        <i class="fa fa-facebook"></i> Share on Facebook
+      </a>
+      <button id="shareNativeButton" class="share-option-button hidden">
+        <i class="fa fa-share"></i> Share via...
+      </button>
+    </div>
   </div>
 </div>
 <script>
@@ -1082,5 +1165,106 @@
               fullscreenImage.src = '';
           }
       });
+   // --- Share Profile Modal ---
+   // --- Share Profile Modal ---
+const initializeShareModal = () => {
+  const shareButtons = document.querySelectorAll('.share-icon');
+  const shareModal = document.getElementById('shareModal');
+  const closeShareModal = document.getElementById('closeShareModal');
+  const copyLinkButton = document.getElementById('copyLinkButton');
+  const shareTwitter = document.getElementById('shareTwitter');
+  const shareWhatsApp = document.getElementById('shareWhatsApp');
+  const shareTelegram = document.getElementById('shareTelegram');
+  const shareFacebook = document.getElementById('shareFacebook');
+  const shareNativeButton = document.getElementById('shareNativeButton');
+
+  let currentUsername = null;
+
+  if (!shareModal || shareButtons.length === 0) {
+    console.log('Share modal or buttons not found, initialization skipped.');
+    return;
+  }
+
+  // Generate profile link without @ prefix
+  const getProfileLink = (username) => {
+    return `${window.location.origin}/profile/${username}`;
+  };
+
+  // Populate share links
+  const updateShareLinks = (username) => {
+    const profileLink = getProfileLink(username);
+    const encodedLink = encodeURIComponent(profileLink);
+    const shareText = encodeURIComponent(`Check out ${username}'s profile!`);
+
+    copyLinkButton.dataset.link = profileLink;
+    shareTwitter.href = `https://twitter.com/intent/tweet?url=${encodedLink}&text=${shareText}`;
+    shareWhatsApp.href = `https://api.whatsapp.com/send?text=${shareText}%20${encodedLink}`;
+    shareTelegram.href = `https://t.me/share/url?url=${encodedLink}&text=${shareText}`;
+    shareFacebook.href = `https://www.facebook.com/sharer/sharer.php?u=${encodedLink}`;
+  };
+
+  // Open share modal
+  shareButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      currentUsername = this.dataset.username;
+      updateShareLinks(currentUsername);
+      shareModal.classList.add('active');
+
+      // Check for Web Share API support
+      if (navigator.share) {
+        shareNativeButton.classList.remove('hidden');
+      } else {
+        shareNativeButton.classList.add('hidden');
+      }
+    });
+  });
+
+  // Close share modal
+  closeShareModal.addEventListener('click', () => {
+    shareModal.classList.remove('active');
+  });
+
+  shareModal.addEventListener('click', (e) => {
+    if (e.target === shareModal) {
+      shareModal.classList.remove('active');
+    }
+  });
+
+  // Copy link to clipboard
+  copyLinkButton.addEventListener('click', async function() {
+    const link = this.dataset.link;
+    try {
+      await navigator.clipboard.writeText(link);
+      this.textContent = 'Link Copied!';
+      this.disabled = true;
+      setTimeout(() => {
+        this.textContent = 'Copy Link';
+        this.disabled = false;
+      }, 2000);
+    } catch (err) {
+      console.error('Copy Error:', err);
+      alert('Failed to copy link.');
+    }
+  });
+
+  // Native share (Web Share API)
+  shareNativeButton.addEventListener('click', async () => {
+    try {
+      await navigator.share({
+        title: `${currentUsername}'s Profile`,
+        text: `Check out ${currentUsername}'s profile!`,
+        url: getProfileLink(currentUsername),
+      });
+      shareModal.classList.remove('active');
+    } catch (err) {
+      console.error('Native Share Error:', err);
+      alert('Error sharing profile.');
+    }
+  });
+};
+
+// Initialize share modal
+initializeShareModal();
+
   });
 </script>

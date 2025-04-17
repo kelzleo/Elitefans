@@ -71,6 +71,99 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
   }
 };
 
+router.get('/edit', authCheck, (req, res) => {
+  res.render('edit-profile', { user: req.user, currentUser: req.user });
+});
+
+// POST route to handle profile edits and upload profile picture to Google Cloud Storage
+router.post('/edit', authCheck, uploadFields, async (req, res) => {
+  try {
+    console.log('Updating profile with GCS...');
+    const updates = {
+      profileName: req.body.profileName,
+      bio: req.body.bio,
+    };
+
+    // Handle username update
+    const newUsername = req.body.username?.trim();
+    if (!newUsername) {
+      req.flash('error_msg', 'Username is required.');
+      return res.redirect('/profile/edit');
+    }
+
+    // Check if the username has changed
+    const currentUser = await User.findById(req.user._id);
+    if (newUsername !== (currentUser.username || '')) {
+      // Validate username format
+      const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
+      if (!usernameRegex.test(newUsername)) {
+        req.flash('error_msg', 'Username must be 3-20 characters long, alphanumeric, and can include underscores.');
+        return res.redirect('/profile/edit');
+      }
+
+      // Check for username uniqueness
+      const existingUser = await User.findOne({ username: newUsername });
+      if (existingUser && existingUser._id.toString() !== req.user._id.toString()) {
+        req.flash('error_msg', 'This username is already taken.');
+        return res.redirect('/profile/edit');
+      }
+
+      updates.username = newUsername;
+    }
+
+    // Handle profile picture upload
+    if (req.files.profilePicture && req.files.profilePicture[0]) {
+      const profileFile = req.files.profilePicture[0];
+      const profileBlobName = `profilePictures/${Date.now()}_${profileFile.originalname}`;
+      const profileBlob = profileBucket.file(profileBlobName);
+
+      const profileBlobStream = profileBlob.createWriteStream({
+        resumable: false,
+        contentType: profileFile.mimetype,
+      });
+
+      await new Promise((resolve, reject) => {
+        profileBlobStream.on('finish', resolve);
+        profileBlobStream.on('error', reject);
+        profileBlobStream.end(profileFile.buffer);
+      });
+
+      updates.profilePicture = `https://storage.googleapis.com/${profileBucket.name}/${profileBlobName}`;
+    }
+
+    // Handle cover photo upload
+    if (req.files.coverPhoto && req.files.coverPhoto[0]) {
+      const coverFile = req.files.coverPhoto[0];
+      const coverBlobName = `coverPhotos/${Date.now()}_${coverFile.originalname}`;
+      const coverBlob = profileBucket.file(coverBlobName);
+
+      const coverBlobStream = coverBlob.createWriteStream({
+        resumable: false,
+        contentType: coverFile.mimetype,
+      });
+
+      await new Promise((resolve, reject) => {
+        coverBlobStream.on('finish', resolve);
+        coverBlobStream.on('error', reject);
+        coverBlobStream.end(coverFile.buffer);
+      });
+
+      updates.coverPhoto = `https://storage.googleapis.com/${profileBucket.name}/${coverBlobName}`;
+    }
+
+    await User.findByIdAndUpdate(req.user._id, updates, { new: true });
+    req.flash('success_msg', 'Profile updated successfully!');
+    res.redirect('/profile');
+  } catch (err) {
+    console.error('Error updating profile:', err);
+    if (err.code === 11000 && err.keyPattern && err.keyPattern.username) {
+      req.flash('error_msg', 'This username is already taken.');
+    } else {
+      req.flash('error_msg', 'Error updating profile.');
+    }
+    res.redirect('/profile/edit');
+  }
+});
 // Owner's profile route
 // View own profile
 router.get('/', authCheck, async (req, res) => {
@@ -143,6 +236,72 @@ router.get('/', authCheck, async (req, res) => {
   }
 });
 
+
+// View profile by username
+router.get('/:username', authCheck, async (req, res) => {
+  try {
+    const username = req.params.username;
+    const ownerUser = await User.findOne({ username });
+    if (!ownerUser) return res.status(404).send('User not found');
+
+    // Check if the user is viewing their own profile
+    const isOwnProfile = req.user._id.toString() === ownerUser._id.toString();
+
+    // Handle admin view
+    const adminView = req.query.adminView === 'true' && req.user.role === 'admin';
+
+    // Fetch subscription status
+    let isSubscribed = false;
+    if (!isOwnProfile && ownerUser.role === 'creator') {
+      const subscription = await Subscription.findOne({
+        subscriber: req.user._id,
+        creator: ownerUser._id,
+        status: 'active',
+      });
+      isSubscribed = !!subscription;
+    }
+
+    // Fetch bundles
+    const bundles = ownerUser.role === 'creator' ? await Bundle.find({ creator: ownerUser._id }) : [];
+
+    // Fetch posts
+    let posts = [];
+    if (isOwnProfile || isSubscribed || adminView) {
+      posts = await Post.find({ user: ownerUser._id })
+        .populate('user')
+        .sort({ createdAt: -1 });
+      posts = await processPostUrls(posts, req.user, ownerUser, adminView);
+    }
+
+    // Update counts
+    const imagesCount = posts.filter(post => post.type === 'image').length;
+    const videosCount = posts.filter(post => post.type === 'video').length;
+    const totalLikes = posts.reduce((sum, post) => sum + (post.likes ? post.likes.length : 0), 0);
+
+    await User.findByIdAndUpdate(ownerUser._id, {
+      imagesCount,
+      videosCount,
+      totalLikes,
+      subscriberCount: ownerUser.role === 'creator' ? await Subscription.countDocuments({ creator: ownerUser._id, status: 'active' }) : 0,
+    });
+
+    // Render the profile view
+    res.render('profile', {
+      user: ownerUser,
+      currentUser: req.user,
+      posts,
+      isSubscribed,
+      bundles,
+      adminView,
+    });
+  } catch (err) {
+    console.error('Error loading profile by username:', err);
+    res.status(500).send('Error loading profile');
+  }
+});
+
+
+
 // View another user's profile
 router.get('/view/:id', authCheck, async (req, res) => {
   try {
@@ -171,7 +330,6 @@ router.get('/view/:id', authCheck, async (req, res) => {
 
       // Filter out comments with invalid users
       for (const post of posts) {
-        console.log(`Post ${post._id} comments before filtering:`, post.comments);
         post.comments = post.comments.filter(comment => {
           if (comment.user === null) {
             console.log(`Removing invalid comment on post ${post._id}:`, comment);
@@ -179,7 +337,6 @@ router.get('/view/:id', authCheck, async (req, res) => {
           }
           return true;
         });
-        console.log(`Post ${post._id} comments after filtering:`, post.comments);
       }
 
       await processPostUrls(posts, currentUser, ownerUser, adminView);
@@ -220,13 +377,13 @@ router.get('/view/:id', authCheck, async (req, res) => {
       isSubscribed: isSubscribed || adminView,
       posts,
       bundles,
+      adminView, // Add this to pass adminView to the template
     });
   } catch (err) {
     console.error('Error loading user profile:', err);
     res.status(500).send('Error loading profile');
   }
 });
-
 // Unlock special content route (using the Post model)
 router.post('/unlock-special-content', authCheck, async (req, res) => {
   try {
@@ -917,69 +1074,9 @@ router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
   }
 });
 
-// Edit profile route
-router.get('/edit', authCheck, (req, res) => {
-  res.render('edit-profile', { user: req.user, currentUser: req.user });
-});
 
-// POST route to handle profile edits and upload profile picture to Google Cloud Storage
-router.post('/edit', authCheck, uploadFields, async (req, res) => {
-  try {
-    console.log('Updating profile with GCS...');
-    const updates = {
-      profileName: req.body.profileName,
-      bio: req.body.bio,
-    };
 
-    // Handle profile picture upload
-    if (req.files.profilePicture && req.files.profilePicture[0]) {
-      const profileFile = req.files.profilePicture[0];
-      const profileBlobName = `profilePictures/${Date.now()}_${profileFile.originalname}`;
-      const profileBlob = profileBucket.file(profileBlobName);
 
-      // Create a write stream to upload the file buffer to GCS
-      const profileBlobStream = profileBlob.createWriteStream({
-        resumable: false,
-        contentType: profileFile.mimetype,
-      });
-
-      await new Promise((resolve, reject) => {
-        profileBlobStream.on('finish', resolve);
-        profileBlobStream.on('error', reject);
-        profileBlobStream.end(profileFile.buffer);
-      });
-
-      updates.profilePicture = `https://storage.googleapis.com/${profileBucket.name}/${profileBlobName}`;
-    }
-
-    // Handle cover photo upload
-    if (req.files.coverPhoto && req.files.coverPhoto[0]) {
-      const coverFile = req.files.coverPhoto[0];
-      const coverBlobName = `coverPhotos/${Date.now()}_${coverFile.originalname}`;
-      const coverBlob = profileBucket.file(coverBlobName);
-
-      // Create a write stream to upload the file buffer to GCS
-      const coverBlobStream = coverBlob.createWriteStream({
-        resumable: false,
-        contentType: coverFile.mimetype,
-      });
-
-      await new Promise((resolve, reject) => {
-        coverBlobStream.on('finish', resolve);
-        coverBlobStream.on('error', reject);
-        coverBlobStream.end(coverFile.buffer);
-      });
-
-      updates.coverPhoto = `https://storage.googleapis.com/${profileBucket.name}/${coverBlobName}`;
-    }
-
-    await User.findByIdAndUpdate(req.user._id, updates, { new: true });
-    res.redirect('/profile');
-  } catch (err) {
-    console.error('Error updating profile:', err);
-    res.status(500).send('Error updating profile');
-  }
-});
 
 router.post(
   '/uploadContent',
@@ -1133,6 +1230,64 @@ router.post('/delete-post/:postId', authCheck, async (req, res) => {
   } catch (err) {
     console.error('Error deleting post:', err);
     res.status(500).send('Error deleting post');
+  }
+});
+
+// Admin delete post with reason
+router.post('/admin-delete-post/:postId', authCheck, async (req, res) => {
+  try {
+    // Check if user is admin
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admins can delete posts' });
+    }
+
+    const { reason } = req.body;
+    if (!reason || reason.trim() === '') {
+      return res.status(400).json({ message: 'Reason for deletion is required' });
+    }
+
+    const post = await Post.findById(req.params.postId).populate('creator', 'username');
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
+
+    const creator = post.creator;
+
+    // Create deletion log
+    const PostDeletionLog = require('../models/PostDeletionLog');
+    await PostDeletionLog.create({
+      postId: post._id,
+      creatorId: creator._id,
+      creatorName: creator.username,
+      adminId: req.user._id,
+      adminName: req.user.username,
+      reason,
+    });
+
+    // Delete the post
+    await Post.deleteOne({ _id: post._id });
+
+    // Decrement the user's counter if it was an image or video
+    if (post.type === 'image') {
+      await User.findByIdAndUpdate(creator._id, { $inc: { imagesCount: -1 } });
+    } else if (post.type === 'video') {
+      await User.findByIdAndUpdate(creator._id, { $inc: { videosCount: -1 } });
+    }
+
+    // Notify the creator
+    await Notification.create({
+      user: creator._id,
+      message: `Your post was deleted by an admin. Reason: ${reason}`,
+      type: 'post_deletion',
+      postId: post._id,
+      creatorId: req.user._id,
+      creatorName: req.user.username,
+    });
+
+    res.redirect(`/profile/view/${creator._id}?adminView=true`);
+  } catch (err) {
+    console.error('Error deleting post by admin:', err);
+    res.status(500).json({ message: 'Error deleting post' });
   }
 });
 

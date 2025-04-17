@@ -136,7 +136,7 @@ body {
 /********************************************
  * EDIT PROFILE PAGE
  ********************************************/
-.edit-profile-title {
+ .edit-profile-title {
   font-size: 24px;
   color: #ff69b4;
   margin-bottom: 10px;
@@ -155,15 +155,17 @@ body {
   font-size: 16px;
   color: #666;
   margin-bottom: 5px;
+  display: block; /* Ensure labels are block for consistent spacing */
 }
 
 .edit-profile-input {
   width: 100%;
   height: 30px;
-  margin-bottom: 20px;
+  margin-bottom: 10px; /* Reduced to align with hint text */
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 5px;
+  box-sizing: border-box;
 }
 
 .edit-profile-textarea {
@@ -173,6 +175,7 @@ body {
   padding: 10px;
   border: 1px solid #ccc;
   border-radius: 5px;
+  box-sizing: border-box;
 }
 
 .edit-profile-button {
@@ -198,16 +201,47 @@ body {
   margin-bottom: 5px;
 }
 
+/* NEW: Hint text for username field */
+.input-hint {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 15px 0; /* Adjusted for spacing below input */
+  line-height: 1.4;
+}
+
+/* NEW: Flash messages for success and error feedback */
+.flash-message {
+  padding: 10px;
+  margin: 0 0 15px 0; /* Align with form padding */
+  border-radius: 5px;
+  font-size: 14px;
+  text-align: center;
+  box-sizing: border-box;
+}
+.flash-message.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+.flash-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
+
+/* NEW: Username feedback for real-time availability check */
+.username-feedback {
+  font-size: 14px;
+  margin: 5px 0 15px 0;
+  line-height: 1.4;
+}
+
 /* Larger screens */
 @media (min-width: 768px) {
-  .content-wrapper {
-    padding-bottom: 120px; /* Extra buffer for desktop */
-  }
-  .request-creator-container {
-    padding: 20px 20px 120px;
-  }
   .edit-profile-form {
     padding: 30px 30px 120px; /* Adjusted for desktop */
+    max-width: 400px; /* Match content-wrapper for centered view */
+    margin: 40px auto; /* Center the form */
   }
   .edit-profile-label {
     font-size: 18px;
@@ -221,18 +255,21 @@ body {
   .edit-profile-button {
     padding: 12px 25px;
   }
+  .input-hint {
+    font-size: 15px;
+  }
+  .flash-message {
+    font-size: 15px;
+  }
+  .username-feedback {
+    font-size: 15px;
+  }
 }
 
 @media (min-width: 992px) {
-  .content-wrapper {
-    padding-bottom: 120px;
-  }
-  .request-creator-container {
-    padding: 20px 20px 120px;
-  }
   .edit-profile-form {
     padding: 40px 40px 120px;
-    max-width: 600px;
+    max-width: 400px; /* Maintain consistency with content-wrapper */
     margin: 40px auto;
   }
   .edit-profile-label {
@@ -246,6 +283,21 @@ body {
   }
   .edit-profile-button {
     padding: 15px 30px;
+  }
+  .input-hint {
+    font-size: 16px;
+  }
+  .flash-message {
+    font-size: 16px;
+  }
+  .username-feedback {
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .edit-profile-form {
+    max-width: 450px; /* Match content-wrapper width for larger screens */
   }
 }
 .nav-item {
@@ -2913,6 +2965,135 @@ html, body {
 .fp-back-link:hover {
   text-decoration: underline;
 }
+
+/* Share Icon */
+.share-icon {
+  background-color: #007bff;
+  color: white;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 5px;
+  transition: background-color 0.3s ease;
+}
+
+.share-icon:hover {
+  background-color: #0056b3;
+}
+
+/* Share Modal */
+.share-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  visibility: hidden;
+  opacity: 0;
+  transition: visibility 0s, opacity 0.3s ease;
+}
+
+.share-modal.active {
+  visibility: visible;
+  opacity: 1;
+}
+
+.share-modal-content {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  position: relative;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.close-share-modal {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 24px;
+  cursor: pointer;
+  color: #333;
+}
+
+.share-modal-content h3 {
+  margin: 0 0 20px;
+  font-size: 1.5em;
+  text-align: center;
+}
+
+.share-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.share-option-button {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background-color: #f8f9fa;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  text-decoration: none;
+  color: #333;
+  font-size: 1em;
+  transition: background-color 0.3s ease;
+}
+
+.share-option-button:hover {
+  background-color: #e9ecef;
+}
+
+.share-option-button i {
+  margin-right: 10px;
+  font-size: 1.2em;
+}
+
+.share-option-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .share-modal-content {
+    width: 95%;
+    padding: 15px;
+  }
+
+  .share-option-button {
+    font-size: 0.9em;
+    padding: 8px;
+  }
+}
+.alert-success {
+  background-color: #d4edda;
+  color: #155724;
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #c3e6cb;
+  border-radius: 4px;
+}
+
+.alert-danger {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  margin-bottom: 15px;
+  border: 1px solid #f5c6cb;
+  border-radius: 4px;
+}
+
 /********************************************
  * PROFILE MENU DESKTOP ADJUSTMENTS
  ********************************************/
@@ -3073,17 +3254,23 @@ html, body {
   /* UPDATED: Bottom Nav Centering Fix */
   .bottom-nav {
     max-width: 400px; /* Match content-wrapper width */
-    width: 100%; /* Full width of the constrained max-width */
+    width: 100%; /* Full width up to max-width */
     position: fixed;
     bottom: 0;
-    left: 0; /* Align with content-wrapper */
-    right: 0; /* Align with content-wrapper */
-    margin: 0 auto; /* Center horizontally */
+    left: 50%; /* Center relative to viewport */
+    transform: translateX(-50%); /* Offset by half its width to center */
+    margin: 0; /* Remove auto margins to avoid conflicts */
     background-color: #ffffff;
     box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.15);
     z-index: 999;
-    box-sizing: border-box; /* Prevent padding issues */
-    transform: none; /* Remove transform to avoid offsets */
+    box-sizing: border-box;
+    padding: 0; /* Ensure no padding offsets */
+  }
+}
+
+@media (min-width: 1024px) {
+  .bottom-nav {
+    max-width: 450px; /* Match content-wrapper width */
   }
 }
 
