@@ -6,17 +6,25 @@
         <%= errorMessage %>
     </div>
 <% } %>
+<form
+  action="/signup
+    <%= creator  ? `?creator=${encodeURIComponent(creator)}` : '' %>
+    <%= ref      ? `${creator ? '&' : '?'}ref=${encodeURIComponent(ref)}` : '' %>"
+  method="POST"
+  class="signup-form"
+>
+  <% if (creator) { %>
+    <input type="hidden" name="creator" value="<%= creator %>">
+  <% } %>
 
-<form action="/signup<% if (typeof ref !== 'undefined' && ref) { %>?ref=<%= ref %><% } %><% if (typeof creator !== 'undefined' && creator) { %>&creator=<%= creator %><% } %>" method="POST" class="signup-form">
-    <h2>Create Your Account</h2>
-    <input type="text" name="username" placeholder="Username" required>
-    <input type="email" name="email" placeholder="Email" required>
-    <input type="password" name="password" placeholder="Password" required>
-    <% if (typeof ref !== 'undefined' && ref) { %>
-        <input type="hidden" name="ref" value="<%= ref %>">
-    <% } %>
-    <% if (typeof creator !== 'undefined' && creator) { %>
-        <input type="hidden" name="creator" value="<%= creator %>">
-    <% } %>
-    <button type="submit" class="button-signup">Sign Up</button>
+  <% if (ref) { %>
+    <input type="hidden" name="ref" value="<%= ref %>">
+  <% } %>
+
+  <h2>Create Your Account</h2>
+  <input type="text" name="username" placeholder="Username" required>
+  <input type="email" name="email" placeholder="Email" required>
+  <input type="password" name="password" placeholder="Password" required>
+
+  <button type="submit" class="button-signup">Sign Up</button>
 </form>

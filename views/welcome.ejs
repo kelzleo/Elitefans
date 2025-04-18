@@ -12,14 +12,17 @@
   </div>
 <% } %>
 
-<form action="/login" method="POST" class="login-form">
-    <input type="text" name="usernameOrEmail" placeholder="Email or Username" required>
-    <input type="password" name="password" placeholder="Password" required>
-    <% if (typeof creator !== 'undefined' && creator) { %>
-        <input type="hidden" name="creator" value="<%= creator %>">
-    <% } %>
-    <button type="submit" class="button-login">Login</button>
+<form action="/login<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %>" method="POST" class="login-form">
+  <% if (creator) { %>
+    <input type="hidden" name="creator" value="<%= creator %>">
+  <% } %>
+
+  <input type="text" name="usernameOrEmail" placeholder="Email or Username" required>
+  <input type="password" name="password" placeholder="Password" required>
+
+  <button type="submit" class="button-login">Login</button>
 </form>
+
 
 <div class="sign-options">
     <a href="/google<% if (typeof creator !== 'undefined' && creator) { %>?creator=<%= creator %><% } %>" class="a-sign">Sign In With Google</a> 

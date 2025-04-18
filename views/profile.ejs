@@ -140,13 +140,15 @@
                   <li class="bundle-item">
                     <% if (currentUser && currentUser._id.toString() !== user._id.toString() && !isSubscribed) { %>
                       <form action="/profile/subscribe" method="POST" class="subscribe-bundle-form">
-                        <input type="hidden" name="creatorId" value="<%= user._id %>">
-                        <input type="hidden" name="bundleId" value="<%= bundle._id %>">
+                        <input type="hidden" name="creatorId"       value="<%= user._id %>">
+                        <input type="hidden" name="bundleId"        value="<%= bundle._id %>">
+                        <input type="hidden" name="creatorUsername" value="<%= user.username %>">
                         <button type="submit" class="bundle-subscribe-button">
                           <span class="bundle-duration"><%= bundle.duration %></span>
                           <span class="bundle-price">₦<%= bundle.price %></span>
                         </button>
                       </form>
+                      
                     <% } else { %>
                       <div class="bundle-info-block">
                         <span class="bundle-duration"><%= bundle.duration %></span>
