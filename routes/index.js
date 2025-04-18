@@ -6,6 +6,7 @@ const bcrypt = require('bcrypt');
 const User = require('../models/users');
 const crypto = require('crypto');
 const sendEmail = require('../config/sendEmail');
+const PendingSubscription = require('../models/pendingSubscription');
 
 router.get('/', (req, res) => {
   console.log('Welcome page - Query:', req.query, 'Session:', req.session);
@@ -325,13 +326,11 @@ router.get('/google/redirect', passport.authenticate('google'), async (req, res)
   }
 });
 
-// routes/index.js
-// routes/index.js
 router.post('/login', (req, res, next) => {
   const { usernameOrEmail, password, creator } = req.body;
   const queryCreator = req.query.creator;
   const sessionCreator = req.session.creator;
-  console.log('Login Request - Body:', req.body, 'Query:', req.query, 'Session:', req.session, 'Creator from body:', creator, 'Creator from query:', queryCreator, 'Creator from session:', sessionCreator);
+  console.log('Login Request - Body:', req.body, 'Query:', req.query, 'Session:', req.session, 'SessionID:', req.sessionID, 'Creator from body:', creator, 'Creator from query:', queryCreator, 'Creator from session:', sessionCreator);
 
   const creatorParam = creator || queryCreator || sessionCreator;
   if (creatorParam) {
@@ -381,7 +380,28 @@ router.post('/login', (req, res, next) => {
         }
 
         let redirectTo = '/home';
-        if (req.session.redirectTo) {
+        // Check PendingSubscription collection
+        const pendingSub = await PendingSubscription.findOne({ sessionId: req.sessionID });
+        if (pendingSub) {
+          console.log('Found pending subscription in database:', pendingSub);
+          redirectTo = `/profile/${encodeURIComponent(pendingSub.creatorUsername)}`;
+          req.session.redirectTo = redirectTo;
+          req.session.creator = pendingSub.creatorUsername;
+          await new Promise((resolve, reject) => {
+            req.session.save(err => {
+              if (err) {
+                console.error('Session save error:', err);
+                reject(err);
+              } else {
+                console.log('Session saved:', req.session);
+                resolve();
+              }
+            });
+          });
+          // Clear the pending subscription
+          await PendingSubscription.deleteOne({ sessionId: req.sessionID });
+          console.log('Cleared pending subscription for session:', req.sessionID);
+        } else if (req.session.redirectTo) {
           redirectTo = req.session.redirectTo;
         } else if (creatorParam) {
           const creatorUser = await User.findOne({ username: creatorParam });

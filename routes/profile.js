@@ -12,6 +12,7 @@ const SubscriptionBundle = require('../models/SubscriptionBundle');
 const flutter = require('../utilis/flutter');
 const Transaction = require('../models/Transaction');
 const Notification = require('../models/notifications');
+const PendingSubscription = require('../models/pendingSubscription'); 
 
 // Set up multer to store files in memory
 const multerStorage = multer.memoryStorage();
@@ -1267,12 +1268,26 @@ router.post('/subscribe', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Creator not found or not a valid creator' });
     }
 
-    // If user is not logged in, store the creator's profile URL and redirect to welcome page
+    // If user is not logged in, store subscription data in session and database
     if (!req.user) {
       const redirectUrl = `/profile/${encodeURIComponent(creator.username)}`;
       req.session.redirectTo = redirectUrl;
       req.session.creator = creator.username;
       req.session.subscriptionData = { creatorId, bundleId };
+
+      // Store in PendingSubscription collection
+      await PendingSubscription.findOneAndUpdate(
+        { sessionId: req.sessionID },
+        {
+          sessionId: req.sessionID,
+          creatorUsername: creator.username,
+          creatorId,
+          bundleId,
+          createdAt: new Date()
+        },
+        { upsert: true, new: true }
+      );
+      console.log('Saved pending subscription for session:', req.sessionID, 'Creator:', creator.username);
 
       console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'session.creator:', creator.username, 'session.subscriptionData:', { creatorId, bundleId }, 'SessionID:', req.sessionID);
 
@@ -1294,14 +1309,13 @@ router.post('/subscribe', async (req, res) => {
       return res.redirect(welcomeUrl);
     }
 
-    // Logic for logged-in users
+    // Logic for logged-in users (unchanged)
     const user = await User.findById(req.user._id);
     if (!user) {
       console.log('User not found:', req.user._id);
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
 
-    // Check and update expired subscriptions
     let changed = false;
     const now = new Date();
     user.subscriptions.forEach((sub) => {
@@ -1312,7 +1326,6 @@ router.post('/subscribe', async (req, res) => {
     });
     if (changed) await user.save();
 
-    // Check if user is already subscribed
     const isSubscribed = user.subscriptions.some(
       (sub) => sub.creatorId.toString() === creatorId && sub.status === 'active' && sub.subscriptionExpiry > now
     );
@@ -1321,7 +1334,6 @@ router.post('/subscribe', async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'You are already subscribed to this creator' });
     }
 
-    // Validate bundle
     const bundle = await SubscriptionBundle.findById(bundleId);
     if (!bundle) {
       console.log('Bundle not found:', bundleId);
@@ -1332,7 +1344,6 @@ router.post('/subscribe', async (req, res) => {
       return res.status(400).json({ status: 'error', message: 'Invalid bundle for this creator' });
     }
 
-    // Initialize payment for subscription
     const paymentResponse = await flutter.initializePayment(req.user._id, creatorId, bundleId);
     console.log('Subscription payment initialization response:', paymentResponse);
 

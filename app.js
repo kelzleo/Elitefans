@@ -15,7 +15,6 @@ const socketIo = require('socket.io');
 const User = require('./models/users');
 const multer = require('multer');
 
-
 // Import configuration and keys
 const keys = require('./config/keys');
 require('./config/passport-setup');
@@ -45,10 +44,9 @@ const purchasedContentRoutes = require('./routes/purchasedContent');
 // Initialize Express app
 const app = express();
 
-// Trust the first proxy for secure cookies
-app.set('trust proxy', 1);
+// Trust the first proxy for secure cookies (commented out for testing)
+// app.set('trust proxy', 1);
 
-// MongoDB connection
 // MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -70,15 +68,6 @@ mongoose.connection.on('reconnected', () => {
   console.log('MongoDB reconnected');
 });
 
-
-// Log connection errors
-mongoose.connection.on('error', (err) => {
-  console.error('MongoDB connection error:', err);
-});
-mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB disconnected, attempting to reconnect...');
-});
-
 // Multer setup for file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -94,37 +83,36 @@ app.use(express.json({ limit: '5mb' }));
 
 // Session middleware
 const MongoStore = require('connect-mongo');
-const sessionMiddleware = session({
-  secret: process.env.COOKIE_KEY || 'fallback-secret', // Use COOKIE_KEY from .env
-  resave: false,
-  saveUninitialized: false, // Only save sessions with data
-  store: MongoStore.create({
-    mongoUrl: process.env.MONGO_URI,
-    collectionName: 'sessions',
-    ttl: 24 * 60 * 60, // 24 hours
-    autoRemove: 'native' // Automatically remove expired sessions
-  }).on('error', (err) => console.error('MongoStore error:', err)),
-  cookie: {
-    secure: process.env.NODE_ENV === 'production' ? true : false,
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    httpOnly: true,
-    path: '/'
-  }
-});
+app.use(
+  session({
+    secret: process.env.COOKIE_KEY || 'fallback-secret',
+    resave: false,
+    saveUninitialized: false,
+    store: MongoStore.create({
+      mongoUrl: process.env.MONGO_URI,
+      collectionName: 'sessions',
+      ttl: 24 * 60 * 60,
+      autoRemove: 'native'
+    }).on('error', (err) => console.error('MongoStore error:', err)),
+    cookie: {
+      secure: process.env.NODE_ENV === 'production' ? true : false,
+      maxAge: 24 * 60 * 60 * 1000,
+      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+      httpOnly: true,
+      path: '/'
+    }
+  })
+);
 
 // Enhanced session debugging
 app.use((req, res, next) => {
-  console.log('Session before middleware - SessionID:', req.sessionID, 'Session:', req.session, 'Cookies:', req.headers.cookie);
-  sessionMiddleware(req, res, (err) => {
-    if (err) {
-      console.error('Session middleware error:', err);
-      return res.status(500).json({ error: 'Session error' });
-    }
-    console.log('Session after middleware - SessionID:', req.sessionID, 'Session:', req.session);
-    next();
-  });
+  console.log('Session before request - SessionID:', req.sessionID, 'Session:', req.session, 'Cookies:', req.headers.cookie);
+  if (!req.sessionID) {
+    console.warn('No sessionID generated, checking cookies:', req.headers.cookie);
+  }
+  next();
 });
+
 // Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
@@ -257,15 +245,19 @@ const io = socketIo(server);
 
 // Share session with Socket.io
 io.use((socket, next) => {
-  sessionMiddleware(socket.request, {}, (err) => {
+  const req = socket.request;
+  const res = {};
+  const sessionMiddleware = app.get('sessionMiddleware');
+  sessionMiddleware(req, res, (err) => {
     if (err) {
       console.error('Socket.io session middleware error:', err);
       return next(err);
     }
-    console.log('Socket.io session:', socket.request.sessionID, socket.request.session);
+    console.log('Socket.io session:', req.sessionID, req.session);
     next();
   });
 });
+
 // Authenticate Socket.io with Passport
 io.use((socket, next) => {
   if (socket.request.session.passport && socket.request.session.passport.user) {
@@ -275,6 +267,26 @@ io.use((socket, next) => {
     next(new Error('Authentication error'));
   }
 });
+
+// Store session middleware for Socket.io
+app.set('sessionMiddleware', session({
+  secret: process.env.COOKIE_KEY || 'fallback-secret',
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGO_URI,
+    collectionName: 'sessions',
+    ttl: 24 * 60 * 60,
+    autoRemove: 'native'
+  }).on('error', (err) => console.error('MongoStore error:', err)),
+  cookie: {
+    secure: process.env.NODE_ENV === 'production' ? true : false,
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    httpOnly: true,
+    path: '/'
+  }
+}));
 
 // Store connected users and their last heartbeat
 const connectedUsers = new Map();
