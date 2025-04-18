@@ -1274,22 +1274,24 @@ router.post('/subscribe', async (req, res) => {
       req.session.creator = creator.username;
       req.session.subscriptionData = { creatorId, bundleId };
 
-      console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'session.creator:', creator.username, 'session.subscriptionData:', { creatorId, bundleId });
+      console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'session.creator:', creator.username, 'session.subscriptionData:', { creatorId, bundleId }, 'SessionID:', req.sessionID);
 
+      // Ensure session is saved before redirect
       await new Promise((resolve, reject) => {
         req.session.save(err => {
           if (err) {
             console.error('Session save error:', err);
             reject(err);
           } else {
-            console.log('Session saved:', req.session);
+            console.log('Session saved successfully:', req.session, 'SessionID:', req.sessionID);
             resolve();
           }
         });
       });
 
-      console.log('Redirecting to:', `/?creator=${encodeURIComponent(creator.username)}`);
-      return res.redirect(`/?creator=${encodeURIComponent(creator.username)}`);
+      const welcomeUrl = `/?creator=${encodeURIComponent(creator.username)}`;
+      console.log('Redirecting to:', welcomeUrl);
+      return res.redirect(welcomeUrl);
     }
 
     // Logic for logged-in users

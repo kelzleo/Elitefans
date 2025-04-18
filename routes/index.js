@@ -326,11 +326,12 @@ router.get('/google/redirect', passport.authenticate('google'), async (req, res)
 });
 
 // routes/index.js
+// routes/index.js
 router.post('/login', (req, res, next) => {
   const { usernameOrEmail, password, creator } = req.body;
   const queryCreator = req.query.creator;
   const sessionCreator = req.session.creator;
-  console.log('Login Request - Body:', req.body, 'Query:', req.query, 'Session:', req.session);
+  console.log('Login Request - Body:', req.body, 'Query:', req.query, 'Session:', req.session, 'Creator from body:', creator, 'Creator from query:', queryCreator, 'Creator from session:', sessionCreator);
 
   const creatorParam = creator || queryCreator || sessionCreator;
   if (creatorParam) {
@@ -358,7 +359,7 @@ router.post('/login', (req, res, next) => {
       console.log('Login failed:', info.message || 'Invalid login credentials');
       return res.render('welcome', {
         errorMessage: info.message || 'Invalid username/email or password',
-        creator: creatorParam || req.session.creator || '',
+        creator: creatorParam || req.query.creator || req.session.creator || '',
         ref: req.body.ref || req.query.ref || ''
       });
     }
@@ -379,8 +380,7 @@ router.post('/login', (req, res, next) => {
           console.log('Found pending subscription data:', req.session.subscriptionData);
         }
 
-        // Prioritize session.redirectTo, then creatorParam, then user.redirectAfterVerify
-        let redirectTo = '/home'; // Default to /home instead of /profile
+        let redirectTo = '/home';
         if (req.session.redirectTo) {
           redirectTo = req.session.redirectTo;
         } else if (creatorParam) {
@@ -401,14 +401,32 @@ router.post('/login', (req, res, next) => {
               });
             });
           }
+        } else if (req.query.creator) {
+          const creatorUser = await User.findOne({ username: req.query.creator });
+          if (creatorUser) {
+            redirectTo = `/profile/${encodeURIComponent(req.query.creator)}`;
+            req.session.redirectTo = redirectTo;
+            req.session.creator = req.query.creator;
+            await new Promise((resolve, reject) => {
+              req.session.save(err => {
+                if (err) {
+                  console.error('Session save error:', err);
+                  reject(err);
+                } else {
+                  console.log('Session saved:', req.session);
+                  resolve();
+                }
+              });
+            });
+          }
         } else if (user.redirectAfterVerify) {
           redirectTo = user.redirectAfterVerify;
-          user.redirectAfterVerify = null; // Clear after use
+          user.redirectAfterVerify = null;
           await user.save();
         }
         console.log('Login successful - Redirecting to:', redirectTo);
 
-        // Clear session variables after use
+        // Clear session data after redirect
         delete req.session.redirectTo;
         delete req.session.subscriptionData;
         delete req.session.creator;
@@ -418,7 +436,7 @@ router.post('/login', (req, res, next) => {
         console.error('Error during login:', error);
         return res.render('welcome', {
           errorMessage: 'Error processing login. Please try again.',
-          creator: creatorParam || req.session.creator || '',
+          creator: creatorParam || req.query.creator || req.session.creator || '',
           ref: req.body.ref || req.query.ref || ''
         });
       }

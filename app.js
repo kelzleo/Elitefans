@@ -49,14 +49,35 @@ const app = express();
 app.set('trust proxy', 1);
 
 // MongoDB connection
+// MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 30000,
+    serverSelectionTimeoutMS: 30000 // 30 seconds timeout for server selection
   })
   .then(() => console.log('Connected to MongoDB'))
   .catch((err) => console.error('MongoDB connection error:', err));
+
+// Log connection events
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB connection error:', err);
+});
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected, attempting to reconnect...');
+});
+mongoose.connection.on('reconnected', () => {
+  console.log('MongoDB reconnected');
+});
+
+
+// Log connection errors
+mongoose.connection.on('error', (err) => {
+  console.error('MongoDB connection error:', err);
+});
+mongoose.connection.on('disconnected', () => {
+  console.log('MongoDB disconnected, attempting to reconnect...');
+});
 
 // Multer setup for file uploads
 const upload = multer({
@@ -74,20 +95,21 @@ app.use(express.json({ limit: '5mb' }));
 // Session middleware
 const MongoStore = require('connect-mongo');
 const sessionMiddleware = session({
-  secret: keys.session.cookieKey,
+  secret: process.env.COOKIE_KEY || 'fallback-secret', // Use COOKIE_KEY from .env
   resave: false,
-  saveUninitialized: true,
+  saveUninitialized: false, // Only save sessions with data
   store: MongoStore.create({
     mongoUrl: process.env.MONGO_URI,
     collectionName: 'sessions',
     ttl: 24 * 60 * 60, // 24 hours
+    autoRemove: 'native' // Automatically remove expired sessions
   }).on('error', (err) => console.error('MongoStore error:', err)),
   cookie: {
     secure: process.env.NODE_ENV === 'production' ? true : false,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     httpOnly: true,
-    path: '/' // Explicitly set cookie path
+    path: '/'
   }
 });
 
@@ -103,7 +125,6 @@ app.use((req, res, next) => {
     next();
   });
 });
-
 // Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
@@ -236,9 +257,15 @@ const io = socketIo(server);
 
 // Share session with Socket.io
 io.use((socket, next) => {
-  sessionMiddleware(socket.request, {}, next);
+  sessionMiddleware(socket.request, {}, (err) => {
+    if (err) {
+      console.error('Socket.io session middleware error:', err);
+      return next(err);
+    }
+    console.log('Socket.io session:', socket.request.sessionID, socket.request.session);
+    next();
+  });
 });
-
 // Authenticate Socket.io with Passport
 io.use((socket, next) => {
   if (socket.request.session.passport && socket.request.session.passport.user) {
