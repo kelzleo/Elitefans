@@ -83,20 +83,21 @@ const sessionMiddleware = session({
     ttl: 24 * 60 * 60, // 24 hours
   }).on('error', (err) => console.error('MongoStore error:', err)),
   cookie: {
-    secure: process.env.NODE_ENV === 'production' ? true : false, // Allow HTTP in development
+    secure: process.env.NODE_ENV === 'production' ? true : false,
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     httpOnly: true,
-  },
+    path: '/' // Explicitly set cookie path
+  }
 });
 
-// Debug session middleware
+// Enhanced session debugging
 app.use((req, res, next) => {
   console.log('Session before middleware - SessionID:', req.sessionID, 'Session:', req.session, 'Cookies:', req.headers.cookie);
   sessionMiddleware(req, res, (err) => {
     if (err) {
       console.error('Session middleware error:', err);
-      return next(err);
+      return res.status(500).json({ error: 'Session error' });
     }
     console.log('Session after middleware - SessionID:', req.sessionID, 'Session:', req.session);
     next();

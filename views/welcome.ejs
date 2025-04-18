@@ -16,17 +16,20 @@
   <% if (creator) { %>
     <input type="hidden" name="creator" value="<%= creator %>">
   <% } %>
+  <% if (typeof ref !== 'undefined' && ref) { %>
+    <input type="hidden" name="ref" value="<%= ref %>">
+  <% } %>
   <input type="text" name="usernameOrEmail" placeholder="Email or Username" required>
   <input type="password" name="password" placeholder="Password" required>
   <button type="submit" class="button-login">Login</button>
 </form>
 
 <div class="sign-options">
-  <a href="/google<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %><%= ref ? `${creator ? '&' : '?'}ref=${encodeURIComponent(ref)}` : '' %>" class="a-sign">Sign In With Google</a>
+  <a href="/google<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %><%= typeof ref !== 'undefined' && ref ? `${creator ? '&' : '?'}ref=${encodeURIComponent(ref)}` : '' %>" class="a-sign">Sign In With Google</a>
   <a href="" class="a-sign">Sign In With X</a>
 </div>
 
 <div class="signup-options">
   <a href="/forgot-password" class="g-sign">Forgot Password?</a>
-  <a href="/signup<%= ref ? `?ref=${encodeURIComponent(ref)}` : '' %><%= creator ? `${ref ? '&' : '?'}creator=${encodeURIComponent(creator)}` : '' %>" class="g-sign">Sign Up Now</a>
+  <a href="/signup<%= typeof ref !== 'undefined' && ref ? `?ref=${encodeURIComponent(ref)}` : '' %><%= creator ? `${typeof ref !== 'undefined' && ref ? '&' : '?'}creator=${encodeURIComponent(creator)}` : '' %>" class="g-sign">Sign Up Now</a>
 </div>

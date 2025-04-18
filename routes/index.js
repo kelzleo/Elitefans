@@ -20,14 +20,15 @@ router.post('/signup', async (req, res) => {
   const { username, email, password, creator } = req.body;
   const queryCreator = req.query.creator;
   const sessionCreator = req.session.creator;
+  const ref = req.query.ref || req.body.ref || req.session.referralId;
   try {
     console.log('Signup Request - URL:', req.url, 'Query:', req.query, 'Body:', req.body, 'Session:', req.session);
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       return res.render('signup', {
         errorMessage: 'Email or username already exists',
-        ref: req.query.ref || req.body.ref || req.session.referralId || '',
-        creator: creator || queryCreator || sessionCreator
+        ref: ref || '',
+        creator: creator || queryCreator || sessionCreator || ''
       });
     }
 
@@ -55,7 +56,6 @@ router.post('/signup', async (req, res) => {
       redirectAfterVerify: redirectUrl,
     });
 
-    const ref = req.query.ref || req.body.ref || req.session.referralId;
     if (ref) {
       console.log('Ref parameter detected:', ref);
       const referrer = await User.findById(ref);
@@ -68,7 +68,6 @@ router.post('/signup', async (req, res) => {
     if (redirectUrl) {
       req.session.redirectTo = redirectUrl;
       req.session.creator = creatorParam;
-      // Ensure session is saved synchronously to avoid race conditions
       await new Promise((resolve, reject) => {
         req.session.save(err => {
           if (err) {
@@ -86,8 +85,8 @@ router.post('/signup', async (req, res) => {
     console.log('User saved:', { id: newUser._id, referredBy: newUser.referredBy, redirectAfterVerify: newUser.redirectAfterVerify });
     delete req.session.referralId;
 
-    const verificationLink = `https://onlyaccess.onrender.com/verify/${verificationToken}${creatorParam ? `?creator=${encodeURIComponent(creatorParam)}` : ''}`;
-    console.log('Verification link:', verificationLink);
+    const verificationLink = `https://onlyaccess.onrender.com/verify/${verificationToken}${creatorParam ? `?creator=${encodeURIComponent(creatorParam)}` : ''}${ref ? `${creatorParam ? '&' : '?'}ref=${encodeURIComponent(ref)}` : ''}`;
+    console.log('Verification link generated:', verificationLink);
 
     const emailStartTime = Date.now();
     await sendEmail(
@@ -102,13 +101,17 @@ router.post('/signup', async (req, res) => {
     const endTime = Date.now();
     console.log(`Total signup route time: ${(endTime - startTime) / 1000} seconds`);
 
-    res.render('welcome', { errorMessage: 'Check your email to verify your account.', creator: creatorParam });
+    res.render('welcome', {
+      errorMessage: 'Check your email to verify your account.',
+      creator: creatorParam || '',
+      ref: ref || ''
+    });
   } catch (error) {
     console.error('Error signing up user:', error);
     res.render('signup', {
       errorMessage: 'An error occurred while signing up. Please try again.',
-      ref: req.query.ref || req.body.ref || req.session.referralId || '',
-      creator: creator || queryCreator || sessionCreator
+      ref: ref || '',
+      creator: creator || queryCreator || sessionCreator || ''
     });
   }
 });
@@ -116,17 +119,25 @@ router.post('/signup', async (req, res) => {
 router.get('/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
-    const { creator } = req.query;
-    console.log('Verification Request - Token:', token, 'Creator:', creator, 'Session:', req.session, 'User:', req.user ? req.user._id : 'Not logged in');
+    const { creator, ref } = req.query;
+    console.log('Verification Request - Token:', token, 'Creator:', creator, 'Ref:', ref, 'Session:', req.session, 'User:', req.user ? req.user._id : 'Not logged in');
     const user = await User.findOne({ verificationToken: token });
     if (!user) {
       console.log('No user found for token:', token);
       const alreadyVerifiedUser = await User.findOne({ email: { $exists: true }, verified: true });
       if (alreadyVerifiedUser) {
         console.log('User already verified for email:', alreadyVerifiedUser.email);
-        return res.render('welcome', { errorMessage: 'Your email is already verified. Please log in.', creator });
+        return res.render('welcome', {
+          errorMessage: 'Your email is already verified. Please log in.',
+          creator: creator || '',
+          ref: ref || ''
+        });
       }
-      return res.render('welcome', { errorMessage: 'Invalid or expired verification link.', creator });
+      return res.render('welcome', {
+        errorMessage: 'Invalid or expired verification link.',
+        creator: creator || '',
+        ref: ref || ''
+      });
     }
 
     let redirectTo = '/';
@@ -178,7 +189,6 @@ router.get('/verify/:token', async (req, res) => {
     console.log('User verified:', user._id, 'Redirecting to:', redirectTo);
 
     if (req.user) {
-      // Clear session data after use
       delete req.session.redirectTo;
       delete req.session.creator;
       return res.redirect(redirectTo);
@@ -186,55 +196,17 @@ router.get('/verify/:token', async (req, res) => {
 
     res.render('welcome', {
       errorMessage: 'Email verified successfully. Please log in.',
-      creator: req.session.creator || creator
+      creator: creator || req.session.creator || '',
+      ref: ref || ''
     });
   } catch (error) {
     console.error('Error verifying email:', error);
-    res.render('welcome', { errorMessage: 'An error occurred. Please try again.', creator });
-  }
-});
-router.get('/signup', (req, res) => {
-  const creator = req.query.creator || req.session.creator || '';
-  res.render('signup', { 
-    errorMessage: '', 
-    ref: req.query.ref || req.session.referralId || '',
-    creator: creator
-  });
-});
-
-router.get('/logout', async (req, res, next) => {
-  try {
-    if (req.user) {
-      await User.findByIdAndUpdate(req.user._id, {
-        isOnline: false,
-        lastSeen: new Date(),
-      });
-    }
-    req.logout(function (err) {
-      if (err) {
-        return next(err);
-      }
-      res.redirect('/');
-    });
-  } catch (error) {
-    console.error('Error during logout:', error);
-    res.redirect('/');
-  }
-});
-
-router.get('/google', (req, res, next) => {
-  if (req.query.ref) {
-    req.session.referralId = req.query.ref;
-  }
-  // Store creator in session if provided
-  if (req.query.creator) {
-    req.session.creator = req.query.creator;
-    req.session.redirectTo = `/profile/${req.query.creator}`;
-    req.session.save(err => {
-      if (err) console.error('Google auth session save error:', err);
+    res.render('welcome', {
+      errorMessage: 'An error occurred. Please try again.',
+      creator: creator || '',
+      ref: ref || ''
     });
   }
-  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
 
