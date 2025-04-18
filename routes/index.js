@@ -13,7 +13,6 @@ router.get('/', (req, res) => {
   }
   res.render('welcome', { errorMessage: '', ref: req.query.ref || req.session.referralId || '' });
 });
-
 router.post('/signup', async (req, res) => {
   const startTime = Date.now();
   const { username, email, password, creator } = req.body;
@@ -92,7 +91,6 @@ router.post('/signup', async (req, res) => {
     res.render('signup', { errorMessage: 'An error occurred while signing up. Please try again.', ref: req.query.ref || req.body.ref || req.session.referralId || '', creator: creator || queryCreator });
   }
 });
-// In index.js, update the /verify/:token GET route
 router.get('/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -142,7 +140,8 @@ router.get('/verify/:token', async (req, res) => {
     console.error('Error verifying email:', error);
     res.render('welcome', { errorMessage: 'An error occurred. Please try again.', creator });
   }
-});router.get('/signup', (req, res) => {
+});
+router.get('/signup', (req, res) => {
   res.render('signup', { errorMessage: '', ref: req.query.ref || req.session.referralId || '' });
 });
 

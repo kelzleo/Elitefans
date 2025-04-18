@@ -1249,7 +1249,7 @@ router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
 });
 
 // Subscribe to a creator's subscription bundle
-/router.post('/subscribe', async (req, res) => {
+router.post('/subscribe', async (req, res) => {
   try {
     console.log('Processing subscription request - Body:', req.body, 'Session:', req.session);
     const { creatorId, bundleId } = req.body;
