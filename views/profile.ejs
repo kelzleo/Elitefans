@@ -122,15 +122,27 @@
               </button>
             <% } %>
           <% } else { %>
-            <%# Non-Logged-In Visitor View %>
-            <% if (user.role === 'creator' && bundles && bundles.length > 0) { %>
-              <button class="subscribe-now-button" id="toggleBundlesBtn">
-                SUBSCRIBE NOW
-              </button>
-            <% } else { %>
-              <p class="no-bundles-message">No subscription options currently available.</p>
-            <% } %>
-          <% } %>
+           <%# Non-Logged-In Visitor View %>
+<% if (user.role === 'creator' && bundles && bundles.length > 0) { %>
+  <button class="subscribe-now-button" id="toggleBundlesBtn">
+    SUBSCRIBE NOW
+  </button>
+  <div class="bundle-options" id="bundleOptions" style="display: none;">
+    <% bundles.forEach(bundle => { %>
+      <form action="/profile/subscribe" method="POST" class="subscribe-bundle-form">
+        <input type="hidden" name="creatorId" value="<%= user._id %>">
+        <input type="hidden" name="bundleId" value="<%= bundle._id %>">
+        <input type="hidden" name="creatorUsername" value="<%= user.username %>">
+        <button type="submit" class="bundle-subscribe-button">
+          <span class="bundle-duration"><%= bundle.duration %></span>
+          <span class="bundle-price">₦<%= bundle.price %></span>
+        </button>
+      </form>
+    <% }); %>
+  </div>
+<% } else { %>
+  <p class="no-bundles-message">No subscription options currently available.</p>
+<% } %>
 
           <%# --- Bundle Dropdown --- %>
           <% if (bundles && bundles.length > 0) { %>
@@ -959,6 +971,15 @@
         }
       });
     });
+     // Toggle bundle options visibility
+  const toggleBundlesBtn = document.getElementById('toggleBundlesBtn');
+  const bundleOptions = document.getElementById('bundleOptions');
+  if (toggleBundlesBtn && bundleOptions) {
+    toggleBundlesBtn.addEventListener('click', () => {
+      console.log('Toggling bundle options visibility');
+      bundleOptions.style.display = bundleOptions.style.display === 'none' ? 'block' : 'none';
+    });
+  }
 
     // --- AJAX for Bundle Subscription ---
 document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
