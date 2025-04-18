@@ -1266,8 +1266,13 @@ router.post('/subscribe', async (req, res) => {
       }
       const redirectUrl = `/profile/${creator.username}`;
       req.session.redirectTo = redirectUrl;
+      req.session.creator = creator.username; // Store creator username in session
       req.session.subscriptionData = { creatorId, bundleId };
-      console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'Redirecting to welcome with creator:', creator.username);
+      console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'session.creator:', creator.username, 'Redirecting to welcome with creator:', creator.username);
+      req.session.save(err => {
+        if (err) console.error('Session save error:', err);
+        else console.log('Session saved:', req.session);
+      });
       return res.redirect(`/?creator=${encodeURIComponent(creator.username)}`);
     }
 
