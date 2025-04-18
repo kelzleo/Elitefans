@@ -17,11 +17,24 @@ router.get('/', (req, res) => {
 router.post('/signup', async (req, res) => {
   const startTime = Date.now();
   const { username, email, password, creator } = req.body;
+  const queryCreator = req.query.creator; // Check query for creator
   try {
     console.log('Signup Request - URL:', req.url, 'Query:', req.query, 'Body:', req.body, 'Session:', req.session);
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
-      return res.render('signup', { errorMessage: 'Email or username already exists', ref: req.query.ref || req.body.ref || req.session.referralId || '', creator: creator || req.query.creator });
+      return res.render('signup', { errorMessage: 'Email or username already exists', ref: req.query.ref || req.body.ref || req.session.referralId || '', creator: creator || queryCreator });
+    }
+    // Validate creator parameter (from body or query)
+    let redirectUrl = null;
+    const creatorParam = creator || queryCreator;
+    if (creatorParam) {
+      const creatorUser = await User.findOne({ username: creatorParam });
+      if (creatorUser) {
+        redirectUrl = `/profile/${creatorParam}`;
+        console.log('Valid creator found:', creatorParam, 'Setting redirectUrl:', redirectUrl);
+      } else {
+        console.log('Invalid creator:', creatorParam);
+      }
     }
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -32,7 +45,7 @@ router.post('/signup', async (req, res) => {
       verificationToken,
       isOnline: false,
       lastSeen: new Date(),
-      redirectAfterVerify: creator ? `/profile/${creator}` : null, // Store redirect URL
+      redirectAfterVerify: redirectUrl, // Store validated redirect URL
     });
     const ref = req.query.ref || req.body.ref || req.session.referralId;
     if (ref) {
@@ -49,14 +62,16 @@ router.post('/signup', async (req, res) => {
       console.log('No ref parameter in query, body, or session');
     }
     // Store creator profile URL in session as a fallback
-    if (creator) {
-      req.session.redirectTo = `/profile/${creator}`;
+    if (redirectUrl) {
+      req.session.redirectTo = redirectUrl;
+      console.log('Setting session.redirectTo:', req.session.redirectTo);
     }
     await newUser.save();
     console.log('User saved:', { id: newUser._id, referredBy: newUser.referredBy, redirectAfterVerify: newUser.redirectAfterVerify });
     delete req.session.referralId;
     // Include creator in verification link
-    const verificationLink = `https://onlyaccess.onrender.com/verify/${verificationToken}${creator ? `?creator=${creator}` : ''}`;
+    const verificationLink = `https://onlyaccess.onrender.com/verify/${verificationToken}${creatorParam ? `?creator=${encodeURIComponent(creatorParam)}` : ''}`;
+    console.log('Verification link:', verificationLink);
     
     const emailStartTime = Date.now();
     await sendEmail(
@@ -71,10 +86,10 @@ router.post('/signup', async (req, res) => {
     const endTime = Date.now();
     console.log(`Total signup route time: ${(endTime - startTime) / 1000} seconds`);
     
-    res.render('welcome', { errorMessage: 'Check your email to verify your account.', creator });
+    res.render('welcome', { errorMessage: 'Check your email to verify your account.', creator: creatorParam });
   } catch (error) {
     console.error('Error signing up user:', error);
-    res.render('signup', { errorMessage: 'An error occurred while signing up. Please try again.', ref: req.query.ref || req.body.ref || req.session.referralId || '', creator: creator || req.query.creator });
+    res.render('signup', { errorMessage: 'An error occurred while signing up. Please try again.', ref: req.query.ref || req.body.ref || req.session.referralId || '', creator: creator || queryCreator });
   }
 });
 // In index.js, update the /verify/:token GET route
@@ -82,34 +97,52 @@ router.get('/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
     const { creator } = req.query;
-    console.log('Verification Request - Token:', token, 'Creator:', creator, 'Session:', req.session);
+    console.log('Verification Request - Token:', token, 'Creator:', creator, 'Session:', req.session, 'User:', req.user ? req.user._id : 'Not logged in');
     const user = await User.findOne({ verificationToken: token });
     if (!user) {
-      return res.render('welcome', { errorMessage: 'Invalid or expired verification link.' });
+      console.log('No user found for token:', token);
+      return res.render('welcome', { errorMessage: 'Invalid or expired verification link.', creator });
+    }
+    // Validate creator parameter if provided
+    let redirectTo = '/';
+    if (creator) {
+      const creatorUser = await User.findOne({ username: creator });
+      if (creatorUser) {
+        redirectTo = `/profile/${creator}`;
+        console.log('Valid creator from query:', creator, 'Redirecting to:', redirectTo);
+      } else {
+        console.log('Invalid creator from query:', creator);
+      }
+    }
+    // Fallback to redirectAfterVerify
+    if (!creator && user.redirectAfterVerify) {
+      redirectTo = user.redirectAfterVerify;
+      console.log('Using redirectAfterVerify:', redirectTo);
+    }
+    // Fallback to session.redirectTo
+    if (!creator && !user.redirectAfterVerify && req.session.redirectTo) {
+      redirectTo = req.session.redirectTo;
+      console.log('Using session.redirectTo:', redirectTo);
     }
     user.verified = true;
     user.verificationToken = undefined;
     user.redirectAfterVerify = null; // Clear the field
     await user.save();
-    // Determine redirect URL: query parameter > user document > session > default
-    let redirectTo = '/';
-    if (creator) {
-      redirectTo = `/profile/${creator}`;
-    } else if (user.redirectAfterVerify) {
-      redirectTo = user.redirectAfterVerify;
-    } else if (req.session.redirectTo) {
-      redirectTo = req.session.redirectTo;
+    console.log('User verified:', user._id, 'Redirecting to:', redirectTo);
+    // If user is logged in, redirect immediately; otherwise, render welcome page
+    if (req.user) {
+      delete req.session.redirectTo;
+      delete req.session.subscriptionData;
+      return res.redirect(redirectTo);
     }
-    console.log('Redirecting to:', redirectTo);
-    delete req.session.redirectTo; // Clear the session variable
-    delete req.session.subscriptionData; // Clear subscription data if stored
-    res.redirect(redirectTo);
+    delete req.session.redirectTo;
+    delete req.session.subscriptionData;
+    res.render('welcome', { errorMessage: 'Email verified successfully. Please log in.', creator });
   } catch (error) {
     console.error('Error verifying email:', error);
-    res.render('welcome', { errorMessage: 'An error occurred. Please try again.' });
+    res.render('welcome', { errorMessage: 'An error occurred. Please try again.', creator });
   }
-});
-router.get('/signup', (req, res) => {
+});router.get('/signup', (req, res) => {
   res.render('signup', { errorMessage: '', ref: req.query.ref || req.session.referralId || '' });
 });
 
@@ -165,11 +198,19 @@ router.get('/google/redirect', passport.authenticate('google'), async (req, res)
 });
 router.post('/login', (req, res, next) => {
   const { creator } = req.body;
-  console.log('Login Request - Body:', req.body, 'Session:', req.session);
-  // Store creator profile URL in session if creator parameter exists
-  if (creator) {
-    req.session.redirectTo = `/profile/${creator}`;
-    console.log('Setting redirectTo:', req.session.redirectTo);
+  const queryCreator = req.query.creator; // Check query for creator
+  console.log('Login Request - Body:', req.body, 'Query:', req.query, 'Session:', req.session);
+  // Validate and store creator profile URL in session
+  const creatorParam = creator || queryCreator;
+  if (creatorParam) {
+    User.findOne({ username: creatorParam }).then(creatorUser => {
+      if (creatorUser) {
+        req.session.redirectTo = `/profile/${creatorParam}`;
+        console.log('Valid creator:', creatorParam, 'Setting session.redirectTo:', req.session.redirectTo);
+      } else {
+        console.log('Invalid creator:', creatorParam);
+      }
+    }).catch(err => console.error('Error validating creator:', err));
   }
   passport.authenticate('local', async (err, user, info) => {
     if (err) {
@@ -178,7 +219,7 @@ router.post('/login', (req, res, next) => {
     }
     if (!user) {
       console.log('Login failed:', info.message || 'Invalid login credentials');
-      return res.render('welcome', { errorMessage: info.message || 'Invalid login credentials', creator });
+      return res.render('welcome', { errorMessage: info.message || 'Invalid login credentials', creator: creatorParam });
     }
     req.logIn(user, async (err) => {
       if (err) {

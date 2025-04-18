@@ -1249,10 +1249,9 @@ router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
 });
 
 // Subscribe to a creator's subscription bundle
-// In profile.js, update the /subscribe POST route
-router.post('/subscribe', async (req, res) => {
+/router.post('/subscribe', async (req, res) => {
   try {
-    console.log('Processing subscription request...');
+    console.log('Processing subscription request - Body:', req.body, 'Session:', req.session);
     const { creatorId, bundleId } = req.body;
     if (!creatorId || !bundleId) {
       return res.status(400).json({ status: 'error', message: 'Creator ID and Bundle ID are required' });
@@ -1262,15 +1261,17 @@ router.post('/subscribe', async (req, res) => {
     if (!req.user) {
       const creator = await User.findById(creatorId);
       if (!creator) {
+        console.log('Creator not found for ID:', creatorId);
         return res.status(404).json({ status: 'error', message: 'Creator not found' });
       }
-      // Store the creator's profile URL in the session
-      req.session.redirectTo = `/profile/${creator.username}`;
-      req.session.subscriptionData = { creatorId, bundleId }; // Optional: Store subscription data to auto-initiate subscription
-      return res.redirect(`/?creator=${creator.username}`); // Redirect to welcome page with creator info
+      const redirectUrl = `/profile/${creator.username}`;
+      req.session.redirectTo = redirectUrl;
+      req.session.subscriptionData = { creatorId, bundleId };
+      console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'Redirecting to welcome with creator:', creator.username);
+      return res.redirect(`/?creator=${encodeURIComponent(creator.username)}`);
     }
 
-    // Existing logic for logged-in users
+    // Logic for logged-in users
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ status: 'error', message: 'User not found' });
