@@ -236,168 +236,6 @@ router.get('/', authCheck, async (req, res) => {
   }
 });
 
-
-// View profile by username
-router.get('/:username', authCheck, async (req, res) => {
-  try {
-    const username = req.params.username;
-    const ownerUser = await User.findOne({ username });
-    if (!ownerUser) return res.status(404).send('User not found');
-
-    // Check if the user is viewing their own profile
-    const isOwnProfile = req.user._id.toString() === ownerUser._id.toString();
-
-    // Handle admin view
-    const adminView = req.query.adminView === 'true' && req.user.role === 'admin';
-
-    // FIX 1: Replaced incorrect Subscription model query with check on User.subscriptions array
-    // Since there is no separate Subscription model, check subscriptions in the current user's subscriptions array
-    let isSubscribed = false;
-    if (!isOwnProfile && ownerUser.role === 'creator') {
-      const now = new Date();
-      isSubscribed = req.user.subscriptions.some(
-        (sub) =>
-          sub.creatorId.toString() === ownerUser._id.toString() &&
-          sub.status === 'active' &&
-          sub.subscriptionExpiry > now
-      );
-    }
-
-    // FIX 2: Corrected Bundle model to SubscriptionBundle and used creatorId field
-    // Replaced 'Bundle' with 'SubscriptionBundle' and corrected field name from 'creator' to 'creatorId'
-    const bundles = ownerUser.role === 'creator' ? await SubscriptionBundle.find({ creatorId: ownerUser._id }) : [];
-
-    // Fetch posts
-    let posts = [];
-    if (isOwnProfile || isSubscribed || adminView) {
-      // FIX 3: Corrected Post query field from 'user' to 'creator' and added populate for comments.user
-      // Changed 'user' to 'creator' to match Post model schema, and populated comments.user for consistency
-      posts = (await Post.find({ creator: ownerUser._id })
-        .populate('comments.user', 'username')
-        .sort({ createdAt: -1 })) || [];
-
-      // FIX 4: Removed incorrect assignment from processPostUrls
-      // processPostUrls modifies posts in place and does not return a value, so remove the assignment to prevent posts becoming undefined
-      await processPostUrls(posts, req.user, ownerUser, adminView);
-    }
-
-    // Update counts
-    const imagesCount = posts.filter(post => post.type === 'image').length;
-    const videosCount = posts.filter(post => post.type === 'video').length;
-    const totalLikes = posts.reduce((sum, post) => sum + (post.likes ? post.likes.length : 0), 0);
-
-    // FIX 5: Corrected subscriber count query to check User.subscriptions
-    // Replaced incorrect SubscriptionBundle.countDocuments with User.countDocuments to count active subscriptions
-    await User.findByIdAndUpdate(ownerUser._id, {
-      imagesCount,
-      videosCount,
-      totalLikes,
-      subscriberCount: ownerUser.role === 'creator'
-        ? await User.countDocuments({
-            'subscriptions.creatorId': ownerUser._id,
-            'subscriptions.status': 'active',
-            'subscriptions.subscriptionExpiry': { $gt: new Date() },
-          })
-        : 0,
-    });
-
-    // Render the profile view
-    res.render('profile', {
-      user: ownerUser,
-      currentUser: req.user,
-      posts,
-      isSubscribed,
-      bundles,
-      adminView,
-    });
-  } catch (err) {
-    console.error('Error loading profile by username:', err);
-    res.status(500).send('Error loading profile');
-  }
-});
-
-// View another user's profile
-router.get('/view/:id', authCheck, async (req, res) => {
-  try {
-    const ownerUser = await User.findById(req.params.id);
-    if (!ownerUser) return res.status(404).send('User not found');
-
-    await ownerUser.updateSubscriberCount();
-
-    const currentUser = await User.findById(req.user._id);
-    await currentUser.checkExpiredSubscriptions();
-    const now = new Date();
-    const isSubscribed = currentUser.subscriptions.some(
-      (sub) =>
-        sub.creatorId.toString() === ownerUser._id.toString() &&
-        sub.status === 'active' &&
-        sub.subscriptionExpiry > now
-    );
-    const bundles = await SubscriptionBundle.find({ creatorId: req.params.id });
-    const adminView = req.query.adminView && req.user.role === 'admin';
-
-    let posts = [];
-    if (isSubscribed || adminView) {
-      posts = await Post.find({ creator: ownerUser._id })
-        .populate('comments.user', 'username')
-        .sort({ createdAt: -1 });
-
-      // Filter out comments with invalid users
-      for (const post of posts) {
-        post.comments = post.comments.filter(comment => {
-          if (comment.user === null) {
-            console.log(`Removing invalid comment on post ${post._id}:`, comment);
-            return false;
-          }
-          return true;
-        });
-      }
-
-      await processPostUrls(posts, currentUser, ownerUser, adminView);
-    }
-
-    const stats = await Post.aggregate([
-      { $match: { creator: new mongoose.Types.ObjectId(req.params.id) } },
-      {
-        $group: {
-          _id: null,
-          imagesCount: {
-            $sum: { $cond: [{ $eq: ['$type', 'image'] }, 1, 0] },
-          },
-          videosCount: {
-            $sum: { $cond: [{ $eq: ['$type', 'video'] }, 1, 0] },
-          },
-          totalLikes: {
-            $sum: { $size: { $ifNull: ['$likes', []] } },
-          },
-        },
-      },
-    ]);
-
-    const imagesCount = stats[0]?.imagesCount || 0;
-    const videosCount = stats[0]?.videosCount || 0;
-    const totalLikes = stats[0]?.totalLikes || 0;
-    const subscriberCount = ownerUser.subscriberCount;
-
-    res.render('profile', {
-      user: {
-        ...ownerUser.toObject(),
-        imagesCount,
-        videosCount,
-        totalLikes,
-        subscriberCount,
-      },
-      currentUser,
-      isSubscribed: isSubscribed || adminView,
-      posts,
-      bundles,
-      adminView, // Add this to pass adminView to the template
-    });
-  } catch (err) {
-    console.error('Error loading user profile:', err);
-    res.status(500).send('Error loading profile');
-  }
-});
 // Unlock special content route (using the Post model)
 router.post('/unlock-special-content', authCheck, async (req, res) => {
   try {
@@ -1504,6 +1342,169 @@ router.post('/webhook', async (req, res) => {
   } catch (err) {
     console.error('Error processing webhook:', err);
     res.status(500).send('Error processing webhook');
+  }
+});
+
+
+router.get('/:username', async (req, res) => {
+  try {
+    const username = req.params.username;
+    const ownerUser = await User.findOne({ username });
+    if (!ownerUser) return res.status(404).send('User not found');
+
+    // Update subscriber count and check expired subscriptions
+    await ownerUser.checkExpiredSubscriptions();
+    await ownerUser.updateSubscriberCount();
+
+    // Check if the user is viewing their own profile
+    const isOwnProfile = req.user ? req.user._id.toString() === ownerUser._id.toString() : false;
+
+    // Handle admin view
+    const adminView = req.user && req.query.adminView === 'true' && req.user.role === 'admin';
+
+    // Fetch subscription status
+    let isSubscribed = false;
+    if (req.user && !isOwnProfile && ownerUser.role === 'creator') {
+      const now = new Date();
+      isSubscribed = req.user.subscriptions.some(
+        (sub) =>
+          sub.creatorId.toString() === ownerUser._id.toString() &&
+          sub.status === 'active' &&
+          sub.subscriptionExpiry > now
+      );
+    }
+
+    // Fetch bundles
+    const bundles = ownerUser.role === 'creator' ? await SubscriptionBundle.find({ creatorId: ownerUser._id }) : [];
+
+    // Fetch posts only for authorized users
+    let posts = [];
+    if (req.user && (isOwnProfile || isSubscribed || adminView)) {
+      posts = await Post.find({ creator: ownerUser._id })
+        .populate('comments.user', 'username')
+        .sort({ createdAt: -1 }) || [];
+      await processPostUrls(posts, req.user, ownerUser, adminView);
+    }
+
+    // Construct the user object explicitly
+    const user = {
+      _id: ownerUser._id,
+      username: ownerUser.username,
+      profileName: ownerUser.profileName,
+      profilePicture: ownerUser.profilePicture,
+      coverPhoto: ownerUser.coverPhoto,
+      bio: ownerUser.bio,
+      role: ownerUser.role,
+      isOnline: ownerUser.isOnline,
+      lastSeen: ownerUser.lastSeen,
+      imagesCount: ownerUser.imagesCount || 0,
+      videosCount: ownerUser.videosCount || 0,
+      totalLikes: ownerUser.totalLikes || 0,
+      subscriberCount: ownerUser.subscriberCount || 0
+    };
+
+    // Log the user object for debugging
+    console.log('User stats for rendering:', {
+      imagesCount: user.imagesCount,
+      videosCount: user.videosCount,
+      totalLikes: user.totalLikes,
+      subscriberCount: user.subscriberCount
+    });
+
+    // Render the profile view
+    res.render('profile', {
+      user,
+      currentUser: req.user || null,
+      posts,
+      isSubscribed,
+      bundles,
+      adminView,
+    });
+  } catch (err) {
+    console.error('Error loading profile by username:', err);
+    res.status(500).send('Error loading profile');
+  }
+});
+// View another user's profile
+router.get('/view/:id', authCheck, async (req, res) => {
+  try {
+    const ownerUser = await User.findById(req.params.id);
+    if (!ownerUser) return res.status(404).send('User not found');
+
+    await ownerUser.updateSubscriberCount();
+
+    const currentUser = await User.findById(req.user._id);
+    await currentUser.checkExpiredSubscriptions();
+    const now = new Date();
+    const isSubscribed = currentUser.subscriptions.some(
+      (sub) =>
+        sub.creatorId.toString() === ownerUser._id.toString() &&
+        sub.status === 'active' &&
+        sub.subscriptionExpiry > now
+    );
+    const bundles = await SubscriptionBundle.find({ creatorId: req.params.id });
+    const adminView = req.query.adminView && req.user.role === 'admin';
+
+    let posts = [];
+    if (isSubscribed || adminView) {
+      posts = await Post.find({ creator: ownerUser._id })
+        .populate('comments.user', 'username')
+        .sort({ createdAt: -1 });
+
+      // Filter out comments with invalid users
+      for (const post of posts) {
+        post.comments = post.comments.filter(comment => {
+          if (comment.user === null) {
+            console.log(`Removing invalid comment on post ${post._id}:`, comment);
+            return false;
+          }
+          return true;
+        });
+      }
+
+      await processPostUrls(posts, currentUser, ownerUser, adminView);
+    }
+
+    const stats = await Post.aggregate([
+      { $match: { creator: new mongoose.Types.ObjectId(req.params.id) } },
+      {
+        $group: {
+          _id: null,
+          imagesCount: {
+            $sum: { $cond: [{ $eq: ['$type', 'image'] }, 1, 0] },
+          },
+          videosCount: {
+            $sum: { $cond: [{ $eq: ['$type', 'video'] }, 1, 0] },
+          },
+          totalLikes: {
+            $sum: { $size: { $ifNull: ['$likes', []] } },
+          },
+        },
+      },
+    ]);
+
+    const imagesCount = stats[0]?.imagesCount || 0;
+    const videosCount = stats[0]?.videosCount || 0;
+    const totalLikes = stats[0]?.totalLikes || 0;
+    const subscriberCount = ownerUser.subscriberCount;
+
+    res.render('profile', {
+      user: {
+        ...ownerUser.toObject(),
+        imagesCount,
+        videosCount,
+        totalLikes,
+        subscriberCount,
+      },
+      currentUser,
+      isSubscribed: isSubscribed || adminView,
+      posts,
+      bundles,
+      adminView, // Add this to pass adminView to the template
+    });
+  } catch (err) {
+    console.error('Error loading user profile:', err);
+    res.status(500).send('Error loading profile');
   }
 });
 
