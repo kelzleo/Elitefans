@@ -115,7 +115,6 @@ router.post('/signup', async (req, res) => {
     });
   }
 });
-
 router.get('/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -207,6 +206,51 @@ router.get('/verify/:token', async (req, res) => {
       ref: ref || ''
     });
   }
+});
+
+
+router.get('/signup', (req, res) => {
+  const creator = req.query.creator || req.session.creator || '';
+  res.render('signup', { 
+    errorMessage: '', 
+    ref: req.query.ref || req.session.referralId || '',
+    creator: creator
+  });
+});
+
+router.get('/logout', async (req, res, next) => {
+  try {
+    if (req.user) {
+      await User.findByIdAndUpdate(req.user._id, {
+        isOnline: false,
+        lastSeen: new Date(),
+      });
+    }
+    req.logout(function (err) {
+      if (err) {
+        return next(err);
+      }
+      res.redirect('/');
+    });
+  } catch (error) {
+    console.error('Error during logout:', error);
+    res.redirect('/');
+  }
+});
+
+router.get('/google', (req, res, next) => {
+  if (req.query.ref) {
+    req.session.referralId = req.query.ref;
+  }
+  // Store creator in session if provided
+  if (req.query.creator) {
+    req.session.creator = req.query.creator;
+    req.session.redirectTo = `/profile/${req.query.creator}`;
+    req.session.save(err => {
+      if (err) console.error('Google auth session save error:', err);
+    });
+  }
+  passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
 
