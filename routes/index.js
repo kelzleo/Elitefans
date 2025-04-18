@@ -16,12 +16,12 @@ router.get('/', (req, res) => {
 
 router.post('/signup', async (req, res) => {
   const startTime = Date.now();
-  const { username, email, password } = req.body;
+  const { username, email, password, creator } = req.body;
   try {
     console.log('Signup Request - URL:', req.url, 'Query:', req.query, 'Body:', req.body, 'Session:', req.session);
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
-      return res.render('signup', { errorMessage: 'Email or username already exists', ref: req.query.ref || req.body.ref || req.session.referralId || '' });
+      return res.render('signup', { errorMessage: 'Email or username already exists', ref: req.query.ref || req.body.ref || req.session.referralId || '', creator: creator || req.query.creator });
     }
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(32).toString('hex');
@@ -47,6 +47,10 @@ router.post('/signup', async (req, res) => {
     } else {
       console.log('No ref parameter in query, body, or session');
     }
+    // Store creator profile URL in session if creator parameter exists
+    if (creator) {
+      req.session.redirectTo = `/profile/${creator}`;
+    }
     await newUser.save();
     console.log('User saved:', { id: newUser._id, referredBy: newUser.referredBy });
     delete req.session.referralId;
@@ -65,13 +69,13 @@ router.post('/signup', async (req, res) => {
     const endTime = Date.now();
     console.log(`Total signup route time: ${(endTime - startTime) / 1000} seconds`);
     
-    res.render('welcome', { errorMessage: 'Check your email to verify your account.' });
+    res.render('welcome', { errorMessage: 'Check your email to verify your account.', creator });
   } catch (error) {
     console.error('Error signing up user:', error);
-    res.render('signup', { errorMessage: 'An error occurred while signing up. Please try again.', ref: req.query.ref || req.body.ref || req.session.referralId || '' });
+    res.render('signup', { errorMessage: 'An error occurred while signing up. Please try again.', ref: req.query.ref || req.body.ref || req.session.referralId || '', creator: creator || req.query.creator });
   }
 });
-
+// In index.js, update the /verify/:token GET route
 router.get('/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -82,7 +86,11 @@ router.get('/verify/:token', async (req, res) => {
     user.verified = true;
     user.verificationToken = undefined;
     await user.save();
-    res.render('verified', { successMessage: 'Your email has been successfully verified!' });
+    // Redirect to the stored creator profile URL or login page
+    const redirectTo = req.session.redirectTo || '/';
+    delete req.session.redirectTo; // Clear the session variable
+    delete req.session.subscriptionData; // Clear subscription data if stored
+    res.redirect(redirectTo);
   } catch (error) {
     console.error('Error verifying email:', error);
     res.render('welcome', { errorMessage: 'An error occurred. Please try again.' });
@@ -120,27 +128,43 @@ router.get('/google', (req, res, next) => {
   passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
+// In index.js, update the /google/redirect GET route
 router.get('/google/redirect', passport.authenticate('google'), async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.user._id, {
       isOnline: true,
       lastSeen: new Date(),
     });
+    // Check for creator parameter in query and store in session
+    const { creator } = req.query;
+    if (creator) {
+      req.session.redirectTo = `/profile/${creator}`;
+    }
+    // Redirect to the stored creator profile URL or profile page
+    const redirectTo = req.session.redirectTo || '/profile';
+    delete req.session.redirectTo; // Clear the session variable
+    delete req.session.subscriptionData; // Clear subscription data if stored
     delete req.session.referralId;
-    res.redirect('/profile');
+    res.redirect(redirectTo);
   } catch (error) {
     console.error('Error during Google login:', error);
     res.redirect('/profile');
   }
 });
 
+// In index.js, update the /login POST route
 router.post('/login', (req, res, next) => {
+  const { creator } = req.body;
+  // Store creator profile URL in session if creator parameter exists
+  if (creator) {
+    req.session.redirectTo = `/profile/${creator}`;
+  }
   passport.authenticate('local', async (err, user, info) => {
     if (err) {
       return next(err);
     }
     if (!user) {
-      return res.render('welcome', { errorMessage: info.message || 'Invalid login credentials' });
+      return res.render('welcome', { errorMessage: info.message || 'Invalid login credentials', creator });
     }
     req.logIn(user, async (err) => {
       if (err) {
@@ -151,7 +175,11 @@ router.post('/login', (req, res, next) => {
           isOnline: true,
           lastSeen: new Date(),
         });
-        return res.redirect('/profile');
+        // Redirect to the stored creator profile URL or profile page
+        const redirectTo = req.session.redirectTo || '/profile';
+        delete req.session.redirectTo; // Clear the session variable
+        delete req.session.subscriptionData; // Clear subscription data if stored
+        return res.redirect(redirectTo);
       } catch (error) {
         console.error('Error during login:', error);
         return res.redirect('/profile');
@@ -159,7 +187,6 @@ router.post('/login', (req, res, next) => {
     });
   })(req, res, next);
 });
-
 // Route to render the change password form (protected route)
 router.get('/change-password', (req, res) => {
   if (!req.user) {

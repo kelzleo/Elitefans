@@ -811,12 +811,12 @@ router.post('/tip-creator/:creatorId', authCheck, async (req, res) => {
     });
   }
 });
-
-// Toggle Like a post
 router.post('/posts/:postId/like', authCheck, async (req, res) => {
   try {
     const post = await Post.findById(req.params.postId);
-    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (!post) {
+      return res.status(404).json({ message: 'Post not found' });
+    }
 
     const userId = req.user._id.toString();
     const alreadyLiked = post.likes.some(
@@ -833,7 +833,12 @@ router.post('/posts/:postId/like', authCheck, async (req, res) => {
     }
     await post.save();
 
-    // Update the creator's totalLikes in the User model
+    // Update the creator's totalLikes
+    const creator = await User.findById(post.creator);
+    if (!creator) {
+      console.error('Creator not found for post:', post._id);
+      return res.status(404).json({ message: 'Creator not found' });
+    }
     await User.findByIdAndUpdate(post.creator, { $inc: { totalLikes: likeChange } });
 
     res.json({
@@ -846,7 +851,6 @@ router.post('/posts/:postId/like', authCheck, async (req, res) => {
     res.status(500).json({ message: 'An error occurred while toggling the like' });
   }
 });
-
 // Comment on a post
 router.post('/posts/:postId/comment', authCheck, async (req, res) => {
   try {
@@ -925,7 +929,6 @@ router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
-
 
 
 
@@ -1016,18 +1019,36 @@ router.post(
         });
       }
 
-      // Create new Post documents and update creator counters accordingly
+      // Create new Post documents and update creator counters
+      const user = await User.findById(req.user._id);
+      if (!user) {
+        return res.status(404).send('User not found');
+      }
+
       const createdPosts = [];
+      let imageIncrement = 0;
+      let videoIncrement = 0;
+
       for (const postData of postsToCreate) {
         const post = new Post(postData);
         await post.save();
         createdPosts.push(post);
-        // If the post is an image or video, update the corresponding counter
+        // Track increments for images and videos
         if (postData.type === 'image') {
-          await User.findByIdAndUpdate(req.user._id, { $inc: { imagesCount: 1 } });
+          imageIncrement += 1;
         } else if (postData.type === 'video') {
-          await User.findByIdAndUpdate(req.user._id, { $inc: { videosCount: 1 } });
+          videoIncrement += 1;
         }
+      }
+
+      // Update counts atomically
+      if (imageIncrement > 0 || videoIncrement > 0) {
+        await User.findByIdAndUpdate(req.user._id, {
+          $inc: {
+            imagesCount: imageIncrement,
+            videosCount: videoIncrement,
+          },
+        });
       }
 
       // Notify subscribers if any new posts were created
@@ -1054,10 +1075,12 @@ router.post(
         }
       }
 
+      req.flash('success_msg', 'Content uploaded successfully');
       res.redirect('/profile');
     } catch (err) {
       console.error('Error uploading content:', err);
-      res.status(500).send('Error uploading content');
+      req.flash('error_msg', 'Error uploading content');
+      res.status(500).redirect('/profile');
     }
   }
 );
@@ -1067,43 +1090,68 @@ router.post('/delete-post/:postId', authCheck, async (req, res) => {
   try {
     const post = await Post.findOne({ _id: req.params.postId, creator: req.user._id });
     if (!post) {
-      return res.status(404).send('Post not found');
+      req.flash('error_msg', 'Post not found or you are not authorized to delete it');
+      return res.status(404).redirect('/profile');
     }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      req.flash('error_msg', 'User not found');
+      return res.status(404).redirect('/profile');
+    }
+
+    // Update counts
+    const updates = {};
+    if (post.type === 'image') updates.imagesCount = -1;
+    else if (post.type === 'video') updates.videosCount = -1;
+    if (post.likes.length > 0) updates.totalLikes = -post.likes.length;
+
+    if (Object.keys(updates).length > 0) {
+      await User.findByIdAndUpdate(req.user._id, { $inc: updates });
+    }
+
     await Post.deleteOne({ _id: post._id });
 
-    // Decrement the user's counter if it was an image or video
-    if (post.type === 'image') {
-      await User.findByIdAndUpdate(req.user._id, { $inc: { imagesCount: -1 } });
-    } else if (post.type === 'video') {
-      await User.findByIdAndUpdate(req.user._id, { $inc: { videosCount: -1 } });
-    }
-
+    req.flash('success_msg', 'Post deleted successfully');
     res.redirect('/profile');
   } catch (err) {
     console.error('Error deleting post:', err);
-    res.status(500).send('Error deleting post');
+    req.flash('error_msg', 'Error deleting post');
+    res.status(500).redirect('/profile');
   }
 });
 
 // Admin delete post with reason
 router.post('/admin-delete-post/:postId', authCheck, async (req, res) => {
   try {
-    // Check if user is admin
     if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Only admins can delete posts' });
+      req.flash('error_msg', 'Only admins can delete posts');
+      return res.status(403).redirect('/profile');
     }
 
     const { reason } = req.body;
     if (!reason || reason.trim() === '') {
-      return res.status(400).json({ message: 'Reason for deletion is required' });
+      req.flash('error_msg', 'Reason for deletion is required');
+      return res.status(400).redirect('/profile');
     }
 
-    const post = await Post.findById(req.params.postId).populate('creator', 'username');
-    if (!post) {
-      return res.status(404).json({ message: 'Post not found' });
+    const post = await Post.findById(req.params.postId).populate('creator', 'username _id');
+    if (!post || !post.creator) {
+      req.flash('error_msg', 'Post or creator not found');
+      return res.status(404).redirect('/profile');
     }
 
     const creator = post.creator;
+
+    // Update counts
+    const updates = {};
+    if (post.type === 'image') updates.imagesCount = -1;
+    else if (post.type === 'video') updates.videosCount = -1;
+    if (post.likes.length > 0) updates.totalLikes = -post.likes.length;
+
+    if (Object.keys(updates).length > 0) {
+      await User.findByIdAndUpdate(creator._id, { $inc: updates });
+    }
 
     // Create deletion log
     const PostDeletionLog = require('../models/PostDeletionLog');
@@ -1119,13 +1167,6 @@ router.post('/admin-delete-post/:postId', authCheck, async (req, res) => {
     // Delete the post
     await Post.deleteOne({ _id: post._id });
 
-    // Decrement the user's counter if it was an image or video
-    if (post.type === 'image') {
-      await User.findByIdAndUpdate(creator._id, { $inc: { imagesCount: -1 } });
-    } else if (post.type === 'video') {
-      await User.findByIdAndUpdate(creator._id, { $inc: { videosCount: -1 } });
-    }
-
     // Notify the creator
     await Notification.create({
       user: creator._id,
@@ -1136,13 +1177,14 @@ router.post('/admin-delete-post/:postId', authCheck, async (req, res) => {
       creatorName: req.user.username,
     });
 
+    req.flash('success_msg', 'Post deleted successfully');
     res.redirect(`/profile/view/${creator._id}?adminView=true`);
   } catch (err) {
     console.error('Error deleting post by admin:', err);
-    res.status(500).json({ message: 'Error deleting post' });
+    req.flash('error_msg', 'Error deleting post');
+    res.status(500).redirect('/profile');
   }
 });
-
 // Create a new subscription bundle
 router.post('/create-bundle', authCheck, async (req, res) => {
   try {
@@ -1207,13 +1249,28 @@ router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
 });
 
 // Subscribe to a creator's subscription bundle
-router.post('/subscribe', authCheck, async (req, res) => {
+// In profile.js, update the /subscribe POST route
+router.post('/subscribe', async (req, res) => {
   try {
     console.log('Processing subscription request...');
     const { creatorId, bundleId } = req.body;
     if (!creatorId || !bundleId) {
       return res.status(400).json({ status: 'error', message: 'Creator ID and Bundle ID are required' });
     }
+
+    // If user is not logged in, store the creator's profile URL and redirect to welcome page
+    if (!req.user) {
+      const creator = await User.findById(creatorId);
+      if (!creator) {
+        return res.status(404).json({ status: 'error', message: 'Creator not found' });
+      }
+      // Store the creator's profile URL in the session
+      req.session.redirectTo = `/profile/${creator.username}`;
+      req.session.subscriptionData = { creatorId, bundleId }; // Optional: Store subscription data to auto-initiate subscription
+      return res.redirect(`/?creator=${creator.username}`); // Redirect to welcome page with creator info
+    }
+
+    // Existing logic for logged-in users
     const user = await User.findById(req.user._id);
     if (!user) {
       return res.status(404).json({ status: 'error', message: 'User not found' });
@@ -1288,7 +1345,6 @@ router.post('/subscribe', authCheck, async (req, res) => {
     });
   }
 });
-
 // Webhook route to handle payment notifications
 router.post('/webhook', async (req, res) => {
   try {

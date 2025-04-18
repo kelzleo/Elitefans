@@ -116,6 +116,20 @@ userSchema.pre('save', async function (next) {
     }
   });
 
+  // Method to update post-related counts
+userSchema.methods.updatePostCounts = async function () {
+  const posts = await mongoose.model('Post').find({ creator: this._id });
+  this.imagesCount = posts.filter(post => post.type === 'image').length;
+  this.videosCount = posts.filter(post => post.type === 'video').length;
+  this.totalLikes = posts.reduce((sum, post) => sum + (post.likes ? post.likes.length : 0), 0);
+  console.log(`Updated counts for ${this.username}:`, {
+    imagesCount: this.imagesCount,
+    videosCount: this.videosCount,
+    totalLikes: this.totalLikes
+  });
+  await this.save();
+};
+
   // Clean up bookmarks if subscriptions changed
   if (subscriptionsChanged && this.bookmarks.length > 0) {
     try {
