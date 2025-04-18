@@ -32,6 +32,7 @@ router.post('/signup', async (req, res) => {
       verificationToken,
       isOnline: false,
       lastSeen: new Date(),
+      redirectAfterVerify: creator ? `/profile/${creator}` : null, // Store redirect URL
     });
     const ref = req.query.ref || req.body.ref || req.session.referralId;
     if (ref) {
@@ -47,14 +48,15 @@ router.post('/signup', async (req, res) => {
     } else {
       console.log('No ref parameter in query, body, or session');
     }
-    // Store creator profile URL in session if creator parameter exists
+    // Store creator profile URL in session as a fallback
     if (creator) {
       req.session.redirectTo = `/profile/${creator}`;
     }
     await newUser.save();
-    console.log('User saved:', { id: newUser._id, referredBy: newUser.referredBy });
+    console.log('User saved:', { id: newUser._id, referredBy: newUser.referredBy, redirectAfterVerify: newUser.redirectAfterVerify });
     delete req.session.referralId;
-    const verificationLink = `https://onlyaccess.onrender.com/verify/${verificationToken}`;
+    // Include creator in verification link
+    const verificationLink = `https://onlyaccess.onrender.com/verify/${verificationToken}${creator ? `?creator=${creator}` : ''}`;
     
     const emailStartTime = Date.now();
     await sendEmail(
@@ -76,18 +78,29 @@ router.post('/signup', async (req, res) => {
   }
 });
 // In index.js, update the /verify/:token GET route
-router.get('/verify/:token', async (req, res) => {
+rrouter.get('/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
+    const { creator } = req.query;
+    console.log('Verification Request - Token:', token, 'Creator:', creator, 'Session:', req.session);
     const user = await User.findOne({ verificationToken: token });
     if (!user) {
       return res.render('welcome', { errorMessage: 'Invalid or expired verification link.' });
     }
     user.verified = true;
     user.verificationToken = undefined;
+    user.redirectAfterVerify = null; // Clear the field
     await user.save();
-    // Redirect to the stored creator profile URL or login page
-    const redirectTo = req.session.redirectTo || '/';
+    // Determine redirect URL: query parameter > user document > session > default
+    let redirectTo = '/';
+    if (creator) {
+      redirectTo = `/profile/${creator}`;
+    } else if (user.redirectAfterVerify) {
+      redirectTo = user.redirectAfterVerify;
+    } else if (req.session.redirectTo) {
+      redirectTo = req.session.redirectTo;
+    }
+    console.log('Redirecting to:', redirectTo);
     delete req.session.redirectTo; // Clear the session variable
     delete req.session.subscriptionData; // Clear subscription data if stored
     res.redirect(redirectTo);
@@ -96,7 +109,6 @@ router.get('/verify/:token', async (req, res) => {
     res.render('welcome', { errorMessage: 'An error occurred. Please try again.' });
   }
 });
-
 router.get('/signup', (req, res) => {
   res.render('signup', { errorMessage: '', ref: req.query.ref || req.session.referralId || '' });
 });
@@ -151,23 +163,26 @@ router.get('/google/redirect', passport.authenticate('google'), async (req, res)
     res.redirect('/profile');
   }
 });
-
-// In index.js, update the /login POST route
 router.post('/login', (req, res, next) => {
   const { creator } = req.body;
+  console.log('Login Request - Body:', req.body, 'Session:', req.session);
   // Store creator profile URL in session if creator parameter exists
   if (creator) {
     req.session.redirectTo = `/profile/${creator}`;
+    console.log('Setting redirectTo:', req.session.redirectTo);
   }
   passport.authenticate('local', async (err, user, info) => {
     if (err) {
+      console.error('Authentication error:', err);
       return next(err);
     }
     if (!user) {
+      console.log('Login failed:', info.message || 'Invalid login credentials');
       return res.render('welcome', { errorMessage: info.message || 'Invalid login credentials', creator });
     }
     req.logIn(user, async (err) => {
       if (err) {
+        console.error('Login error:', err);
         return next(err);
       }
       try {
@@ -177,6 +192,7 @@ router.post('/login', (req, res, next) => {
         });
         // Redirect to the stored creator profile URL or profile page
         const redirectTo = req.session.redirectTo || '/profile';
+        console.log('Redirecting to:', redirectTo);
         delete req.session.redirectTo; // Clear the session variable
         delete req.session.subscriptionData; // Clear subscription data if stored
         return res.redirect(redirectTo);

@@ -31,6 +31,7 @@ const userSchema = new mongoose.Schema({
   googleId: { type: String, unique: true, sparse: true },
   verified: { type: Boolean, default: false },
   verificationToken: { type: String },
+  redirectAfterVerify: { type: String, default: null }, // Add this field
   createdAt: { type: Date, default: Date.now },
   role: { type: String, enum: ['user', 'creator', 'admin'], default: 'user' },
   requestToBeCreator: { type: Boolean, default: false },

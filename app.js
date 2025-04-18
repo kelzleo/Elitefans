@@ -14,6 +14,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const User = require('./models/users');
 const multer = require('multer');
+const MongoStore = require('connect-mongo'); // Added for session store
 
 // Import configuration and keys
 const keys = require('./config/keys');
@@ -75,9 +76,13 @@ const sessionMiddleware = session({
   secret: keys.session.cookieKey,
   resave: false,
   saveUninitialized: true,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGO_URI,
+    collectionName: 'sessions',
+  }),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000,
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
   },
 });
 app.use(sessionMiddleware);
