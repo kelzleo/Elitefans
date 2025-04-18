@@ -8,21 +8,28 @@ const crypto = require('crypto');
 const sendEmail = require('../config/sendEmail');
 
 router.get('/', (req, res) => {
-  if (req.query.ref) {
-    req.session.referralId = req.query.ref;
-  }
-  res.render('welcome', { errorMessage: '', ref: req.query.ref || req.session.referralId || '' });
+  console.log('Welcome page - Query:', req.query, 'Session:', req.session);
+  res.render('welcome', {
+    errorMessage: null,
+    creator: req.query.creator || req.session.creator || '',
+    ref: req.query.ref || req.session.referralId || ''
+  });
 });
+
 router.post('/signup', async (req, res) => {
   const startTime = Date.now();
   const { username, email, password, creator } = req.body;
   const queryCreator = req.query.creator;
-  const sessionCreator = req.session.creator; // Check session for creator
+  const sessionCreator = req.session.creator;
   try {
     console.log('Signup Request - URL:', req.url, 'Query:', req.query, 'Body:', req.body, 'Session:', req.session);
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
-      return res.render('signup', { errorMessage: 'Email or username already exists', ref: req.query.ref || req.body.ref || req.session.referralId || '', creator: creator || queryCreator || sessionCreator });
+      return res.render('signup', {
+        errorMessage: 'Email or username already exists',
+        ref: req.query.ref || req.body.ref || req.session.referralId || '',
+        creator: creator || queryCreator || sessionCreator
+      });
     }
     // Validate creator parameter (from body, query, or session)
     let redirectUrl = null;
@@ -45,7 +52,8 @@ router.post('/signup', async (req, res) => {
       verificationToken,
       isOnline: false,
       lastSeen: new Date(),
-      redirectAfterVerify: redirectUrl, // Store validated redirect URL
+      redirectAfterVerify: redirectUrl,
+      verified: false // Ensure verified is explicitly set to false
     });
     const ref = req.query.ref || req.body.ref || req.session.referralId;
     if (ref) {
@@ -61,14 +69,21 @@ router.post('/signup', async (req, res) => {
     } else {
       console.log('No ref parameter in query, body, or session');
     }
-    // Store creator profile URL in session as a fallback
+    // Store creator profile URL in session
     if (redirectUrl) {
       req.session.redirectTo = redirectUrl;
-      req.session.creator = creatorParam; // Update session creator
+      req.session.creator = creatorParam;
       console.log('Setting session.redirectTo:', req.session.redirectTo, 'session.creator:', req.session.creator);
-      req.session.save(err => {
-        if (err) console.error('Session save error:', err);
-        else console.log('Session saved:', req.session);
+      await new Promise((resolve, reject) => {
+        req.session.save(err => {
+          if (err) {
+            console.error('Session save error:', err);
+            reject(err);
+          } else {
+            console.log('Session saved:', req.session);
+            resolve();
+          }
+        });
       });
     }
     await newUser.save();
@@ -94,9 +109,14 @@ router.post('/signup', async (req, res) => {
     res.render('welcome', { errorMessage: 'Check your email to verify your account.', creator: creatorParam });
   } catch (error) {
     console.error('Error signing up user:', error);
-    res.render('signup', { errorMessage: 'An error occurred while signing up. Please try again.', ref: req.query.ref || req.body.ref || req.session.referralId || '', creator: creator || queryCreator || sessionCreator });
+    res.render('signup', {
+      errorMessage: 'An error occurred while signing up. Please try again.',
+      ref: req.query.ref || req.body.ref || req.session.referralId || '',
+      creator: creator || queryCreator || sessionCreator
+    });
   }
 });
+
 router.get('/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -105,13 +125,11 @@ router.get('/verify/:token', async (req, res) => {
     const user = await User.findOne({ verificationToken: token });
     if (!user) {
       console.log('No user found for token:', token);
-      // Check if the user is already verified
-      const alreadyVerifiedUser = await User.findOne({ email: { $exists: true }, verified: true });
-      if (alreadyVerifiedUser) {
-        console.log('User already verified for email:', alreadyVerifiedUser.email);
-        return res.render('welcome', { errorMessage: 'Your email is already verified. Please log in.', creator });
-      }
       return res.render('welcome', { errorMessage: 'Invalid or expired verification link.', creator });
+    }
+    if (user.verified) {
+      console.log('User already verified for email:', user.email);
+      return res.render('welcome', { errorMessage: 'Your email is already verified. Please log in.', creator });
     }
     // Validate creator parameter if provided
     let redirectTo = '/';
@@ -119,7 +137,20 @@ router.get('/verify/:token', async (req, res) => {
       const creatorUser = await User.findOne({ username: creator });
       if (creatorUser) {
         redirectTo = `/profile/${creator}`;
-        console.log('Valid creator from query:', creator, 'Redirecting to:', redirectTo);
+        req.session.redirectTo = redirectTo;
+        req.session.creator = creator;
+        console.log('Valid creator from query:', creator, 'Setting session.redirectTo:', redirectTo);
+        await new Promise((resolve, reject) => {
+          req.session.save(err => {
+            if (err) {
+              console.error('Session save error:', err);
+              reject(err);
+            } else {
+              console.log('Session saved:', req.session);
+              resolve();
+            }
+          });
+        });
       } else {
         console.log('Invalid creator from query:', creator);
       }
@@ -137,24 +168,18 @@ router.get('/verify/:token', async (req, res) => {
     user.verified = true;
     user.verificationToken = undefined;
     user.redirectAfterVerify = null; // Clear the field
+    user.verifiedAt = new Date();
     await user.save();
     console.log('User verified:', user._id, 'Redirecting to:', redirectTo);
-    // If user is logged in, redirect immediately; otherwise, render welcome page
-    if (req.user) {
-      delete req.session.redirectTo;
-      delete req.session.subscriptionData;
-      return res.redirect(redirectTo);
-    }
-    delete req.session.redirectTo;
-    delete req.session.subscriptionData;
     res.render('welcome', { errorMessage: 'Email verified successfully. Please log in.', creator });
   } catch (error) {
     console.error('Error verifying email:', error);
     res.render('welcome', { errorMessage: 'An error occurred. Please try again.', creator });
   }
 });
+
 router.get('/signup', (req, res) => {
-  res.render('signup', { errorMessage: '', ref: req.query.ref || req.session.referralId || '' });
+  res.render('signup', { errorMessage: '', ref: req.query.ref || req.session.referralId || '', creator: req.query.creator || req.session.creator || '' });
 });
 
 router.get('/logout', async (req, res, next) => {
@@ -181,10 +206,13 @@ router.get('/google', (req, res, next) => {
   if (req.query.ref) {
     req.session.referralId = req.query.ref;
   }
+  if (req.query.creator) {
+    req.session.creator = req.query.creator;
+    req.session.redirectTo = `/profile/${req.query.creator}`;
+  }
   passport.authenticate('google', { scope: ['profile', 'email'] })(req, res, next);
 });
 
-// In index.js, update the /google/redirect GET route
 router.get('/google/redirect', passport.authenticate('google'), async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.user._id, {
@@ -195,22 +223,25 @@ router.get('/google/redirect', passport.authenticate('google'), async (req, res)
     const { creator } = req.query;
     if (creator) {
       req.session.redirectTo = `/profile/${creator}`;
+      req.session.creator = creator;
     }
     // Redirect to the stored creator profile URL or profile page
     const redirectTo = req.session.redirectTo || '/profile';
-    delete req.session.redirectTo; // Clear the session variable
-    delete req.session.subscriptionData; // Clear subscription data if stored
+    delete req.session.redirectTo;
+    delete req.session.subscriptionData;
     delete req.session.referralId;
+    delete req.session.creator;
     res.redirect(redirectTo);
   } catch (error) {
     console.error('Error during Google login:', error);
     res.redirect('/profile');
   }
 });
+
 router.post('/login', (req, res, next) => {
   const { usernameOrEmail, password, creator } = req.body;
   const queryCreator = req.query.creator;
-  const sessionCreator = req.session.creator; // Check session for creator
+  const sessionCreator = req.session.creator;
   console.log('Login Request - Body:', req.body, 'Query:', req.query, 'Session:', req.session);
   // Validate and store creator profile URL in session
   const creatorParam = creator || queryCreator || sessionCreator;
@@ -218,7 +249,7 @@ router.post('/login', (req, res, next) => {
     User.findOne({ username: creatorParam }).then(creatorUser => {
       if (creatorUser) {
         req.session.redirectTo = `/profile/${creatorParam}`;
-        req.session.creator = creatorParam; // Update session creator
+        req.session.creator = creatorParam;
         console.log('Valid creator:', creatorParam, 'Setting session.redirectTo:', req.session.redirectTo, 'session.creator:', req.session.creator);
         req.session.save(err => {
           if (err) console.error('Session save error:', err);
@@ -248,12 +279,16 @@ router.post('/login', (req, res, next) => {
           isOnline: true,
           lastSeen: new Date(),
         });
-        // Redirect to the stored creator profile URL or profile page
-        const redirectTo = req.session.redirectTo || '/profile';
+        // Check redirectAfterVerify as a fallback
+        let redirectTo = req.session.redirectTo || '/profile';
+        if (!req.session.redirectTo && user.redirectAfterVerify) {
+          redirectTo = user.redirectAfterVerify;
+          console.log('Using user.redirectAfterVerify:', redirectTo);
+        }
         console.log('Redirecting to:', redirectTo);
-        delete req.session.redirectTo; // Clear the session variable
-        delete req.session.subscriptionData; // Clear subscription data if stored
-        delete req.session.creator; // Clear creator from session
+        delete req.session.redirectTo;
+        delete req.session.subscriptionData;
+        delete req.session.creator;
         return res.redirect(redirectTo);
       } catch (error) {
         console.error('Error during login:', error);
@@ -262,34 +297,27 @@ router.post('/login', (req, res, next) => {
     });
   })(req, res, next);
 });
-// Route to render the change password form (protected route)
+
 router.get('/change-password', (req, res) => {
   if (!req.user) {
-    return res.redirect('/'); // Redirect to login if not authenticated
+    return res.redirect('/');
   }
   res.render('change-password', { errorMessage: '', successMessage: '' });
 });
 
-// Route to handle password change
 router.post('/change-password', async (req, res) => {
   if (!req.user) {
-    return res.redirect('/'); // Redirect to login if not authenticated
+    return res.redirect('/');
   }
-
   const { currentPassword, newPassword, confirmPassword } = req.body;
-
   try {
     const user = await User.findById(req.user._id);
-
-    // Check if user signed up with Google (no password to change)
     if (user.googleId && !user.password) {
       return res.render('change-password', {
         errorMessage: 'Cannot change password for Google accounts.',
         successMessage: '',
       });
     }
-
-    // Verify current password
     const isMatch = await bcrypt.compare(currentPassword, user.password);
     if (!isMatch) {
       return res.render('change-password', {
@@ -297,27 +325,20 @@ router.post('/change-password', async (req, res) => {
         successMessage: '',
       });
     }
-
-    // Check if new passwords match
     if (newPassword !== confirmPassword) {
       return res.render('change-password', {
         errorMessage: 'New passwords do not match.',
         successMessage: '',
       });
     }
-
-    // Validate new password length
     if (newPassword.length < 6) {
       return res.render('change-password', {
         errorMessage: 'New password must be at least 6 characters long.',
         successMessage: '',
       });
     }
-
-    // Hash the new password and save
     user.password = await bcrypt.hash(newPassword, 10);
     await user.save();
-
     res.render('change-password', {
       errorMessage: '',
       successMessage: 'Password changed successfully!',
@@ -331,44 +352,34 @@ router.post('/change-password', async (req, res) => {
   }
 });
 
-// Route to render the forgot password form
 router.get('/forgot-password', (req, res) => {
   res.render('forgot-password', { errorMessage: '', successMessage: '' });
 });
 
-// Route to handle forgot password request
 router.post('/forgot-password', async (req, res) => {
   const startTime = Date.now();
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
-
     if (!user) {
       return res.render('forgot-password', {
         errorMessage: 'No account with that email address exists.',
         successMessage: '',
       });
     }
-
-    // Check if user signed up with Google
     if (user.googleId && !user.password) {
       return res.render('forgot-password', {
         errorMessage: 'Cannot reset password for Google accounts.',
         successMessage: '',
       });
     }
-
-    // Generate a reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.resetPasswordToken = resetToken;
-    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour expiry
+    user.resetPasswordExpires = Date.now() + 3600000;
     await user.save();
-
-    // Send reset email
     const resetLink = `https://onlyaccess.onrender.com/reset-password/${resetToken}`;
     console.log('Attempting to send email to:', email);
     console.log('Reset Link:', resetLink);
-    
     const emailStartTime = Date.now();
     try {
       const emailResponse = await sendEmail(
@@ -387,7 +398,6 @@ router.post('/forgot-password', async (req, res) => {
       });
     } catch (emailError) {
       console.error('Failed to send email:', emailError);
-      // Roll back the token since the email failed to send
       user.resetPasswordToken = undefined;
       user.resetPasswordExpires = undefined;
       await user.save();
@@ -396,7 +406,6 @@ router.post('/forgot-password', async (req, res) => {
         successMessage: '',
       });
     }
-    
     const endTime = Date.now();
     console.log(`Total forgot-password route time: ${(endTime - startTime) / 1000} seconds`);
   } catch (error) {
@@ -408,7 +417,6 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-// Route to render the reset password form
 router.get('/reset-password/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -416,13 +424,11 @@ router.get('/reset-password/:token', async (req, res) => {
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: Date.now() },
     });
-
     if (!user) {
       return res.render('welcome', {
         errorMessage: 'Password reset link is invalid or has expired.',
       });
     }
-
     res.render('reset-password', { token, errorMessage: '', successMessage: '' });
   } catch (error) {
     console.error('Error rendering reset password form:', error);
@@ -432,24 +438,19 @@ router.get('/reset-password/:token', async (req, res) => {
   }
 });
 
-// Route to handle password reset
 router.post('/reset-password/:token', async (req, res) => {
   try {
     const { token } = req.params;
     const { newPassword, confirmPassword } = req.body;
-
     const user = await User.findOne({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: Date.now() },
     });
-
     if (!user) {
       return res.render('welcome', {
         errorMessage: 'Password reset link is invalid or has expired.',
       });
     }
-
-    // Check if new passwords match
     if (newPassword !== confirmPassword) {
       return res.render('reset-password', {
         token,
@@ -457,8 +458,6 @@ router.post('/reset-password/:token', async (req, res) => {
         successMessage: '',
       });
     }
-
-    // Validate new password length
     if (newPassword.length < 6) {
       return res.render('reset-password', {
         token,
@@ -466,13 +465,10 @@ router.post('/reset-password/:token', async (req, res) => {
         successMessage: '',
       });
     }
-
-    // Update the password
     user.password = await bcrypt.hash(newPassword, 10);
     user.resetPasswordToken = undefined;
     user.resetPasswordExpires = undefined;
     await user.save();
-
     res.render('welcome', {
       errorMessage: 'Your password has been reset successfully. Please log in.',
     });

@@ -1250,25 +1250,25 @@ router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
 
 router.post('/subscribe', async (req, res) => {
   try {
-    console.log('Processing /profile/subscribe - Body:', req.body, 'Session:', req.session, 'User:', req.user ? req.user._id : 'Not logged in');
-    const { creatorId, bundleId } = req.body;
-    if (!creatorId || !bundleId) {
-      console.log('Missing creatorId or bundleId:', { creatorId, bundleId });
-      return res.status(400).json({ status: 'error', message: 'Creator ID and Bundle ID are required' });
+    console.log('Processing /profile/subscribe - URL:', req.url, 'Body:', req.body, 'Query:', req.query, 'SessionID:', req.sessionID, 'Session:', req.session, 'User:', req.user ? req.user._id : 'Not logged in');
+    const { creatorId, bundleId, creatorUsername } = req.body;
+    if (!creatorId || !bundleId || !creatorUsername) {
+      console.log('Missing creatorId, bundleId, or creatorUsername:', { creatorId, bundleId, creatorUsername });
+      return res.status(400).json({ status: 'error', message: 'Creator ID, Bundle ID, and Creator Username are required' });
     }
 
     // If user is not logged in, store the creator's profile URL and redirect to welcome page
     if (!req.user) {
       const creator = await User.findById(creatorId);
-      if (!creator) {
-        console.log('Creator not found for ID:', creatorId);
+      if (!creator || creator.username !== creatorUsername) {
+        console.log('Creator not found or username mismatch:', { creatorId, creatorUsername });
         return res.status(404).json({ status: 'error', message: 'Creator not found' });
       }
       const redirectUrl = `/profile/${creator.username}`;
       req.session.redirectTo = redirectUrl;
       req.session.creator = creator.username;
       req.session.subscriptionData = { creatorId, bundleId };
-      console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'session.creator:', creator.username, 'Redirecting to:', `/?creator=${encodeURIComponent(creator.username)}`);
+      console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'session.creator:', creator.username, 'session.subscriptionData:', { creatorId, bundleId });
       await new Promise((resolve, reject) => {
         req.session.save(err => {
           if (err) {
@@ -1280,6 +1280,7 @@ router.post('/subscribe', async (req, res) => {
           }
         });
       });
+      console.log('Redirecting to:', `/?creator=${encodeURIComponent(creator.username)}`);
       return res.redirect(`/?creator=${encodeURIComponent(creator.username)}`);
     }
 

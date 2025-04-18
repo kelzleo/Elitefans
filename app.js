@@ -14,7 +14,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const User = require('./models/users');
 const multer = require('multer');
-const MongoStore = require('connect-mongo');
+
 
 // Import configuration and keys
 const keys = require('./config/keys');
@@ -72,6 +72,7 @@ app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(express.json({ limit: '5mb' }));
 
 // Session middleware
+const MongoStore = require('connect-mongo');
 const sessionMiddleware = session({
   secret: keys.session.cookieKey,
   resave: false,
@@ -79,17 +80,19 @@ const sessionMiddleware = session({
   store: MongoStore.create({
     mongoUrl: process.env.MONGO_URI,
     collectionName: 'sessions',
+    ttl: 24 * 60 * 60, // 24 hours
   }).on('error', (err) => console.error('MongoStore error:', err)),
   cookie: {
-    secure: process.env.NODE_ENV === 'production',
+    secure: process.env.NODE_ENV === 'production' ? true : false, // Allow HTTP in development
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Ensure cookies work with redirects
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    httpOnly: true,
   },
 });
 
 // Debug session middleware
 app.use((req, res, next) => {
-  console.log('Session before middleware - SessionID:', req.sessionID, 'Session:', req.session);
+  console.log('Session before middleware - SessionID:', req.sessionID, 'Session:', req.session, 'Cookies:', req.headers.cookie);
   sessionMiddleware(req, res, (err) => {
     if (err) {
       console.error('Session middleware error:', err);
