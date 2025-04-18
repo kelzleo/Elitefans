@@ -1252,7 +1252,7 @@ router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
 // routes/profile.js
 router.post('/subscribe', async (req, res) => {
   try {
-    console.log('Processing /subscribe - URL:', req.url, 'Body:', req.body, 'Query:', req.query, 'SessionID:', req.sessionID, 'Session:', req.session, 'User:', req.user ? req.user._id : 'Not logged in');
+    console.log('Processing /subscribe - URL:', req.url, 'Body:', req.body, 'Query:', req.query, 'SessionID:', req.sessionID, 'Session:', req.session, 'Cookies:', req.headers.cookie, 'User:', req.user ? req.user._id : 'Not logged in');
     const { creatorId, bundleId, creatorUsername } = req.body;
 
     // Validate required fields
@@ -1268,15 +1268,15 @@ router.post('/subscribe', async (req, res) => {
       return res.status(404).json({ status: 'error', message: 'Creator not found or not a valid creator' });
     }
 
-    // If user is not logged in, store subscription data in session and database
+    // If user is not logged in, store subscription data
     if (!req.user) {
       const redirectUrl = `/profile/${encodeURIComponent(creator.username)}`;
       req.session.redirectTo = redirectUrl;
       req.session.creator = creator.username;
       req.session.subscriptionData = { creatorId, bundleId };
 
-      // Store in PendingSubscription collection
-      await PendingSubscription.findOneAndUpdate(
+      // Store in PendingSubscription
+      const pendingSub = await PendingSubscription.findOneAndUpdate(
         { sessionId: req.sessionID },
         {
           sessionId: req.sessionID,
@@ -1287,11 +1287,11 @@ router.post('/subscribe', async (req, res) => {
         },
         { upsert: true, new: true }
       );
-      console.log('Saved pending subscription for session:', req.sessionID, 'Creator:', creator.username);
+      console.log('Saved pending subscription:', pendingSub);
 
       console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'session.creator:', creator.username, 'session.subscriptionData:', { creatorId, bundleId }, 'SessionID:', req.sessionID);
 
-      // Ensure session is saved before redirect
+      // Save session
       await new Promise((resolve, reject) => {
         req.session.save(err => {
           if (err) {

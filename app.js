@@ -44,15 +44,15 @@ const purchasedContentRoutes = require('./routes/purchasedContent');
 // Initialize Express app
 const app = express();
 
-// Trust the first proxy for secure cookies (commented out for testing)
-// app.set('trust proxy', 1);
+// Trust the first proxy for secure cookies on Render
+app.set('trust proxy', 1);
 
 // MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI, {
     useNewUrlParser: true,
     useUnifiedTopology: true,
-    serverSelectionTimeoutMS: 30000 // 30 seconds timeout for server selection
+    serverSelectionTimeoutMS: 30000
   })
   .then(() => console.log('Connected to MongoDB'))
   .catch((err) => console.error('MongoDB connection error:', err));
@@ -95,7 +95,7 @@ app.use(
       autoRemove: 'native'
     }).on('error', (err) => console.error('MongoStore error:', err)),
     cookie: {
-      secure: process.env.NODE_ENV === 'production' ? true : false,
+      secure: process.env.NODE_ENV === 'production',
       maxAge: 24 * 60 * 60 * 1000,
       sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
       httpOnly: true,
@@ -112,6 +112,26 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// Store session middleware for Socket.io
+app.set('sessionMiddleware', session({
+  secret: process.env.COOKIE_KEY || 'fallback-secret',
+  resave: false,
+  saveUninitialized: false,
+  store: MongoStore.create({
+    mongoUrl: process.env.MONGO_URI,
+    collectionName: 'sessions',
+    ttl: 24 * 60 * 60,
+    autoRemove: 'native'
+  }).on('error', (err) => console.error('MongoStore error:', err)),
+  cookie: {
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 24 * 60 * 60 * 1000,
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    httpOnly: true,
+    path: '/'
+  }
+}));
 
 // Passport middleware
 app.use(passport.initialize());
@@ -267,26 +287,6 @@ io.use((socket, next) => {
     next(new Error('Authentication error'));
   }
 });
-
-// Store session middleware for Socket.io
-app.set('sessionMiddleware', session({
-  secret: process.env.COOKIE_KEY || 'fallback-secret',
-  resave: false,
-  saveUninitialized: false,
-  store: MongoStore.create({
-    mongoUrl: process.env.MONGO_URI,
-    collectionName: 'sessions',
-    ttl: 24 * 60 * 60,
-    autoRemove: 'native'
-  }).on('error', (err) => console.error('MongoStore error:', err)),
-  cookie: {
-    secure: process.env.NODE_ENV === 'production' ? true : false,
-    maxAge: 24 * 60 * 60 * 1000,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-    httpOnly: true,
-    path: '/'
-  }
-}));
 
 // Store connected users and their last heartbeat
 const connectedUsers = new Map();

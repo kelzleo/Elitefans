@@ -330,7 +330,7 @@ router.post('/login', (req, res, next) => {
   const { usernameOrEmail, password, creator } = req.body;
   const queryCreator = req.query.creator;
   const sessionCreator = req.session.creator;
-  console.log('Login Request - Body:', req.body, 'Query:', req.query, 'Session:', req.session, 'SessionID:', req.sessionID, 'Creator from body:', creator, 'Creator from query:', queryCreator, 'Creator from session:', sessionCreator);
+  console.log('Login Request - Body:', req.body, 'Query:', req.query, 'Session:', req.session, 'SessionID:', req.sessionID, 'Cookies:', req.headers.cookie, 'Creator from body:', creator, 'Creator from query:', queryCreator, 'Creator from session:', sessionCreator);
 
   const creatorParam = creator || queryCreator || sessionCreator;
   if (creatorParam) {
@@ -350,7 +350,7 @@ router.post('/login', (req, res, next) => {
 
   passport.authenticate('local', async (err, user, info) => {
     if (err) {
-      console.error('Authentication error:', err);
+      console.error('Passport authentication error:', err);
       return next(err);
     }
 
@@ -365,11 +365,12 @@ router.post('/login', (req, res, next) => {
 
     req.logIn(user, async (err) => {
       if (err) {
-        console.error('Login error:', err);
+        console.error('req.logIn error:', err);
         return next(err);
       }
 
       try {
+        console.log('User authenticated:', user._id, 'Username:', user.username);
         await User.findByIdAndUpdate(user._id, {
           isOnline: true,
           lastSeen: new Date(),
@@ -380,7 +381,6 @@ router.post('/login', (req, res, next) => {
         }
 
         let redirectTo = '/home';
-        // Check PendingSubscription collection
         const pendingSub = await PendingSubscription.findOne({ sessionId: req.sessionID });
         if (pendingSub) {
           console.log('Found pending subscription in database:', pendingSub);
@@ -398,12 +398,13 @@ router.post('/login', (req, res, next) => {
               }
             });
           });
-          // Clear the pending subscription
           await PendingSubscription.deleteOne({ sessionId: req.sessionID });
           console.log('Cleared pending subscription for session:', req.sessionID);
         } else if (req.session.redirectTo) {
+          console.log('Using session.redirectTo:', req.session.redirectTo);
           redirectTo = req.session.redirectTo;
         } else if (creatorParam) {
+          console.log('Using creatorParam:', creatorParam);
           const creatorUser = await User.findOne({ username: creatorParam });
           if (creatorUser) {
             redirectTo = `/profile/${encodeURIComponent(creatorParam)}`;
@@ -422,6 +423,7 @@ router.post('/login', (req, res, next) => {
             });
           }
         } else if (req.query.creator) {
+          console.log('Using req.query.creator:', req.query.creator);
           const creatorUser = await User.findOne({ username: req.query.creator });
           if (creatorUser) {
             redirectTo = `/profile/${encodeURIComponent(req.query.creator)}`;
@@ -440,20 +442,21 @@ router.post('/login', (req, res, next) => {
             });
           }
         } else if (user.redirectAfterVerify) {
+          console.log('Using user.redirectAfterVerify:', user.redirectAfterVerify);
           redirectTo = user.redirectAfterVerify;
           user.redirectAfterVerify = null;
           await user.save();
         }
-        console.log('Login successful - Redirecting to:', redirectTo);
+        console.log('Login successful - Redirecting to:', redirectTo, 'User:', user._id);
 
-        // Clear session data after redirect
+        // Clear session data
         delete req.session.redirectTo;
         delete req.session.subscriptionData;
         delete req.session.creator;
 
         return res.redirect(redirectTo);
       } catch (error) {
-        console.error('Error during login:', error);
+        console.error('Error during login processing:', error);
         return res.render('welcome', {
           errorMessage: 'Error processing login. Please try again.',
           creator: creatorParam || req.query.creator || req.session.creator || '',

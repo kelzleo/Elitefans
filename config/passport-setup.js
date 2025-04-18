@@ -1,58 +1,80 @@
 const passport = require('passport');
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const LocalStrategy = require('passport-local').Strategy;
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const bcrypt = require('bcrypt');
 const keys = require('./keys');
 const User = require('../models/users');
+require('dotenv').config();
 
 passport.serializeUser((user, done) => {
+  console.log('Serializing user:', user._id, user.username);
   done(null, user.id);
 });
 
-passport.deserializeUser((id, done) => {
-  User.findById(id)
-    .then((user) => {
-      done(null, user);
-    })
-    .catch((err) => {
-      console.error('Error deserializing user:', err);
-      done(err, null);
-    });
+passport.deserializeUser(async (id, done) => {
+  try {
+    const user = await User.findById(id);
+    if (!user) {
+      console.error('Deserialize - No user found for ID:', id);
+      return done(null, false);
+    }
+    console.log('Deserialized user:', user._id, user.username);
+    done(null, user);
+  } catch (err) {
+    console.error('Deserialize - Error:', err);
+    done(err, null);
+  }
 });
 
 passport.use(
   new GoogleStrategy(
     {
-      callbackURL: '/google/redirect',
       clientID: keys.google.clientID,
       clientSecret: keys.google.clientSecret,
-      scope: ['profile', 'email'],
+      callbackURL: `${process.env.BASE_URL}/google/callback`,
       passReqToCallback: true,
     },
     async (req, accessToken, refreshToken, profile, done) => {
       try {
+        console.log('Google Strategy - Profile:', profile.id, 'Email:', profile.emails?.[0]?.value);
         const email = profile.emails?.[0]?.value || null;
+        const { creator, ref } = req.query;
 
         if (!email) {
-          console.error('No email found in Google profile');
-          return done(null, false, { message: 'No email found' });
+          console.error('Google Strategy - No email in profile');
+          return done(null, false, { message: 'No email found in Google profile' });
         }
 
-        let currentUser = await User.findOne({ googleId: profile.id });
-        if (currentUser) {
-          return done(null, currentUser);
+        let user = await User.findOne({ googleId: profile.id });
+        if (user) {
+          console.log('Google Strategy - Existing user:', user._id, user.username);
+          user.lastSeen = new Date();
+          user.isOnline = true;
+          if (creator) {
+            user.redirectAfterVerify = `/profile/${encodeURIComponent(creator)}`;
+            console.log('Google Strategy - Set redirectAfterVerify:', user.redirectAfterVerify);
+          }
+          await user.save();
+          return done(null, user);
         }
 
-        currentUser = await User.findOne({ email });
-        if (currentUser) {
-          currentUser.googleId = profile.id;
-          currentUser.verified = true;
-          await currentUser.save();
-          return done(null, currentUser);
+        user = await User.findOne({ email });
+        if (user) {
+          console.log('Google Strategy - Linking Google ID to existing user:', user._id);
+          user.googleId = profile.id;
+          user.verified = true;
+          user.lastSeen = new Date();
+          user.isOnline = true;
+          if (creator) {
+            user.redirectAfterVerify = `/profile/${encodeURIComponent(creator)}`;
+            console.log('Google Strategy - Set redirectAfterVerify:', user.redirectAfterVerify);
+          }
+          await user.save();
+          return done(null, user);
         }
 
         const username = profile.displayName.replace(/\s+/g, '').toLowerCase();
-        const newUser = new User({
+        user = new User({
           username,
           googleId: profile.id,
           email,
@@ -62,23 +84,26 @@ passport.use(
         });
 
         if (req.session.referralId) {
-          console.log('Referral ID from session:', req.session.referralId);
+          console.log('Google Strategy - Referral ID:', req.session.referralId);
           const referrer = await User.findById(req.session.referralId);
           if (referrer && referrer.role === 'creator') {
-            newUser.referredBy = referrer._id;
-            console.log('Setting referredBy to:', referrer._id);
+            user.referredBy = referrer._id;
+            console.log('Google Strategy - Set referredBy:', referrer._id);
           } else {
-            console.log('Referrer invalid or not a creator');
+            console.log('Google Strategy - Invalid referrer');
           }
-        } else {
-          console.log('No referral ID in session');
         }
 
-        await newUser.save();
-        console.log('New Google user saved:', { id: newUser._id, referredBy: newUser.referredBy });
-        return done(null, newUser);
+        if (creator) {
+          user.redirectAfterVerify = `/profile/${encodeURIComponent(creator)}`;
+          console.log('Google Strategy - Set redirectAfterVerify for new user:', user.redirectAfterVerify);
+        }
+
+        await user.save();
+        console.log('Google Strategy - New user saved:', user._id, user.username);
+        return done(null, user);
       } catch (err) {
-        console.error('Error during Google authentication:', err);
+        console.error('Google Strategy - Error:', err);
         return done(err, null);
       }
     }
@@ -93,30 +118,36 @@ passport.use(
     },
     async (usernameOrEmail, password, done) => {
       try {
+        console.log('Local Strategy - Attempting login:', usernameOrEmail);
         const user = await User.findOne({
           $or: [{ email: usernameOrEmail }, { username: usernameOrEmail }],
         });
 
         if (!user) {
+          console.log('Local Strategy - No user found:', usernameOrEmail);
           return done(null, false, { message: 'Incorrect username or email.' });
         }
 
         if (!user.verified) {
+          console.log('Local Strategy - User not verified:', user._id, user.username);
           return done(null, false, { message: 'Please verify your email to log in.' });
         }
 
-        if (user.googleId) {
-          return done(null, user);
+        if (user.googleId && !user.password) {
+          console.log('Local Strategy - Google-only user:', user._id, user.username);
+          return done(null, false, { message: 'Please use Google to log in.' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
+          console.log('Local Strategy - Incorrect password:', user._id, user.username);
           return done(null, false, { message: 'Incorrect password.' });
         }
 
+        console.log('Local Strategy - Login successful:', user._id, user.username);
         return done(null, user);
       } catch (err) {
-        console.error('Error during local authentication:', err);
+        console.error('Local Strategy - Error:', err);
         return done(err);
       }
     }
