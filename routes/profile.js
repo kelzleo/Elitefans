@@ -1248,31 +1248,34 @@ router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
   }
 });
 
+// routes/profile.js
 router.post('/subscribe', async (req, res) => {
   try {
     console.log('Processing /subscribe - URL:', req.url, 'Body:', req.body, 'Query:', req.query, 'SessionID:', req.sessionID, 'Session:', req.session, 'User:', req.user ? req.user._id : 'Not logged in');
     const { creatorId, bundleId, creatorUsername } = req.body;
-    
+
+    // Validate required fields
     if (!creatorId || !bundleId || !creatorUsername) {
       console.log('Missing creatorId, bundleId, or creatorUsername:', { creatorId, bundleId, creatorUsername });
       return res.status(400).json({ status: 'error', message: 'Creator ID, Bundle ID, and Creator Username are required' });
     }
 
+    // Validate creator
+    const creator = await User.findById(creatorId);
+    if (!creator || creator.username !== creatorUsername || creator.role !== 'creator') {
+      console.log('Creator not found, username mismatch, or not a creator:', { creatorId, creatorUsername });
+      return res.status(404).json({ status: 'error', message: 'Creator not found or not a valid creator' });
+    }
+
     // If user is not logged in, store the creator's profile URL and redirect to welcome page
     if (!req.user) {
-      const creator = await User.findById(creatorId);
-      if (!creator || creator.username !== creatorUsername) {
-        console.log('Creator not found or username mismatch:', { creatorId, creatorUsername });
-        return res.status(404).json({ status: 'error', message: 'Creator not found' });
-      }
-      
-      const redirectUrl = `/profile/${creator.username}`;
+      const redirectUrl = `/profile/${encodeURIComponent(creator.username)}`;
       req.session.redirectTo = redirectUrl;
       req.session.creator = creator.username;
       req.session.subscriptionData = { creatorId, bundleId };
-      
+
       console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'session.creator:', creator.username, 'session.subscriptionData:', { creatorId, bundleId });
-      
+
       await new Promise((resolve, reject) => {
         req.session.save(err => {
           if (err) {
@@ -1284,14 +1287,95 @@ router.post('/subscribe', async (req, res) => {
           }
         });
       });
-      
+
       console.log('Redirecting to:', `/?creator=${encodeURIComponent(creator.username)}`);
       return res.redirect(`/?creator=${encodeURIComponent(creator.username)}`);
     }
 
-    // Logic for logged-in users would continue here...
-    // (Not including the rest as it's not relevant to the redirection flow)
-    
+    // Logic for logged-in users
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      console.log('User not found:', req.user._id);
+      return res.status(404).json({ status: 'error', message: 'User not found' });
+    }
+
+    // Check and update expired subscriptions
+    let changed = false;
+    const now = new Date();
+    user.subscriptions.forEach((sub) => {
+      if (sub.status === 'active' && sub.subscriptionExpiry && sub.subscriptionExpiry <= now) {
+        sub.status = 'expired';
+        changed = true;
+      }
+    });
+    if (changed) await user.save();
+
+    // Check if user is already subscribed
+    const isSubscribed = user.subscriptions.some(
+      (sub) => sub.creatorId.toString() === creatorId && sub.status === 'active' && sub.subscriptionExpiry > now
+    );
+    if (isSubscribed) {
+      console.log('User already subscribed to creator:', creatorId);
+      return res.status(400).json({ status: 'error', message: 'You are already subscribed to this creator' });
+    }
+
+    // Validate bundle
+    const bundle = await SubscriptionBundle.findById(bundleId);
+    if (!bundle) {
+      console.log('Bundle not found:', bundleId);
+      return res.status(404).json({ status: 'error', message: 'Subscription bundle not found' });
+    }
+    if (bundle.creatorId.toString() !== creatorId) {
+      console.log('Bundle does not belong to creator:', { bundleId, creatorId });
+      return res.status(400).json({ status: 'error', message: 'Invalid bundle for this creator' });
+    }
+
+    // Initialize payment for subscription
+    const paymentResponse = await flutter.initializePayment(req.user._id, creatorId, bundleId);
+    console.log('Subscription payment initialization response:', paymentResponse);
+
+    if (paymentResponse.status === 'success' && paymentResponse.meta?.authorization) {
+      const authorization = paymentResponse.meta.authorization;
+      await User.findByIdAndUpdate(req.user._id, {
+        $push: {
+          pendingTransactions: {
+            tx_ref: authorization.transfer_reference || `SUB_${Date.now()}_${creatorId}_${bundleId}`,
+            creatorId,
+            bundleId,
+            amount: bundle.price,
+            status: 'pending',
+            createdAt: new Date(),
+            type: 'subscription',
+          },
+        },
+      });
+
+      return res.json({
+        status: 'success',
+        message: 'Payment initialized successfully',
+        data: {
+          transferDetails: {
+            accountNumber: authorization.transfer_account || null,
+            bankName: authorization.transfer_bank || null,
+            amount: authorization.transfer_amount || bundle.price,
+            reference: authorization.transfer_reference,
+            accountExpiration: authorization.account_expiration || null,
+            transferNote: authorization.transfer_note || null,
+          },
+          subscription: {
+            creator: { id: creator._id, username: creator.username },
+            bundle: { name: bundle.name, price: bundle.price, duration: bundle.duration },
+          },
+          paymentLink: authorization.payment_link || null,
+        },
+      });
+    } else {
+      console.log('Payment initialization failed:', paymentResponse.message);
+      return res.status(400).json({
+        status: 'error',
+        message: paymentResponse.message || 'Payment initialization failed',
+      });
+    }
   } catch (err) {
     console.error('Subscription error:', err);
     return res.status(500).json({
@@ -1301,76 +1385,6 @@ router.post('/subscribe', async (req, res) => {
     });
   }
 });
-
-// Route to render the change password form (protected route)
-router.get('/change-password', (req, res) => {
-  if (!req.user) {
-    return res.redirect('/'); // Redirect to login if not authenticated
-  }
-  res.render('change-password', { errorMessage: '', successMessage: '' });
-});
-
-// Route to handle password change
-router.post('/change-password', async (req, res) => {
-  if (!req.user) {
-    return res.redirect('/'); // Redirect to login if not authenticated
-  }
-
-  const { currentPassword, newPassword, confirmPassword } = req.body;
-
-  try {
-    const user = await User.findById(req.user._id);
-
-    // Check if user signed up with Google (no password to change)
-    if (user.googleId && !user.password) {
-      return res.render('change-password', {
-        errorMessage: 'Cannot change password for Google accounts.',
-        successMessage: '',
-      });
-    }
-
-    // Verify current password
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) {
-      return res.render('change-password', {
-        errorMessage: 'Current password is incorrect.',
-        successMessage: '',
-      });
-    }
-
-    // Check if new passwords match
-    if (newPassword !== confirmPassword) {
-      return res.render('change-password', {
-        errorMessage: 'New passwords do not match.',
-        successMessage: '',
-      });
-    }
-
-    // Validate new password length
-    if (newPassword.length < 6) {
-      return res.render('change-password', {
-        errorMessage: 'New password must be at least 6 characters long.',
-        successMessage: '',
-      });
-    }
-
-    // Hash the new password and save
-    user.password = await bcrypt.hash(newPassword, 10);
-    await user.save();
-
-    res.render('change-password', {
-      errorMessage: '',
-      successMessage: 'Password changed successfully!',
-    });
-  } catch (error) {
-    console.error('Error changing password:', error);
-    res.render('change-password', {
-      errorMessage: 'An error occurred. Please try again.',
-      successMessage: '',
-    });
-  }
-});
-
 // Webhook route to handle payment notifications
 router.post('/webhook', async (req, res) => {
   try {

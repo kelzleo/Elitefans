@@ -115,6 +115,7 @@ router.post('/signup', async (req, res) => {
     });
   }
 });
+// routes/index.js
 router.get('/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -128,24 +129,25 @@ router.get('/verify/:token', async (req, res) => {
         console.log('User already verified for email:', alreadyVerifiedUser.email);
         return res.render('welcome', {
           errorMessage: 'Your email is already verified. Please log in.',
-          creator: creator || '',
+          creator: creator || req.session.creator || '',
           ref: ref || ''
         });
       }
       return res.render('welcome', {
         errorMessage: 'Invalid or expired verification link.',
-        creator: creator || '',
+        creator: creator || req.session.creator || '',
         ref: ref || ''
       });
     }
 
-    let redirectTo = '/';
+    // Determine redirect URL
+    let redirectTo = '/home'; // Default redirect
     if (creator) {
       const creatorUser = await User.findOne({ username: creator });
       if (creatorUser) {
-        redirectTo = `/profile/${creator}`;
-        req.session.creator = creator;
+        redirectTo = `/profile/${encodeURIComponent(creator)}`;
         req.session.redirectTo = redirectTo;
+        req.session.creator = creator;
         await new Promise((resolve, reject) => {
           req.session.save(err => {
             if (err) {
@@ -162,8 +164,8 @@ router.get('/verify/:token', async (req, res) => {
       redirectTo = user.redirectAfterVerify;
       const creatorUsername = redirectTo.split('/profile/')[1];
       if (creatorUsername) {
-        req.session.creator = creatorUsername;
         req.session.redirectTo = redirectTo;
+        req.session.creator = creatorUsername;
         await new Promise((resolve, reject) => {
           req.session.save(err => {
             if (err) {
@@ -181,34 +183,55 @@ router.get('/verify/:token', async (req, res) => {
       console.log('Using session.redirectTo:', redirectTo);
     }
 
+    // Update user
     user.verified = true;
     user.verificationToken = undefined;
-    user.redirectAfterVerify = null;
+    user.redirectAfterVerify = null; // Clear after use
     await user.save();
     console.log('User verified:', user._id, 'Redirecting to:', redirectTo);
 
-    if (req.user) {
-      delete req.session.redirectTo;
-      delete req.session.creator;
-      return res.redirect(redirectTo);
-    }
+    // Log in the user
+    req.login(user, async (err) => {
+      if (err) {
+        console.error('Login error after verification:', err);
+        return res.render('welcome', {
+          errorMessage: 'Error logging in after verification. Please try logging in manually.',
+          creator: creator || req.session.creator || '',
+          ref: ref || ''
+        });
+      }
 
-    res.render('welcome', {
-      errorMessage: 'Email verified successfully. Please log in.',
-      creator: creator || req.session.creator || '',
-      ref: ref || ''
+      try {
+        // Update user status
+        await User.findByIdAndUpdate(user._id, {
+          isOnline: true,
+          lastSeen: new Date(),
+        });
+
+        // Clear session data
+        delete req.session.redirectTo;
+        delete req.session.creator;
+
+        console.log('User logged in after verification, redirecting to:', redirectTo);
+        return res.redirect(redirectTo);
+      } catch (error) {
+        console.error('Error during post-verification login:', error);
+        return res.render('welcome', {
+          errorMessage: 'Error processing login after verification. Please try logging in manually.',
+          creator: creator || req.session.creator || '',
+          ref: ref || ''
+        });
+      }
     });
   } catch (error) {
     console.error('Error verifying email:', error);
     res.render('welcome', {
       errorMessage: 'An error occurred. Please try again.',
-      creator: creator || '',
+      creator: creator || req.session.creator || '',
       ref: ref || ''
     });
   }
 });
-
-
 router.get('/signup', (req, res) => {
   const creator = req.query.creator || req.session.creator || '';
   res.render('signup', { 
@@ -255,6 +278,7 @@ router.get('/google', (req, res, next) => {
 
 
 
+// routes/index.js
 router.get('/google/redirect', passport.authenticate('google'), async (req, res) => {
   try {
     await User.findByIdAndUpdate(req.user._id, {
@@ -263,11 +287,13 @@ router.get('/google/redirect', passport.authenticate('google'), async (req, res)
     });
 
     const creator = req.query.creator || req.session.creator;
-    let redirectTo = '/profile';
-    if (creator) {
+    let redirectTo = '/home'; // Default to /home
+    if (req.session.redirectTo) {
+      redirectTo = req.session.redirectTo;
+    } else if (creator) {
       const creatorUser = await User.findOne({ username: creator });
       if (creatorUser) {
-        redirectTo = `/profile/${creator}`;
+        redirectTo = `/profile/${encodeURIComponent(creator)}`;
         req.session.redirectTo = redirectTo;
         req.session.creator = creator;
         await new Promise((resolve, reject) => {
@@ -282,12 +308,11 @@ router.get('/google/redirect', passport.authenticate('google'), async (req, res)
           });
         });
       }
-    } else if (req.session.redirectTo) {
-      redirectTo = req.session.redirectTo;
     }
 
     console.log('Google redirect - redirecting to:', redirectTo);
 
+    // Clear session data
     delete req.session.redirectTo;
     delete req.session.subscriptionData;
     delete req.session.referralId;
@@ -296,9 +321,11 @@ router.get('/google/redirect', passport.authenticate('google'), async (req, res)
     res.redirect(redirectTo);
   } catch (error) {
     console.error('Error during Google login:', error);
-    res.redirect('/profile');
+    res.redirect('/home'); // Default to /home on error
   }
 });
+
+// routes/index.js
 router.post('/login', (req, res, next) => {
   const { usernameOrEmail, password, creator } = req.body;
   const queryCreator = req.query.creator;
@@ -309,7 +336,7 @@ router.post('/login', (req, res, next) => {
   if (creatorParam) {
     User.findOne({ username: creatorParam }).then(creatorUser => {
       if (creatorUser) {
-        req.session.redirectTo = `/profile/${creatorParam}`;
+        req.session.redirectTo = `/profile/${encodeURIComponent(creatorParam)}`;
         req.session.creator = creatorParam;
         req.session.save(err => {
           if (err) console.error('Session save error:', err);
@@ -331,7 +358,8 @@ router.post('/login', (req, res, next) => {
       console.log('Login failed:', info.message || 'Invalid login credentials');
       return res.render('welcome', {
         errorMessage: info.message || 'Invalid username/email or password',
-        creator: creatorParam
+        creator: creatorParam || req.session.creator || '',
+        ref: req.body.ref || req.query.ref || ''
       });
     }
 
@@ -351,17 +379,32 @@ router.post('/login', (req, res, next) => {
           console.log('Found pending subscription data:', req.session.subscriptionData);
         }
 
-        // Prioritize creatorParam from body/query, then session, then redirectAfterVerify
-        let redirectTo = '/profile';
-        if (creatorParam) {
+        // Prioritize session.redirectTo, then creatorParam, then user.redirectAfterVerify
+        let redirectTo = '/home'; // Default to /home instead of /profile
+        if (req.session.redirectTo) {
+          redirectTo = req.session.redirectTo;
+        } else if (creatorParam) {
           const creatorUser = await User.findOne({ username: creatorParam });
           if (creatorUser) {
-            redirectTo = `/profile/${creatorParam}`;
+            redirectTo = `/profile/${encodeURIComponent(creatorParam)}`;
+            req.session.redirectTo = redirectTo;
+            req.session.creator = creatorParam;
+            await new Promise((resolve, reject) => {
+              req.session.save(err => {
+                if (err) {
+                  console.error('Session save error:', err);
+                  reject(err);
+                } else {
+                  console.log('Session saved:', req.session);
+                  resolve();
+                }
+              });
+            });
           }
-        } else if (req.session.redirectTo) {
-          redirectTo = req.session.redirectTo;
         } else if (user.redirectAfterVerify) {
           redirectTo = user.redirectAfterVerify;
+          user.redirectAfterVerify = null; // Clear after use
+          await user.save();
         }
         console.log('Login successful - Redirecting to:', redirectTo);
 
@@ -373,7 +416,11 @@ router.post('/login', (req, res, next) => {
         return res.redirect(redirectTo);
       } catch (error) {
         console.error('Error during login:', error);
-        return res.redirect('/profile');
+        return res.render('welcome', {
+          errorMessage: 'Error processing login. Please try again.',
+          creator: creatorParam || req.session.creator || '',
+          ref: req.body.ref || req.query.ref || ''
+        });
       }
     });
   })(req, res, next);
