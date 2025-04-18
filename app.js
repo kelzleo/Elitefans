@@ -14,7 +14,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const User = require('./models/users');
 const multer = require('multer');
-const MongoStore = require('connect-mongo'); // Added for session store
+const MongoStore = require('connect-mongo');
 
 // Import configuration and keys
 const keys = require('./config/keys');
@@ -68,10 +68,11 @@ const upload = multer({
 app.use(expressLayouts);
 app.set('view engine', 'ejs');
 app.use(express.static('public'));
-app.use(express.urlencoded({ extended: true, limit: '5mb' })); // Increased limit
-app.use(express.json({ limit: '5mb' })); // Increased limit
+app.use(express.urlencoded({ extended: true, limit: '5mb' }));
+app.use(express.json({ limit: '5mb' }));
 
 // Session middleware
+const MongoStore = require('connect-mongo');
 const sessionMiddleware = session({
   secret: keys.session.cookieKey,
   resave: false,
@@ -79,13 +80,26 @@ const sessionMiddleware = session({
   store: MongoStore.create({
     mongoUrl: process.env.MONGO_URI,
     collectionName: 'sessions',
-  }),
+  }).on('error', (err) => console.error('MongoStore error:', err)),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     maxAge: 24 * 60 * 60 * 1000, // 24 hours
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax', // Ensure cookies work with redirects
   },
 });
-app.use(sessionMiddleware);
+
+// Debug session middleware
+app.use((req, res, next) => {
+  console.log('Session before middleware - SessionID:', req.sessionID, 'Session:', req.session);
+  sessionMiddleware(req, res, (err) => {
+    if (err) {
+      console.error('Session middleware error:', err);
+      return next(err);
+    }
+    console.log('Session after middleware - SessionID:', req.sessionID, 'Session:', req.session);
+    next();
+  });
+});
 
 // Passport middleware
 app.use(passport.initialize());

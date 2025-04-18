@@ -1248,12 +1248,12 @@ router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
   }
 });
 
-// Subscribe to a creator's subscription bundle
 router.post('/subscribe', async (req, res) => {
   try {
-    console.log('Processing subscription request - Body:', req.body, 'Session:', req.session);
+    console.log('Processing /profile/subscribe - Body:', req.body, 'Session:', req.session, 'User:', req.user ? req.user._id : 'Not logged in');
     const { creatorId, bundleId } = req.body;
     if (!creatorId || !bundleId) {
+      console.log('Missing creatorId or bundleId:', { creatorId, bundleId });
       return res.status(400).json({ status: 'error', message: 'Creator ID and Bundle ID are required' });
     }
 
@@ -1266,12 +1266,19 @@ router.post('/subscribe', async (req, res) => {
       }
       const redirectUrl = `/profile/${creator.username}`;
       req.session.redirectTo = redirectUrl;
-      req.session.creator = creator.username; // Store creator username in session
+      req.session.creator = creator.username;
       req.session.subscriptionData = { creatorId, bundleId };
-      console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'session.creator:', creator.username, 'Redirecting to welcome with creator:', creator.username);
-      req.session.save(err => {
-        if (err) console.error('Session save error:', err);
-        else console.log('Session saved:', req.session);
+      console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'session.creator:', creator.username, 'Redirecting to:', `/?creator=${encodeURIComponent(creator.username)}`);
+      await new Promise((resolve, reject) => {
+        req.session.save(err => {
+          if (err) {
+            console.error('Session save error:', err);
+            reject(err);
+          } else {
+            console.log('Session saved:', req.session);
+            resolve();
+          }
+        });
       });
       return res.redirect(`/?creator=${encodeURIComponent(creator.username)}`);
     }
@@ -1279,6 +1286,7 @@ router.post('/subscribe', async (req, res) => {
     // Logic for logged-in users
     const user = await User.findById(req.user._id);
     if (!user) {
+      console.log('User not found:', req.user._id);
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
     const now = new Date();

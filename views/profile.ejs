@@ -961,40 +961,45 @@
     });
 
     // --- AJAX for Bundle Subscription ---
-    document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
-      form.addEventListener('submit', async function(e) {
-        e.preventDefault();
-        if (!isLoggedIn) {
-          window.location.href = '/'; // Redirect to welcome.ejs for non-logged-in users
-          return;
-        }
-        const submitButton = form.querySelector('button[type="submit"]');
-        const originalHtml = submitButton.innerHTML;
-        submitButton.innerHTML = 'Processing...'; submitButton.disabled = true;
-        try {
-          const formData = new FormData(form);
-          const data = { creatorId: formData.get('creatorId'), bundleId: formData.get('bundleId') };
-          const response = await fetch('/profile/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
-          });
-          const result = await response.json();
-          if (response.ok && result.status === 'success' && result.data.paymentLink) {
-            submitButton.innerHTML = 'Redirecting...';
-            window.location.href = result.data.paymentLink;
-          } else {
-            alert(result.message || `Failed to subscribe (Status: ${response.status})`);
-            submitButton.innerHTML = originalHtml; submitButton.disabled = false;
-          }
-        } catch (error) {
-          console.error('Sub Error:', error);
-          alert('Error subscribing.');
-          submitButton.innerHTML = originalHtml; submitButton.disabled = false;
-        }
+document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const creatorId = form.querySelector('input[name="creatorId"]').value;
+    console.log('Subscribe form submitted - isLoggedIn:', isLoggedIn, 'creatorId:', creatorId);
+    if (!isLoggedIn) {
+      const creator = '<%= user.username %>'; // Use server-side username
+      console.log('Non-logged-in user, redirecting to:', `/?creator=${encodeURIComponent(creator)}`);
+      window.location.href = `/?creator=${encodeURIComponent(creator)}`;
+      return;
+    }
+    const submitButton = form.querySelector('button[type="submit"]');
+    const originalHtml = submitButton.innerHTML;
+    submitButton.innerHTML = 'Processing...'; submitButton.disabled = true;
+    try {
+      const formData = new FormData(form);
+      const data = { creatorId: formData.get('creatorId'), bundleId: formData.get('bundleId') };
+      console.log('Sending subscribe request:', data);
+      const response = await fetch('/profile/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
       });
-    });
-
+      const result = await response.json();
+      console.log('Subscribe response:', result);
+      if (response.ok && result.status === 'success' && result.data.paymentLink) {
+        submitButton.innerHTML = 'Redirecting...';
+        window.location.href = result.data.paymentLink;
+      } else {
+        alert(result.message || `Failed to subscribe (Status: ${response.status})`);
+        submitButton.innerHTML = originalHtml; submitButton.disabled = false;
+      }
+    } catch (error) {
+      console.error('Sub Error:', error);
+      alert('Error subscribing.');
+      submitButton.innerHTML = originalHtml; submitButton.disabled = false;
+    }
+  });
+});
     // --- Tip Button (Post-specific) ---
     document.querySelectorAll('.tip-button').forEach(button => {
       button.addEventListener('click', async function() {
