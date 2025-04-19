@@ -1,11 +1,19 @@
+// routes/referrals.js
 const express = require('express');
 const router = express.Router();
 const User = require('../models/users');
 const Transaction = require('../models/Transaction');
+const logger = require('../logs/logger'); // Import Winston logger at top
 
 const authCheck = (req, res, next) => {
-  if (!req.user) return res.redirect('/');
-  if (req.user.role !== 'creator') return res.status(403).send('Only creators can access this page');
+  if (!req.user) {
+    logger.warn('Unauthorized access attempt to referrals page');
+    return res.redirect('/');
+  }
+  if (req.user.role !== 'creator') {
+    logger.warn('Non-creator attempted to access referrals page');
+    return res.status(403).send('Only creators can access this page');
+  }
   next();
 };
 
@@ -39,7 +47,7 @@ router.get('/', authCheck, async (req, res) => {
       currentUser: req.user,
     });
   } catch (err) {
-    console.error('Error loading referrals:', err);
+    logger.error(`Error loading referrals: ${err.message}`);
     res.status(500).send('Error loading referrals');
   }
 });

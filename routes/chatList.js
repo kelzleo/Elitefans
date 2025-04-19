@@ -1,11 +1,14 @@
+// routes/chatlist.js
 const express = require('express');
 const router = express.Router();
 const Chat = require('../models/chat');
 const User = require('../models/users');
+const logger = require('../logs/logger'); // Import Winston logger at top
 
 // Authentication middleware
 const authCheck = (req, res, next) => {
   if (!req.user) {
+    logger.warn('Unauthorized access attempt to chat list page');
     req.flash('error_msg', 'You must be logged in to view your chats.');
     return res.redirect('/users/login');
   }
@@ -15,8 +18,7 @@ const authCheck = (req, res, next) => {
 router.get('/', authCheck, async (req, res) => {
   try {
     const currentUser = req.user;
-    // Find all chats where the current user is a participant,
-    // sorted by updatedAt in descending order (most recent first)
+    // Find all chats where the current user is a participant
     const chats = await Chat.find({ participants: currentUser._id })
       .populate('participants', 'username profilePicture isOnline lastSeen')
       .sort({ updatedAt: -1 });
@@ -51,9 +53,6 @@ router.get('/', authCheck, async (req, res) => {
         tipAmount = isTip ? latestMessage.tipAmount : null;
       }
 
-      // Debug log to verify the latest message
-      console.log(`Chat ID: ${chat._id}, Latest Message:`, latestMessage);
-
       return { 
         ...chat.toObject(), 
         hasUnread, 
@@ -64,10 +63,9 @@ router.get('/', authCheck, async (req, res) => {
       };
     });
 
-    console.log(`Loaded ${chats.length} chats for user ${currentUser._id}`);
     res.render('chatList', { chats: chatsWithStatus, currentUser });
   } catch (error) {
-    console.error('Error loading chat list:', error);
+    logger.error(`Error loading chat list: ${error.message}`);
     req.flash('error_msg', 'Error loading chat list.');
     res.redirect('/home');
   }

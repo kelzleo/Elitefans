@@ -1,13 +1,15 @@
-// bookmarks.js
+// routes/bookmarks.js
 const express = require('express');
 const router = express.Router();
 const User = require('../models/users');
 const Post = require('../models/Post');
 const { generateSignedUrl } = require('../utilis/cloudStorage');
+const logger = require('../logs/logger'); // Import Winston logger at top
 
 // Authentication middleware
 const authCheck = (req, res, next) => {
   if (!req.user) {
+    logger.warn('Unauthorized access attempt to bookmarks page');
     return res.redirect('/');
   }
   next();
@@ -22,7 +24,12 @@ const processPostUrls = async (posts, currentUser) => {
       );
       if (hasPurchased) {
         if (!post.contentUrl.startsWith('http')) {
-          post.contentUrl = await generateSignedUrl(post.contentUrl);
+          try {
+            post.contentUrl = await generateSignedUrl(post.contentUrl);
+          } catch (err) {
+            logger.error(`Failed to generate signed URL for special post: ${err.message}`);
+            post.contentUrl = '/uploads/placeholder.png';
+          }
         }
       } else {
         post.contentUrl = '/uploads/locked-placeholder.png';
@@ -30,7 +37,12 @@ const processPostUrls = async (posts, currentUser) => {
       }
     } else {
       if (!post.contentUrl.startsWith('http')) {
-        post.contentUrl = await generateSignedUrl(post.contentUrl);
+        try {
+          post.contentUrl = await generateSignedUrl(post.contentUrl);
+        } catch (err) {
+          logger.error(`Failed to generate signed URL for regular post: ${err.message}`);
+          post.contentUrl = '/uploads/placeholder.png';
+        }
       }
     }
   }
@@ -60,19 +72,11 @@ router.get('/', authCheck, async (req, res) => {
       )
       .map((sub) => sub.creatorId.toString());
 
-    // Log for debugging
-    console.log('Active Creator IDs:', activeCreatorIds);
-    console.log('User Subscriptions:', user.subscriptions.map(sub => ({
-      creatorId: sub.creatorId,
-      status: sub.status,
-      expiry: sub.subscriptionExpiry
-    })));
-
     // Filter valid bookmarked posts
     let bookmarkedPosts = user.bookmarks || [];
     bookmarkedPosts = bookmarkedPosts.filter((post) => {
       if (!post || !post.creator) {
-        console.log('Skipping invalid post:', post);
+        logger.warn('Skipping invalid post in bookmarks');
         return false;
       }
 
@@ -82,9 +86,6 @@ router.get('/', authCheck, async (req, res) => {
         (p) => p.contentId.toString() === post._id.toString()
       );
 
-      // Log filtering decision
-      console.log(`Post ID: ${post._id}, Creator: ${creatorId}, Subscribed: ${isCreatorSubscribed}, Special: ${post.special}, Purchased: ${isPurchased}`);
-
       return isCreatorSubscribed || !post.special || isPurchased;
     });
 
@@ -93,18 +94,10 @@ router.get('/', authCheck, async (req, res) => {
     if (user.bookmarks.length !== validBookmarkIds.length) {
       user.bookmarks = validBookmarkIds;
       await user.save();
-      console.log('Cleaned up invalid bookmarks');
     }
 
     // Reverse posts to show newest first
     const reversedBookmarkedPosts = bookmarkedPosts.reverse();
-
-    // Log final posts
-    console.log('Filtered Bookmarked Posts:', reversedBookmarkedPosts.map(p => ({
-      id: p._id,
-      creator: p.creator._id,
-      special: p.special
-    })));
 
     // Process URLs for accessible posts
     await processPostUrls(reversedBookmarkedPosts, user);
@@ -114,7 +107,7 @@ router.get('/', authCheck, async (req, res) => {
       posts: reversedBookmarkedPosts
     });
   } catch (error) {
-    console.error('Bookmarks Error:', error);
+    logger.error(`Error loading bookmarks: ${error.message}`);
     req.flash('error', 'Error loading bookmarks.');
     res.redirect('/home');
   }
@@ -129,7 +122,7 @@ router.get('/:postId/bookmark-status', authCheck, async (req, res) => {
     );
     res.json({ isBookmarked });
   } catch (error) {
-    console.error('Bookmark Status Error:', error);
+    logger.error(`Error checking bookmark status: ${error.message}`);
     res.status(500).json({ message: 'Error checking bookmark status' });
   }
 });

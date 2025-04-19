@@ -15,6 +15,7 @@ const http = require('http');
 const socketIo = require('socket.io');
 const User = require('./models/users');
 const multer = require('multer');
+const logger = require('./logs/logger'); // Import Winston logger
 
 // Import configuration and keys
 const keys = require('./config/keys');
@@ -53,30 +54,24 @@ mongoose
   .connect(process.env.MONGO_URI, {
     serverSelectionTimeoutMS: 30000
   })
-  .then(() => console.log('Connected to MongoDB'))
-  .catch((err) => console.error('MongoDB connection error:', err));
+  .then(() => logger.info('Connected to MongoDB'))
+  .catch((err) => logger.error(`MongoDB connection error: ${err.message}`));
 
 // Log connection events
 mongoose.connection.on('error', (err) => {
-  console.error('MongoDB connection error:', err);
+  logger.error(`MongoDB connection error: ${err.message}`);
 });
 mongoose.connection.on('disconnected', () => {
-  console.log('MongoDB disconnected, attempting to reconnect...');
+  logger.warn('MongoDB disconnected, attempting to reconnect...');
 });
 mongoose.connection.on('reconnected', () => {
-  console.log('MongoDB reconnected');
+  logger.info('MongoDB reconnected');
 });
 
 // Multer setup for file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-});
-
-// Temporary request logging middleware for debugging
-app.use((req, res, next) => {
-  console.log('Request:', req.method, req.url, 'Body:', req.body, 'Query:', req.query, 'SessionID:', req.sessionID, 'Session:', req.session);
-  next();
 });
 
 // Middleware setup
@@ -96,7 +91,7 @@ const sessionMiddleware = session({
     collectionName: 'sessions',
     ttl: 24 * 60 * 60,
     autoRemove: 'native'
-  }).on('error', (err) => console.error('MongoStore error:', err)),
+  }).on('error', (err) => logger.error(`MongoStore error: ${err.message}`)),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
     maxAge: 24 * 60 * 60 * 1000, // 1 day
@@ -109,11 +104,15 @@ app.use(sessionMiddleware);
 
 // Enhanced session debugging
 app.use((req, res, next) => {
-  console.log('Session before request - SessionID:', req.sessionID, 'Session:', req.session, 'Cookies:', req.headers.cookie);
   if (!req.sessionID) {
-    console.warn('No sessionID generated, checking cookies:', req.headers.cookie);
+    logger.warn('No sessionID generated');
   }
-  next();
+  req.session.save(err => {
+    if (err) {
+      logger.error(`Error saving session: ${err.message}`);
+    }
+    next();
+  });
 });
 
 // Passport middleware
@@ -163,26 +162,22 @@ app.locals.formatRelativeTime = (date) => {
 
 // Route to store redirect URL in session
 app.post('/store-redirect', (req, res) => {
-  console.log('Received /store-redirect request:', req.body, 'SessionID:', req.sessionID, 'Session:', req.session);
   const { redirectTo } = req.body;
   if (redirectTo && typeof redirectTo === 'string') {
-    // Validate redirectTo is a valid profile URL
     if (!redirectTo.startsWith('/profile/')) {
-      console.error('Invalid redirectTo format:', redirectTo);
+      logger.error(`Invalid redirectTo format: ${redirectTo}`);
       return res.status(400).json({ status: 'error', message: 'Redirect URL must be a profile URL' });
     }
     req.session.redirectTo = redirectTo;
-    console.log('Stored redirectTo in session:', req.session.redirectTo, 'SessionID:', req.sessionID);
     req.session.save(err => {
       if (err) {
-        console.error('Error saving session in /store-redirect:', err);
+        logger.error(`Error saving session in /store-redirect: ${err.message}`);
         return res.status(500).json({ status: 'error', message: 'Failed to save session' });
       }
-      console.log('Session saved in /store-redirect:', req.session);
       res.status(200).json({ status: 'success' });
     });
   } else {
-    console.error('Invalid or missing redirectTo:', redirectTo);
+    logger.error('Invalid or missing redirectTo');
     res.status(400).json({ status: 'error', message: 'Invalid redirect URL' });
   }
 });
@@ -191,6 +186,7 @@ app.post('/store-redirect', (req, res) => {
 const { chatBucket: bucket } = require('./utilis/cloudStorage');
 app.post('/chat/upload-media', upload.single('media'), async (req, res) => {
   if (!req.file) {
+    logger.warn('No file uploaded in /chat/upload-media');
     return res.status(400).json({ success: false, message: 'No file uploaded.' });
   }
 
@@ -198,6 +194,7 @@ app.post('/chat/upload-media', upload.single('media'), async (req, res) => {
     const file = req.file;
     const allowedTypes = ['image/jpeg', 'image/png', 'video/mp4'];
     if (!allowedTypes.includes(file.mimetype)) {
+      logger.warn(`Invalid file type in /chat/upload-media: ${file.mimetype}`);
       return res.status(400).json({ success: false, message: 'Invalid file type. Only JPEG, PNG, and MP4 are allowed.' });
     }
     const fileName = `${Date.now()}-${file.originalname}`;
@@ -207,7 +204,7 @@ app.post('/chat/upload-media', upload.single('media'), async (req, res) => {
     });
 
     blobStream.on('error', (err) => {
-      console.error('Blob stream error:', err);
+      logger.error(`Blob stream error: ${err.message}`);
       let message = 'Error uploading file.';
       if (err.message.includes('billing')) {
         message = 'Billing account issue. Please contact support.';
@@ -224,7 +221,7 @@ app.post('/chat/upload-media', upload.single('media'), async (req, res) => {
 
     blobStream.end(file.buffer);
   } catch (err) {
-    console.error('Upload error:', err);
+    logger.error(`Upload error in /chat/upload-media: ${err.message}`);
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
@@ -252,18 +249,14 @@ app.use('/purchased-content', purchasedContentRoutes);
 app.get('/storage-example', async (req, res) => {
   try {
     const { storage } = require('./utilis/cloudStorage');
-    console.log('Route accessed: /storage-example');
     const projectId = await storage.getProjectId();
-    console.log(`Google Cloud project ID: ${projectId}`);
     const [buckets] = await storage.getBuckets();
-    console.log('Buckets retrieved:', buckets.length > 0 ? buckets : 'No buckets found');
     res.json({ buckets });
   } catch (err) {
-    console.error('Error in /storage-example route:', err);
+    logger.error(`Error in /storage-example route: ${err.message}`);
     res.status(500).json({
       message: 'Error accessing Google Cloud Storage',
       error: err.message,
-      stack: err.stack,
     });
   }
 });
@@ -283,6 +276,7 @@ io.use((socket, next) => {
     socket.userId = socket.request.session.passport.user;
     next();
   } else {
+    logger.warn('Socket.io authentication error: No user in session');
     next(new Error('Authentication error'));
   }
 });
@@ -298,16 +292,13 @@ const HEARTBEAT_TIMEOUT = 30000; // 30 seconds
 mongoose.connection.once('open', async () => {
   try {
     await User.updateMany({}, { $set: { isOnline: false } });
-    console.log('Reset all users to offline on server startup');
+    logger.info('Reset all users to offline on server startup');
   } catch (err) {
-    console.error('Error resetting online status on startup:', err);
+    logger.error(`Error resetting online status on startup: ${err.message}`);
   }
 });
 
 io.on('connection', async (socket) => {
-  console.log('New client connected:', socket.id, 'User:', socket.userId);
-
-  // Set user to online and store in connectedUsers
   if (socket.userId) {
     await User.findByIdAndUpdate(socket.userId, {
       isOnline: true,
@@ -332,7 +323,6 @@ io.on('connection', async (socket) => {
 
   socket.on('joinRoom', ({ chatId }) => {
     socket.join(chatId);
-    console.log(`Socket ${socket.id} joined room ${chatId}`);
   });
 
   socket.on('sendMessage', async ({ chatId, sender, text, media, isTip = false, tipAmount = null }) => {
@@ -345,7 +335,6 @@ io.on('connection', async (socket) => {
       tipAmount,
       read: false,
     };
-    console.log('Emitting new message to room:', chatId, 'Message:', message);
     io.to(chatId).emit('newMessage', message);
     try {
       const Chat = require('./models/chat');
@@ -354,17 +343,15 @@ io.on('connection', async (socket) => {
         chat.messages.push(message);
         chat.updatedAt = new Date();
         await chat.save();
-        console.log('Message saved to chat:', chatId);
       } else {
-        console.error('Chat not found:', chatId);
+        logger.error(`Chat not found: ${chatId}`);
       }
     } catch (err) {
-      console.error('Error saving chat message:', err);
+      logger.error(`Error saving chat message: ${err.message}`);
     }
   });
 
   socket.on('disconnect', async () => {
-    console.log('Client disconnected:', socket.id, 'User:', socket.userId);
     if (socket.userId) {
       connectedUsers.delete(socket.userId);
       await User.findByIdAndUpdate(socket.userId, {
@@ -381,7 +368,6 @@ setInterval(async () => {
   for (const [userId, info] of connectedUsers.entries()) {
     const timeSinceLastHeartbeat = now - info.lastHeartbeat;
     if (timeSinceLastHeartbeat > HEARTBEAT_TIMEOUT) {
-      console.log(`User ${userId} missed heartbeat, marking as offline`);
       connectedUsers.delete(userId);
       await User.findByIdAndUpdate(userId, {
         isOnline: false,
@@ -397,5 +383,5 @@ app.set('socketio', io);
 // Start the server
 const PORT = process.env.PORT || 4000;
 server.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  logger.info(`Server is running on port ${PORT}`);
 });

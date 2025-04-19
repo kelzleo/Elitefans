@@ -4,9 +4,13 @@ const router = express.Router();
 const Transaction = require('../models/Transaction');
 const User = require('../models/users');
 const { transferToBank } = require('../utilis/flutter');
+const logger = require('../logs/logger'); // Import Winston logger at top
 
 function authCheck(req, res, next) {
-  if (!req.user) return res.redirect('/');
+  if (!req.user) {
+    logger.warn('Unauthorized access attempt to dashboard page');
+    return res.redirect('/');
+  }
   next();
 }
 
@@ -69,7 +73,7 @@ router.get('/', authCheck, async (req, res) => {
       });
     }
   } catch (err) {
-    console.error('Error loading dashboard:', err);
+    logger.error(`Error loading dashboard: ${err.message}`);
     res.status(500).send('Error loading dashboard');
   }
 });
@@ -78,11 +82,13 @@ router.post('/add-bank', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
     if (currentUser.role !== 'creator') {
+      logger.warn('Non-creator attempted to add bank');
       return res.status(403).json({ message: 'Only creators can add banks.' });
     }
 
     const { bankName, accountNumber } = req.body;
     if (!bankName || !accountNumber) {
+      logger.warn('Missing bank name or account number in add-bank');
       return res.status(400).json({ message: 'Please provide bank name and account number.' });
     }
 
@@ -91,7 +97,7 @@ router.post('/add-bank', authCheck, async (req, res) => {
 
     res.json({ message: 'Bank added successfully!' });
   } catch (error) {
-    console.error('Error adding bank:', error);
+    logger.error(`Error adding bank: ${error.message}`);
     res.status(500).json({ message: 'Error adding bank.' });
   }
 });
@@ -100,6 +106,7 @@ router.post('/withdraw', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
     if (currentUser.role !== 'creator') {
+      logger.warn('Non-creator attempted to withdraw funds');
       return res.status(403).json({ message: 'Only creators can withdraw funds.' });
     }
 
@@ -107,15 +114,18 @@ router.post('/withdraw', authCheck, async (req, res) => {
     const withdrawalAmount = parseFloat(amount);
 
     if (!withdrawalAmount || withdrawalAmount < 1000) {
+      logger.warn('Invalid withdrawal amount in withdraw');
       return res.status(400).json({ message: 'Withdrawal amount must be at least 1000.' });
     }
 
     if (withdrawalAmount > currentUser.totalEarnings) {
+      logger.warn('Insufficient balance for withdrawal');
       return res.status(400).json({ message: 'Insufficient balance to withdraw that amount.' });
     }
 
     const chosenBank = currentUser.banks.id(bankId);
     if (!chosenBank) {
+      logger.warn('Invalid bank selection in withdraw');
       return res.status(400).json({ message: 'Invalid bank selection.' });
     }
 
@@ -124,9 +134,8 @@ router.post('/withdraw', authCheck, async (req, res) => {
     let transferResponse;
     try {
       transferResponse = await transferToBank(bankCode, chosenBank.accountNumber, withdrawalAmount);
-      console.log('Full transferResponse object:', transferResponse);
     } catch (err) {
-      console.error('transferToBank error:', err);
+      logger.error(`transferToBank error: ${err.message}`);
       return res.status(500).json({
         message: 'Error calling transferToBank.',
         error: err.message
@@ -139,11 +148,11 @@ router.post('/withdraw', authCheck, async (req, res) => {
 
       return res.json({ message: 'Withdrawal successful!' });
     } else {
-      console.error('Flutterwave transfer failed:', transferResponse);
+      logger.error('Flutterwave transfer failed');
       return res.status(500).json({ message: 'Transfer failed.', data: transferResponse });
     }
   } catch (err) {
-    console.error('Withdraw error:', err);
+    logger.error(`Error processing withdrawal: ${err.message}`);
     return res.status(500).json({ message: 'Error processing withdrawal.', error: err.message });
   }
 });

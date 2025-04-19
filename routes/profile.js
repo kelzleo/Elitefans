@@ -13,6 +13,7 @@ const flutter = require('../utilis/flutter');
 const Transaction = require('../models/Transaction');
 const Notification = require('../models/notifications');
 const PendingSubscription = require('../models/pendingSubscription'); 
+const logger = require('../logs/logger'); // Import Winston logger
 
 // Set up multer to store files in memory
 const multerStorage = multer.memoryStorage();
@@ -39,6 +40,7 @@ const authCheck = (req, res, next) => {
  * Otherwise, set a locked placeholder.
  */
 const processPostUrls = async (posts, currentUser, ownerUser, adminView = false) => {
+  
   for (const post of posts) {
     if (post.special) {
       const isOwner =
@@ -49,24 +51,26 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
         currentUser.purchasedContent.some(
           (p) => p.contentId.toString() === post._id.toString()
         );
-      console.log(
-        `Processing special post ${post._id}: isOwner=${isOwner}, hasPurchased=${hasPurchased}, adminView=${adminView}`
-      );
       if (adminView || isOwner || hasPurchased) {
         if (!post.contentUrl.startsWith('http')) {
-          post.contentUrl = await generateSignedUrl(post.contentUrl);
-          console.log(`Generated signed URL for special post ${post._id}`);
+          try {
+            post.contentUrl = await generateSignedUrl(post.contentUrl);
+          } catch (err) {
+            logger.error(`Failed to generate signed URL for special post: ${err.message}`);
+            post.contentUrl = '/uploads/placeholder.png';
+          }
         }
       } else {
-        post.contentUrl = '/uploads/locked-placeholder.png';
-        console.log(
-          `Locked special post ${post._id} for user ${currentUser._id}`
-        );
+        post.contentUrl = '/Uploads/locked-placeholder.png';
       }
     } else {
       if (!post.contentUrl.startsWith('http')) {
-        post.contentUrl = await generateSignedUrl(post.contentUrl);
-        console.log(`Generated signed URL for regular post ${post._id}`);
+        try {
+          post.contentUrl = await generateSignedUrl(post.contentUrl);
+        } catch (err) {
+          logger.error(`Failed to generate signed URL for regular post: ${err.message}`);
+          post.contentUrl = '/Uploads/placeholder.png';
+        }
       }
     }
   }
@@ -78,8 +82,8 @@ router.get('/edit', authCheck, (req, res) => {
 
 // POST route to handle profile edits and upload profile picture to Google Cloud Storage
 router.post('/edit', authCheck, uploadFields, async (req, res) => {
+ 
   try {
-    console.log('Updating profile with GCS...');
     const updates = {
       profileName: req.body.profileName,
       bio: req.body.bio,
@@ -88,6 +92,7 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
     // Handle username update
     const newUsername = req.body.username?.trim();
     if (!newUsername) {
+      logger.warn('Username is required in profile edit');
       req.flash('error_msg', 'Username is required.');
       return res.redirect('/profile/edit');
     }
@@ -98,6 +103,7 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
       // Validate username format
       const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
       if (!usernameRegex.test(newUsername)) {
+        logger.warn('Invalid username format in profile edit');
         req.flash('error_msg', 'Username must be 3-20 characters long, alphanumeric, and can include underscores.');
         return res.redirect('/profile/edit');
       }
@@ -105,6 +111,7 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
       // Check for username uniqueness
       const existingUser = await User.findOne({ username: newUsername });
       if (existingUser && existingUser._id.toString() !== req.user._id.toString()) {
+        logger.warn('Username already taken in profile edit');
         req.flash('error_msg', 'This username is already taken.');
         return res.redirect('/profile/edit');
       }
@@ -125,7 +132,10 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
 
       await new Promise((resolve, reject) => {
         profileBlobStream.on('finish', resolve);
-        profileBlobStream.on('error', reject);
+        profileBlobStream.on('error', (err) => {
+          logger.error(`Error uploading profile picture: ${err.message}`);
+          reject(err);
+        });
         profileBlobStream.end(profileFile.buffer);
       });
 
@@ -145,7 +155,10 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
 
       await new Promise((resolve, reject) => {
         coverBlobStream.on('finish', resolve);
-        coverBlobStream.on('error', reject);
+        coverBlobStream.on('error', (err) => {
+          logger.error(`Error uploading cover photo: ${err.message}`);
+          reject(err);
+        });
         coverBlobStream.end(coverFile.buffer);
       });
 
@@ -156,7 +169,7 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
     req.flash('success_msg', 'Profile updated successfully!');
     res.redirect('/profile');
   } catch (err) {
-    console.error('Error updating profile:', err);
+    logger.error(`Error updating profile: ${err.message}`);
     if (err.code === 11000 && err.keyPattern && err.keyPattern.username) {
       req.flash('error_msg', 'This username is already taken.');
     } else {
@@ -165,11 +178,12 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
     res.redirect('/profile/edit');
   }
 });
+
 // Owner's profile route
 // View own profile
 router.get('/', authCheck, async (req, res) => {
+ 
   try {
-    console.log('Loading profile for owner...');
     const user = await User.findById(req.user._id);
 
     await user.checkExpiredSubscriptions();
@@ -181,15 +195,13 @@ router.get('/', authCheck, async (req, res) => {
 
     // Filter out comments with invalid users
     for (const post of posts) {
-      console.log(`Post ${post._id} comments before filtering:`, post.comments);
       post.comments = post.comments.filter(comment => {
         if (comment.user === null) {
-          console.log(`Removing invalid comment on post ${post._id}:`, comment);
+          logger.warn('Removing invalid comment on post');
           return false;
         }
         return true;
       });
-      console.log(`Post ${post._id} comments after filtering:`, post.comments);
     }
 
     await processPostUrls(posts, req.user, user);
@@ -230,18 +242,21 @@ router.get('/', authCheck, async (req, res) => {
       isSubscribed: false,
       posts,
       bundles,
+      env: process.env.NODE_ENV || 'development' // Pass NODE_ENV
     });
   } catch (err) {
-    console.error('Error loading profile:', err);
+    logger.error(`Error loading profile: ${err.message}`);
     res.status(500).send('Error loading profile');
   }
 });
 
 // Unlock special content route (using the Post model)
 router.post('/unlock-special-content', authCheck, async (req, res) => {
+ 
   try {
     const { contentId, creatorId } = req.body;
     if (!contentId || !creatorId) {
+      logger.warn('Missing contentId or creatorId in unlock-special-content');
       return res.status(400).json({
         status: 'error',
         message: 'Creator ID and Content ID are required',
@@ -254,6 +269,7 @@ router.post('/unlock-special-content', authCheck, async (req, res) => {
       special: true,
     });
     if (!specialPost) {
+      logger.warn('Special content not found in unlock-special-content');
       return res.status(404).json({
         status: 'error',
         message: 'Special content not found',
@@ -265,6 +281,7 @@ router.post('/unlock-special-content', authCheck, async (req, res) => {
       (p) => p.contentId.toString() === contentId
     );
     if (alreadyUnlocked) {
+      logger.warn('Content already unlocked in unlock-special-content');
       return res.status(400).json({
         status: 'error',
         message: 'Content already unlocked',
@@ -276,11 +293,6 @@ router.post('/unlock-special-content', authCheck, async (req, res) => {
       creatorId,
       contentId,
       specialPost.unlockPrice
-    );
-
-    console.log(
-      'Special content payment initialization response:',
-      paymentResponse
     );
 
     if (
@@ -310,13 +322,14 @@ router.post('/unlock-special-content', authCheck, async (req, res) => {
         },
       });
     } else {
+      logger.error(`Payment initialization failed: ${paymentResponse.message || 'Unknown error'}`);
       return res.status(400).json({
         status: 'error',
         message: paymentResponse.message || 'Payment initialization failed',
       });
     }
   } catch (err) {
-    console.error('Error unlocking special content:', err);
+    logger.error(`Error unlocking special content: ${err.message}`);
     return res.status(500).json({
       status: 'error',
       message: 'Internal server error',
@@ -326,11 +339,12 @@ router.post('/unlock-special-content', authCheck, async (req, res) => {
 
 // Verify subscription payment and update subscriptions
 router.get('/verify-payment', async (req, res) => {
+ 
   try {
     const { transaction_id, status, tx_ref } = req.query;
     if (status === 'cancelled') return res.redirect('/profile?payment=cancelled');
     if (!transaction_id || !tx_ref) {
-      console.error('Missing transaction_id or tx_ref');
+      logger.warn('Missing transaction_id or tx_ref in verify-payment');
       return res.redirect('/profile?payment=error');
     }
     const paymentResponse = await flutter.verifyPayment(transaction_id);
@@ -341,26 +355,23 @@ router.get('/verify-payment', async (req, res) => {
     ) {
       const user = await User.findOne({ 'pendingTransactions.tx_ref': tx_ref });
       if (!user) {
-        console.error('No pending transaction found for tx_ref:', tx_ref);
+        logger.error('No pending transaction found for tx_ref in verify-payment');
         return res.redirect('/profile?payment=error');
       }
       const pendingTx = user.pendingTransactions.find(
         (tx) => tx.tx_ref === tx_ref && tx.type === 'subscription'
       );
       if (!pendingTx) {
-        console.error('Pending subscription transaction not found');
+        logger.error('Pending subscription transaction not found in verify-payment');
         return res.redirect('/profile?payment=error');
       }
       if (pendingTx.amount !== paymentResponse.data.amount) {
-        console.error('Amount mismatch:', {
-          expected: pendingTx.amount,
-          received: paymentResponse.data.amount,
-        });
+        logger.error('Amount mismatch in verify-payment');
         return res.redirect('/profile?payment=error');
       }
       const bundle = await SubscriptionBundle.findById(pendingTx.bundleId);
       if (!bundle) {
-        console.error('Subscription bundle not found:', pendingTx.bundleId);
+        logger.error('Subscription bundle not found in verify-payment');
         return res.redirect('/profile?payment=error');
       }
 
@@ -441,24 +452,25 @@ router.get('/verify-payment', async (req, res) => {
 
       return res.redirect('/profile?payment=success');
     } else {
-      console.error('Payment verification failed:', paymentResponse);
+      logger.error('Payment verification failed in verify-payment');
       return res.redirect('/profile?payment=failed');
     }
   } catch (error) {
-    console.error('Error in verify-payment:', error);
+    logger.error(`Error in verify-payment: ${error.message}`);
     return res.redirect('/profile?payment=error');
   }
 });
 
 // Verify special payment and update purchasedContent
 router.get('/verify-special-payment', async (req, res) => {
+  
   try {
     const { transaction_id, status, tx_ref } = req.query;
     if (status === 'cancelled') {
       return res.redirect('/profile?specialPayment=cancelled');
     }
     if (!transaction_id || !tx_ref) {
-      console.error('Missing transaction_id or tx_ref');
+      logger.warn('Missing transaction_id or tx_ref in verify-special-payment');
       return res.redirect('/profile?specialPayment=error');
     }
 
@@ -470,21 +482,18 @@ router.get('/verify-special-payment', async (req, res) => {
     ) {
       const user = await User.findOne({ 'pendingTransactions.tx_ref': tx_ref });
       if (!user) {
-        console.error('No pending transaction found for tx_ref:', tx_ref);
+        logger.error('No pending transaction found for tx_ref in verify-special-payment');
         return res.redirect('/profile?specialPayment=error');
       }
       const pendingTx = user.pendingTransactions.find(
         (tx) => tx.tx_ref === tx_ref && tx.type === 'special'
       );
       if (!pendingTx) {
-        console.error('Pending special transaction not found');
+        logger.error('Pending special transaction not found in verify-special-payment');
         return res.redirect('/profile?specialPayment=error');
       }
       if (pendingTx.amount !== paymentResponse.data.amount) {
-        console.error('Amount mismatch:', {
-          expected: pendingTx.amount,
-          received: paymentResponse.data.amount,
-        });
+        logger.error('Amount mismatch in verify-special-payment');
         return res.redirect('/profile?specialPayment=error');
       }
 
@@ -543,24 +552,28 @@ router.get('/verify-special-payment', async (req, res) => {
 
       return res.redirect(`/profile/view/${pendingTx.creatorId}?specialPayment=success`);
     } else {
-      console.error('Payment verification failed:', paymentResponse);
+      logger.error('Payment verification failed in verify-special-payment');
       return res.redirect('/profile?specialPayment=failed');
     }
   } catch (error) {
-    console.error('Error in verify-special-payment:', error);
+    logger.error(`Error in verify-special-payment: ${error.message}`);
     return res.redirect('/profile?specialPayment=error');
   }
 });
 
 // for tip amounts
 router.post('/posts/:postId/tip', authCheck, async (req, res) => {
+
   try {
     const { tipAmount } = req.body;
     // Convert tipAmount to a number
     const numericTip = Number(tipAmount);
 
     const post = await Post.findById(req.params.postId);
-    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (!post) {
+      logger.warn('Post not found in posts/:postId/tip');
+      return res.status(404).json({ message: 'Post not found' });
+    }
 
     const creatorId = post.creator; // the creator of the post
 
@@ -571,8 +584,6 @@ router.post('/posts/:postId/tip', authCheck, async (req, res) => {
       req.params.postId,
       numericTip
     );
-
-    console.log('Tip payment initialization response:', paymentResponse);
 
     if (
       paymentResponse.status === 'success' &&
@@ -602,13 +613,14 @@ router.post('/posts/:postId/tip', authCheck, async (req, res) => {
         }
       });
     } else {
+      logger.error(`Tip payment initialization failed: ${paymentResponse.message || 'Unknown error'}`);
       return res.status(400).json({
         status: 'error',
         message: paymentResponse.message || 'Payment initialization failed'
       });
     }
   } catch (err) {
-    console.error('Error initializing tip payment:', err);
+    logger.error(`Error initializing tip payment: ${err.message}`);
     return res.status(500).json({
       status: 'error',
       message: 'Error processing tip payment'
@@ -618,13 +630,14 @@ router.post('/posts/:postId/tip', authCheck, async (req, res) => {
 
 // Verify tip payment route
 router.get('/verify-tip-payment', async (req, res) => {
+
   try {
     const { transaction_id, status, tx_ref } = req.query;
     if (status === 'cancelled') {
       return res.redirect('/profile?tipPayment=cancelled');
     }
     if (!transaction_id || !tx_ref) {
-      console.error('Missing transaction_id or tx_ref');
+      logger.warn('Missing transaction_id or tx_ref in verify-tip-payment');
       return res.redirect('/profile?tipPayment=error');
     }
 
@@ -636,21 +649,18 @@ router.get('/verify-tip-payment', async (req, res) => {
     ) {
       const user = await User.findOne({ 'pendingTransactions.tx_ref': tx_ref });
       if (!user) {
-        console.error('No user found with tx_ref:', tx_ref);
+        logger.error('No user found with tx_ref in verify-tip-payment');
         return res.redirect('/profile?tipPayment=error');
       }
       const pendingTx = user.pendingTransactions.find(
         (tx) => tx.tx_ref === tx_ref && tx.type === 'tip'
       );
       if (!pendingTx) {
-        console.error('No pending tip transaction found for tx_ref:', tx_ref);
+        logger.error('No pending tip transaction found for tx_ref in verify-tip-payment');
         return res.redirect('/profile?tipPayment=error');
       }
       if (Number(pendingTx.amount) !== Number(paymentResponse.data.amount)) {
-        console.error('Tip amount mismatch:', {
-          expected: pendingTx.amount,
-          received: paymentResponse.data.amount,
-        });
+        logger.error('Tip amount mismatch in verify-tip-payment');
         return res.redirect('/profile?tipPayment=error');
       }
 
@@ -745,20 +755,22 @@ router.get('/verify-tip-payment', async (req, res) => {
 
       return res.redirect('/profile?tipPayment=success');
     } else {
-      console.error('Payment verification failed:', paymentResponse);
+      logger.error('Payment verification failed in verify-tip-payment');
       return res.redirect('/profile?tipPayment=failed');
     }
   } catch (error) {
-    console.error('Error verifying tip payment:', error);
+    logger.error(`Error verifying tip payment: ${error.message}`);
     return res.redirect('/profile?tipPayment=error');
   }
 });
 
 router.post('/tip-creator/:creatorId', authCheck, async (req, res) => {
+  
   try {
     const { tipAmount, tipMessage } = req.body;
     const numericTip = Number(tipAmount);
     if (!numericTip || numericTip <= 0) {
+      logger.warn('Invalid tip amount in tip-creator/:creatorId');
       return res.status(400).json({ message: 'Invalid tip amount' });
     }
     const creatorId = req.params.creatorId;
@@ -799,23 +811,27 @@ router.post('/tip-creator/:creatorId', authCheck, async (req, res) => {
         data: { paymentLink: paymentResponse.meta.authorization.payment_link }
       });
     } else {
+      logger.error(`Tip payment initialization failed: ${paymentResponse.message || 'Unknown error'}`);
       return res.status(400).json({
         status: 'error',
         message: paymentResponse.message || 'Payment initialization failed'
       });
     }
   } catch (err) {
-    console.error('Error initializing profile-level tip payment:', err);
+    logger.error(`Error initializing profile-level tip payment: ${err.message}`);
     return res.status(500).json({
       status: 'error',
       message: 'Error processing tip payment'
     });
   }
 });
+
 router.post('/posts/:postId/like', authCheck, async (req, res) => {
+
   try {
     const post = await Post.findById(req.params.postId);
     if (!post) {
+      logger.warn('Post not found in posts/:postId/like');
       return res.status(404).json({ message: 'Post not found' });
     }
 
@@ -837,7 +853,7 @@ router.post('/posts/:postId/like', authCheck, async (req, res) => {
     // Update the creator's totalLikes
     const creator = await User.findById(post.creator);
     if (!creator) {
-      console.error('Creator not found for post:', post._id);
+      logger.error('Creator not found for post in posts/:postId/like');
       return res.status(404).json({ message: 'Creator not found' });
     }
     await User.findByIdAndUpdate(post.creator, { $inc: { totalLikes: likeChange } });
@@ -848,17 +864,25 @@ router.post('/posts/:postId/like', authCheck, async (req, res) => {
       userLiked: !alreadyLiked,
     });
   } catch (err) {
-    console.error('Error toggling like:', err);
+    logger.error(`Error toggling like: ${err.message}`);
     res.status(500).json({ message: 'An error occurred while toggling the like' });
   }
 });
+
 // Comment on a post
 router.post('/posts/:postId/comment', authCheck, async (req, res) => {
+  
   try {
     const { text } = req.body;
-    if (!text) return res.status(400).json({ message: 'Comment text required' });
+    if (!text) {
+      logger.warn('Comment text required in posts/:postId/comment');
+      return res.status(400).json({ message: 'Comment text required' });
+    }
     const post = await Post.findById(req.params.postId);
-    if (!post) return res.status(404).json({ message: 'Post not found' });
+    if (!post) {
+      logger.warn('Post not found in posts/:postId/comment');
+      return res.status(404).json({ message: 'Post not found' });
+    }
 
     const newComment = { user: req.user._id, text };
     post.comments.push(newComment);
@@ -867,6 +891,7 @@ router.post('/posts/:postId/comment', authCheck, async (req, res) => {
     // Fetch the commenter's username
     const commenter = await User.findById(req.user._id).select('username');
     if (!commenter) {
+      logger.error('Commenter not found in posts/:postId/comment');
       return res.status(500).json({ message: 'Commenter not found' });
     }
 
@@ -879,21 +904,22 @@ router.post('/posts/:postId/comment', authCheck, async (req, res) => {
       commentCount: post.comments.length,
     });
   } catch (err) {
-    console.error('Error commenting on post:', err);
+    logger.error(`Error commenting on post: ${err.message}`);
     res
       .status(500)
       .json({ message: 'An error occurred while submitting your comment' });
   }
 });
-
 // Bookmark/Unbookmark a post
 router.post('/posts/:postId/bookmark', authCheck, async (req, res) => {
+
   try {
     const postId = req.params.postId;
     const userId = req.user._id;
 
     const post = await Post.findById(postId);
     if (!post) {
+      logger.warn('Post not found in posts/:postId/bookmark');
       return res.status(404).json({ message: 'Post not found' });
     }
 
@@ -915,31 +941,31 @@ router.post('/posts/:postId/bookmark', authCheck, async (req, res) => {
       isBookmarked: !isBookmarked
     });
   } catch (error) {
-    console.error('Bookmark Error:', error);
+    logger.error(`Bookmark error: ${error.message}`);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
 router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
+  const logger = require('../logs/logger'); // Import Winston logger
   try {
     const user = await User.findById(req.user._id);
     const isBookmarked = user.bookmarks.some(id => id.toString() === req.params.postId.toString());
     res.json({ isBookmarked });
   } catch (error) {
-    console.error('Error checking bookmark status:', error);
+    logger.error(`Error checking bookmark status: ${error.message}`);
     res.status(500).json({ message: 'Server error' });
   }
 });
-
-
-
 
 router.post(
   '/uploadContent',
   authCheck,
   upload.fields([{ name: 'contentImage' }, { name: 'contentVideo' }]),
   async (req, res) => {
+   
     if (req.user.role !== 'creator') {
+      logger.warn('Unauthorized content upload attempt by non-creator');
       return res
         .status(403)
         .send('You do not have permission to upload content.');
@@ -950,15 +976,6 @@ router.post(
       const unlockPrice = req.body.unlockPrice
         ? Number(req.body.unlockPrice)
         : undefined;
-
-      console.log(
-        'UploadContent: special flag value:',
-        req.body.special,
-        'parsed as:',
-        isSpecial,
-        'unlockPrice:',
-        unlockPrice
-      );
 
       const postsToCreate = [];
 
@@ -974,7 +991,10 @@ router.post(
         });
         await new Promise((resolve, reject) => {
           blobStream.on('finish', resolve);
-          blobStream.on('error', reject);
+          blobStream.on('error', (err) => {
+            logger.error(`Error uploading ${type} to cloud storage: ${err.message}`);
+            reject(err);
+          });
           blobStream.end(file.buffer);
         });
         return blobName;
@@ -1023,6 +1043,7 @@ router.post(
       // Create new Post documents and update creator counters
       const user = await User.findById(req.user._id);
       if (!user) {
+        logger.error('User not found in uploadContent');
         return res.status(404).send('User not found');
       }
 
@@ -1079,7 +1100,7 @@ router.post(
       req.flash('success_msg', 'Content uploaded successfully');
       res.redirect('/profile');
     } catch (err) {
-      console.error('Error uploading content:', err);
+      logger.error(`Error uploading content: ${err.message}`);
       req.flash('error_msg', 'Error uploading content');
       res.status(500).redirect('/profile');
     }
@@ -1088,15 +1109,18 @@ router.post(
 
 // Delete post route
 router.post('/delete-post/:postId', authCheck, async (req, res) => {
+  
   try {
     const post = await Post.findOne({ _id: req.params.postId, creator: req.user._id });
     if (!post) {
+      logger.warn('Post not found or unauthorized in delete-post/:postId');
       req.flash('error_msg', 'Post not found or you are not authorized to delete it');
       return res.status(404).redirect('/profile');
     }
 
     const user = await User.findById(req.user._id);
     if (!user) {
+      logger.error('User not found in delete-post/:postId');
       req.flash('error_msg', 'User not found');
       return res.status(404).redirect('/profile');
     }
@@ -1116,7 +1140,7 @@ router.post('/delete-post/:postId', authCheck, async (req, res) => {
     req.flash('success_msg', 'Post deleted successfully');
     res.redirect('/profile');
   } catch (err) {
-    console.error('Error deleting post:', err);
+    logger.error(`Error deleting post: ${err.message}`);
     req.flash('error_msg', 'Error deleting post');
     res.status(500).redirect('/profile');
   }
@@ -1124,20 +1148,24 @@ router.post('/delete-post/:postId', authCheck, async (req, res) => {
 
 // Admin delete post with reason
 router.post('/admin-delete-post/:postId', authCheck, async (req, res) => {
+  
   try {
     if (req.user.role !== 'admin') {
+      logger.warn('Unauthorized admin delete attempt by non-admin');
       req.flash('error_msg', 'Only admins can delete posts');
       return res.status(403).redirect('/profile');
     }
 
     const { reason } = req.body;
     if (!reason || reason.trim() === '') {
+      logger.warn('Reason for deletion missing in admin-delete-post/:postId');
       req.flash('error_msg', 'Reason for deletion is required');
       return res.status(400).redirect('/profile');
     }
 
     const post = await Post.findById(req.params.postId).populate('creator', 'username _id');
     if (!post || !post.creator) {
+      logger.warn('Post or creator not found in admin-delete-post/:postId');
       req.flash('error_msg', 'Post or creator not found');
       return res.status(404).redirect('/profile');
     }
@@ -1181,36 +1209,40 @@ router.post('/admin-delete-post/:postId', authCheck, async (req, res) => {
     req.flash('success_msg', 'Post deleted successfully');
     res.redirect(`/profile/view/${creator._id}?adminView=true`);
   } catch (err) {
-    console.error('Error deleting post by admin:', err);
+    logger.error(`Error deleting post by admin: ${err.message}`);
     req.flash('error_msg', 'Error deleting post');
     res.status(500).redirect('/profile');
   }
 });
+
 // Create a new subscription bundle
 router.post('/create-bundle', authCheck, async (req, res) => {
+
   try {
     if (req.user.role !== 'creator') {
+      logger.warn('Unauthorized bundle creation attempt by non-creator');
       return res.status(403).send('Only creators can create bundles.');
     }
 
-    // 1) Count existing bundles
+    // Count existing bundles
     const existingCount = await SubscriptionBundle.countDocuments({
       creatorId: req.user._id
     });
     if (existingCount >= 4) {
-      // If user already has 4 bundles, block creation
+      logger.warn('Maximum bundle limit reached in create-bundle');
       return res.status(400).send('You have reached the maximum of 4 bundles.');
     }
 
     const { price, duration, description } = req.body;
 
-    // 2) Validate the duration
+    // Validate the duration
     const validDurations = ['1 day', '1 month', '3 months', '6 months', '1 year'];
     if (!validDurations.includes(duration)) {
+      logger.warn('Invalid duration in create-bundle');
       return res.status(400).send('Invalid duration selected.');
     }
 
-    // 3) Create the new bundle
+    // Create the new bundle
     const bundle = new SubscriptionBundle({
       price,
       duration,
@@ -1219,52 +1251,55 @@ router.post('/create-bundle', authCheck, async (req, res) => {
     });
     await bundle.save();
 
-    res.redirect('/profile'); // Or wherever you want to redirect
+    res.redirect('/profile');
   } catch (err) {
-    console.error(err);
+    logger.error(`Error creating bundle: ${err.message}`);
     res.status(500).send('Error creating bundle');
   }
 });
 
 router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
+  
   try {
-    // 1) Find the bundle by ID
+    // Find the bundle by ID
     const bundle = await SubscriptionBundle.findById(req.params.bundleId);
     if (!bundle) {
+      logger.warn('Bundle not found in delete-bundle/:bundleId');
       return res.status(404).send('Bundle not found');
     }
 
-    // 2) Check if the logged-in user is the owner
+    // Check if the logged-in user is the owner
     if (bundle.creatorId.toString() !== req.user._id.toString()) {
+      logger.warn('Unauthorized bundle deletion attempt in delete-bundle/:bundleId');
       return res.status(403).send('You do not have permission to delete this bundle');
     }
 
-    // 3) Delete it
+    // Delete it
     await SubscriptionBundle.findByIdAndDelete(bundle._id);
 
-    res.redirect('/profile'); // Or wherever you want to go after deletion
+    res.redirect('/profile');
   } catch (err) {
-    console.error('Error deleting bundle:', err);
+    logger.error(`Error deleting bundle: ${err.message}`);
     res.status(500).send('Error deleting bundle');
   }
 });
 
-// routes/profile.js
+// Subscribe route
 router.post('/subscribe', async (req, res) => {
+
   try {
     const { creatorId, bundleId, creatorUsername } = req.body;
-    console.log('Subscribe Request - Body:', req.body, 'SessionID:', req.sessionID, 'Session:', req.session);
 
     // Validate required fields
     if (!creatorId || !bundleId || !creatorUsername) {
-      console.log('Missing creatorId, bundleId, or creatorUsername:', { creatorId, bundleId, creatorUsername });
+      logger.warn('Missing creatorId, bundleId, or creatorUsername in subscribe');
       return res.status(400).json({ status: 'error', message: 'Creator ID, Bundle ID, and Creator Username are required' });
     }
 
     // Validate creator
     const creator = await User.findById(creatorId);
     if (!creator || creator.username !== creatorUsername || creator.role !== 'creator') {
-      console.log('Creator not found, username mismatch, or not a creator:', { creatorId, creatorUsername });
+      logger.warn('Creator not found, username mismatch, or not a creator in subscribe');
       return res.status(404).json({ status: 'error', message: 'Creator not found or not a valid creator' });
     }
 
@@ -1287,32 +1322,27 @@ router.post('/subscribe', async (req, res) => {
         },
         { upsert: true, new: true }
       );
-      console.log('Saved pending subscription:', pendingSub);
-
-      console.log('Non-logged-in user, setting session.redirectTo:', redirectUrl, 'session.creator:', creator.username, 'session.subscriptionData:', { creatorId, bundleId }, 'SessionID:', req.sessionID);
 
       // Save session
       await new Promise((resolve, reject) => {
         req.session.save(err => {
           if (err) {
-            console.error('Session save error in /subscribe:', err);
+            logger.error(`Session save error in subscribe: ${err.message}`);
             reject(err);
           } else {
-            console.log('Session saved successfully in /subscribe:', req.session);
             resolve();
           }
         });
       });
 
       const welcomeUrl = `/?creator=${encodeURIComponent(creator.username)}`;
-      console.log('Redirecting to:', welcomeUrl);
       return res.redirect(welcomeUrl);
     }
 
-    // Logic for logged-in users (unchanged)
+    // Logic for logged-in users
     const user = await User.findById(req.user._id);
     if (!user) {
-      console.log('User not found:', req.user._id);
+      logger.error('User not found in subscribe');
       return res.status(404).json({ status: 'error', message: 'User not found' });
     }
 
@@ -1330,22 +1360,21 @@ router.post('/subscribe', async (req, res) => {
       (sub) => sub.creatorId.toString() === creatorId && sub.status === 'active' && sub.subscriptionExpiry > now
     );
     if (isSubscribed) {
-      console.log('User already subscribed to creator:', creatorId);
+      logger.warn('User already subscribed to creator in subscribe');
       return res.status(400).json({ status: 'error', message: 'You are already subscribed to this creator' });
     }
 
     const bundle = await SubscriptionBundle.findById(bundleId);
     if (!bundle) {
-      console.log('Bundle not found:', bundleId);
+      logger.warn('Bundle not found in subscribe');
       return res.status(404).json({ status: 'error', message: 'Subscription bundle not found' });
     }
     if (bundle.creatorId.toString() !== creatorId) {
-      console.log('Bundle does not belong to creator:', { bundleId, creatorId });
+      logger.warn('Bundle does not belong to creator in subscribe');
       return res.status(400).json({ status: 'error', message: 'Invalid bundle for this creator' });
     }
 
     const paymentResponse = await flutter.initializePayment(req.user._id, creatorId, bundleId);
-    console.log('Subscription payment initialization response:', paymentResponse);
 
     if (paymentResponse.status === 'success' && paymentResponse.meta?.authorization) {
       const authorization = paymentResponse.meta.authorization;
@@ -1383,14 +1412,14 @@ router.post('/subscribe', async (req, res) => {
         },
       });
     } else {
-      console.log('Payment initialization failed:', paymentResponse.message);
+      logger.error(`Payment initialization failed in subscribe: ${paymentResponse.message || 'Unknown error'}`);
       return res.status(400).json({
         status: 'error',
         message: paymentResponse.message || 'Payment initialization failed',
       });
     }
   } catch (err) {
-    console.error('Subscription error:', err);
+    logger.error(`Subscription error: ${err.message}`);
     return res.status(500).json({
       status: 'error',
       message: 'An error occurred while processing your subscription',
@@ -1398,27 +1427,30 @@ router.post('/subscribe', async (req, res) => {
     });
   }
 });
+
 // Webhook route to handle payment notifications
 router.post('/webhook', async (req, res) => {
+ 
   try {
     const event = req.body;
 
     if (event.event === 'charge.success') {
-      // 1) Find user, creator, and bundle from event metadata
+      // Find user, creator, and bundle from event metadata
       const user = await User.findById(event.metadata.user_id);
       const creator = await User.findById(event.metadata.creator_id);
       const bundle = await SubscriptionBundle.findById(event.metadata.bundle_id);
 
       if (!user || !creator || !bundle) {
+        logger.error('User, creator, or bundle not found in webhook');
         return res.status(404).send('User, creator, or bundle not found.');
       }
 
-      // 2) Parse bundle.duration (e.g. "1 day") into milliseconds
+      // Parse bundle.duration into milliseconds
       let subscriptionExpiry = new Date();
       if (bundle.duration === '1 day') {
-        subscriptionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24h
+        subscriptionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
       } else if (bundle.duration === '1 month') {
-        subscriptionExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // ~30 days
+        subscriptionExpiry = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       } else if (bundle.duration === '3 months') {
         subscriptionExpiry = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
       } else if (bundle.duration === '6 months') {
@@ -1427,7 +1459,7 @@ router.post('/webhook', async (req, res) => {
         subscriptionExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
       }
 
-      // 3) Create a new subscription object
+      // Create a new subscription object
       const subscription = {
         creatorId: creator._id,
         subscriptionBundle: bundle._id,
@@ -1436,30 +1468,29 @@ router.post('/webhook', async (req, res) => {
         status: 'active',
       };
 
-      // 4) Push the subscription to the user
+      // Push the subscription to the user
       user.subscriptions.push(subscription);
       await user.save();
 
-      // 5) (Optional) Add any logic to create transactions or notify the creator
-      // e.g., Transaction.create({...}) or Notification.create({...})
-
       res.send('Webhook received and processed!');
     } else {
-      // If it's not a 'charge.success' event, ignore or handle accordingly
       res.send('Webhook received but not processed!');
     }
   } catch (err) {
-    console.error('Error processing webhook:', err);
+    logger.error(`Error processing webhook: ${err.message}`);
     res.status(500).send('Error processing webhook');
   }
 });
 
-
 router.get('/:username', async (req, res) => {
+  
   try {
     const username = req.params.username;
     const ownerUser = await User.findOne({ username });
-    if (!ownerUser) return res.status(404).send('User not found');
+    if (!ownerUser) {
+      logger.warn('User not found in :username');
+      return res.status(404).send('User not found');
+    }
 
     // Update subscriber count and check expired subscriptions
     await ownerUser.checkExpiredSubscriptions();
@@ -1512,14 +1543,6 @@ router.get('/:username', async (req, res) => {
       subscriberCount: ownerUser.subscriberCount || 0
     };
 
-    // Log the user object for debugging
-    console.log('User stats for rendering:', {
-      imagesCount: user.imagesCount,
-      videosCount: user.videosCount,
-      totalLikes: user.totalLikes,
-      subscriberCount: user.subscriberCount
-    });
-
     // Render the profile view
     res.render('profile', {
       user,
@@ -1528,17 +1551,23 @@ router.get('/:username', async (req, res) => {
       isSubscribed,
       bundles,
       adminView,
+      env: process.env.NODE_ENV || 'development' // Pass NODE_ENV
     });
   } catch (err) {
-    console.error('Error loading profile by username:', err);
+    logger.error(`Error loading profile by username: ${err.message}`);
     res.status(500).send('Error loading profile');
   }
 });
+
 // View another user's profile
 router.get('/view/:id', authCheck, async (req, res) => {
+  
   try {
     const ownerUser = await User.findById(req.params.id);
-    if (!ownerUser) return res.status(404).send('User not found');
+    if (!ownerUser) {
+      logger.warn('User not found in view/:id');
+      return res.status(404).send('User not found');
+    }
 
     await ownerUser.updateSubscriberCount();
 
@@ -1564,7 +1593,7 @@ router.get('/view/:id', authCheck, async (req, res) => {
       for (const post of posts) {
         post.comments = post.comments.filter(comment => {
           if (comment.user === null) {
-            console.log(`Removing invalid comment on post ${post._id}:`, comment);
+            logger.warn('Removing invalid comment on post in view/:id');
             return false;
           }
           return true;
@@ -1609,10 +1638,11 @@ router.get('/view/:id', authCheck, async (req, res) => {
       isSubscribed: isSubscribed || adminView,
       posts,
       bundles,
-      adminView, // Add this to pass adminView to the template
+      adminView,
+      env: process.env.NODE_ENV || 'development' // Pass NODE_ENV
     });
   } catch (err) {
-    console.error('Error loading user profile:', err);
+    logger.error(`Error loading user profile: ${err.message}`);
     res.status(500).send('Error loading profile');
   }
 });

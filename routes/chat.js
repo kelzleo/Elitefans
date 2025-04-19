@@ -1,11 +1,14 @@
+// routes/chat.js
 const express = require('express');
 const router = express.Router();
 const User = require('../models/users');
 const Chat = require('../models/chat');
+const logger = require('../logs/logger'); // Import Winston logger at top
 
 // Authentication middleware
 const authCheck = (req, res, next) => {
   if (!req.user) {
+    logger.warn('Unauthorized access attempt to chat page');
     req.flash('error_msg', 'You must be logged in to access chat.');
     return res.redirect('/users/login');
   }
@@ -17,6 +20,7 @@ router.get('/', authCheck, async (req, res) => {
   try {
     const { creatorId } = req.query;
     if (!creatorId) {
+      logger.warn('No creator specified for chat');
       req.flash('error_msg', 'No creator specified for chat.');
       return res.redirect('/home');
     }
@@ -24,6 +28,7 @@ router.get('/', authCheck, async (req, res) => {
     const currentUser = req.user;
     const creator = await User.findById(creatorId);
     if (!creator) {
+      logger.warn('Creator not found for chat initiation');
       req.flash('error_msg', 'Creator not found.');
       return res.redirect('/home');
     }
@@ -38,6 +43,7 @@ router.get('/', authCheck, async (req, res) => {
         (sub) => sub.creatorId.toString() === creatorId && sub.status === 'active'
       );
       if (!isSubscribed) {
+        logger.warn('User not subscribed to creator for chat initiation');
         req.flash('error_msg', 'You must be subscribed to start a chat with this creator.');
         return res.redirect('/profile/view/' + creatorId);
       }
@@ -47,31 +53,32 @@ router.get('/', authCheck, async (req, res) => {
 
     return res.redirect(`/chat/${chat._id}`);
   } catch (error) {
-    console.error('Error initiating chat:', error);
+    logger.error(`Error initiating chat: ${error.message}`);
     req.flash('error_msg', 'Error initiating chat.');
     res.redirect('/home');
   }
 });
 
 // Route to render the chat view for a given chat ID
-// In the chat view route handler:
 router.get('/:chatId', authCheck, async (req, res) => {
   try {
     const chatId = req.params.chatId;
     let chat = await Chat.findById(chatId)
       .populate('participants', 'username profilePicture role isOnline lastSeen');
     if (!chat) {
+      logger.warn('Chat not found in /:chatId');
       req.flash('error_msg', 'Chat not found.');
       return res.redirect('/chats');
     }
     const currentUser = req.user;
 
     if (!chat.participants.some(p => p._id.toString() === currentUser._id.toString())) {
+      logger.warn('Unauthorized access to chat in /:chatId');
       req.flash('error_msg', 'You are not authorized to view this chat.');
       return res.redirect('/chats');
     }
 
-    // Mark messages as read - fixed to use readBy array
+    // Mark messages as read
     let updated = false;
     chat.messages.forEach(message => {
       if (message.sender.toString() !== currentUser._id.toString() && 
@@ -93,7 +100,7 @@ router.get('/:chatId', authCheck, async (req, res) => {
 
     res.render('chat', { chat, creator: otherParticipant, currentUser });
   } catch (error) {
-    console.error('Error loading chat:', error);
+    logger.error(`Error loading chat: ${error.message}`);
     req.flash('error_msg', 'Error loading chat.');
     res.redirect('/chats');
   }
@@ -105,12 +112,13 @@ router.get('/media/:chatId/:filename', authCheck, async (req, res) => {
     const { chatId, filename } = req.params;
     const chat = await Chat.findById(chatId);
     if (!chat || !chat.participants.some(p => p._id.toString() === req.user._id.toString())) {
+      logger.warn('Unauthorized access to chat media');
       return res.status(403).json({ error: 'Unauthorized' });
     }
     const signedUrl = await require('../utilis/cloudStorage').generateSignedUrlForChatMedia(filename, req.user._id, chatId);
     res.json({ url: signedUrl });
   } catch (err) {
-    console.error('Error serving chat media:', err);
+    logger.error(`Error serving chat media: ${err.message}`);
     res.status(500).json({ error: 'Failed to serve media' });
   }
 });

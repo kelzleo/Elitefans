@@ -1,13 +1,22 @@
+// utilis/cloudStorage.js
 const { Storage } = require('@google-cloud/storage');
 const path = require('path');
+const logger = require('../logs/logger'); // Import Winston logger at top
 
 // Decode the Base64-encoded credentials from GCLOUD_CREDS_BASE64
-const credentialsBase64 = process.env.GCLOUD_CREDS_BASE64;
-if (!credentialsBase64) {
-  throw new Error('GCLOUD_CREDS_BASE64 environment variable is not set');
+let credentials;
+try {
+  const credentialsBase64 = process.env.GCLOUD_CREDS_BASE64;
+  if (!credentialsBase64) {
+    logger.error('GCLOUD_CREDS_BASE64 environment variable is not set');
+    throw new Error('GCLOUD_CREDS_BASE64 environment variable is not set');
+  }
+  const credentialsJson = Buffer.from(credentialsBase64, 'base64').toString('utf-8');
+  credentials = JSON.parse(credentialsJson);
+} catch (err) {
+  logger.error(`Error decoding GCLOUD_CREDS_BASE64: ${err.message}`);
+  throw err;
 }
-const credentialsJson = Buffer.from(credentialsBase64, 'base64').toString('utf-8');
-const credentials = JSON.parse(credentialsJson);
 
 // Initialize Google Cloud Storage client with the credentials
 const storage = new Storage({
@@ -41,7 +50,7 @@ const generateSignedUrl = async (filename) => {
     const [url] = await bucket.file(filename).getSignedUrl(options);
     return url;
   } catch (err) {
-    console.error('Error generating signed URL:', err);
+    logger.error(`Error generating signed URL for private content: ${err.message}`);
     throw err;
   }
 };
@@ -49,20 +58,21 @@ const generateSignedUrl = async (filename) => {
 // Function to generate a signed URL for chat media, with authorization check
 const generateSignedUrlForChatMedia = async (filename, userId, chatId) => {
   const Chat = require('../models/chat');
-  const chat = await Chat.findById(chatId);
-  if (!chat || !chat.participants.some(p => p.toString() === userId.toString())) {
-    throw new Error('Unauthorized access to chat media');
-  }
-  const options = {
-    version: 'v4',
-    action: 'read',
-    expires: Date.now() + 15 * 60 * 1000, // 15 minutes
-  };
   try {
+    const chat = await Chat.findById(chatId);
+    if (!chat || !chat.participants.some(p => p.toString() === userId.toString())) {
+      logger.warn('Unauthorized access attempt to chat media');
+      throw new Error('Unauthorized access to chat media');
+    }
+    const options = {
+      version: 'v4',
+      action: 'read',
+      expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+    };
     const [url] = await chatBucket.file(filename).getSignedUrl(options);
     return url;
   } catch (err) {
-    console.error('Error generating signed URL for chat media:', err);
+    logger.error(`Error generating signed URL for chat media: ${err.message}`);
     throw err;
   }
 };
@@ -78,7 +88,7 @@ const generateSignedUrlForCreatorRequest = async (filename) => {
     const [url] = await creatorRequestsBucket.file(filename).getSignedUrl(options);
     return url;
   } catch (err) {
-    console.error('Error generating signed URL for creator request:', err);
+    logger.error(`Error generating signed URL for creator request: ${err.message}`);
     throw err;
   }
 };

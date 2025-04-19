@@ -1,7 +1,9 @@
+// utilis/flutter.js
 const fetch = require('node-fetch');
 const User = require('../models/users');
 const SubscriptionBundle = require('../models/SubscriptionBundle');
 require('dotenv').config();
+const logger = require('../logs/logger'); // Import Winston logger at top
 
 /**
  * Verifies BVN details using Flutterwave's BVN verification endpoint.
@@ -15,21 +17,22 @@ require('dotenv').config();
 async function verifyBVNInfo(bvn, firstName, lastName) {
   // Input validation
   if (!/^\d{11}$/.test(bvn)) {
+    logger.warn('Invalid BVN format in verifyBVNInfo');
     throw new Error('BVN must be an 11-digit number');
   }
   if (!firstName || !firstName.trim()) {
+    logger.warn('Missing first name in verifyBVNInfo');
     throw new Error('First name is required');
   }
   if (!lastName || !lastName.trim()) {
+    logger.warn('Missing last name in verifyBVNInfo');
     throw new Error('Last name is required');
   }
 
   try {
-    // Log API request for debugging
-    console.log(`Sending BVN verification request for BVN: ${bvn.substring(0, 4)}******`);
-
     // Check if API key exists
     if (!process.env.FLUTTERWAVE_SECRET_KEY) {
+      logger.error('Flutterwave API key is missing');
       throw new Error('Flutterwave API key is missing. Please check your environment configuration.');
     }
 
@@ -45,9 +48,6 @@ async function verifyBVNInfo(bvn, firstName, lastName) {
     
     const data = await response.json();
     
-    // Log API response for debugging (excluding sensitive data)
-    console.log('BVN verification response status:', data.status);
-    
     if (data.status === 'success') {
       // Validate that the returned name matches what was provided
       const bvnFirstName = data.data.first_name.toLowerCase();
@@ -56,30 +56,23 @@ async function verifyBVNInfo(bvn, firstName, lastName) {
       const providedLastName = lastName.trim().toLowerCase();
       
       if (bvnFirstName !== providedFirstName || bvnLastName !== providedLastName) {
+        logger.warn('BVN names do not match provided names');
         throw new Error('Provided names do not match BVN records.');
       }
       
       return data.data;
     } else {
-      // Log the specific error from Flutterwave
-      console.error('BVN verification failed with error:', data.message || 'Unknown error');
+      logger.error(`BVN verification failed: ${data.message || 'Unknown error'}`);
       throw new Error(data.message || 'BVN verification failed. Please check your details and try again.');
     }
   } catch (error) {
-    // Log the full error for debugging
-    console.error('BVN verification error:', error);
-    
-    // If it's a network error, provide a more descriptive message
+    logger.error(`BVN verification error: ${error.message}`);
     if (error.name === 'FetchError') {
       throw new Error('Network error when connecting to verification service. Please try again later.');
     }
-    
-    // If it's our own error with a message, pass it through
     if (error.message && !error.message.includes('Unable to verify BVN')) {
       throw error;
     }
-    
-    // Default error
     throw new Error('Unable to verify BVN at this time. Please try again later.');
   }
 }
@@ -94,18 +87,13 @@ async function initializePayment(userId, creatorId, bundleId) {
     const bundle = await SubscriptionBundle.findById(bundleId);
 
     if (!user || !creator || !bundle) {
-      console.error('initializePayment: Missing data', { user: !!user, creator: !!creator, bundle: !!bundle });
+      logger.warn('Missing user, creator, or bundle data in initializePayment');
       throw new Error('Missing user, creator, or bundle data');
     }
 
-    if (!process.env.BASE_URL) {
-      console.error('initializePayment: BASE_URL is not set');
-      throw new Error('BASE_URL environment variable is missing');
-    }
-
-    if (!process.env.FLUTTERWAVE_SECRET_KEY) {
-      console.error('initializePayment: Missing FLUTTERWAVE_SECRET_KEY');
-      throw new Error('Flutterwave API key is missing');
+    if (!process.env.BASE_URL || !process.env.FLUTTERWAVE_SECRET_KEY) {
+      logger.error('Missing environment variables in initializePayment');
+      throw new Error('Required environment variables are missing');
     }
 
     const tx_ref = `SUB_${Date.now()}_${creatorId}_${bundleId}`;
@@ -132,15 +120,6 @@ async function initializePayment(userId, creatorId, bundleId) {
       }
     };
 
-    console.log('initializePayment: Payload', {
-      tx_ref,
-      amount: bundle.price,
-      email: user.email,
-      username: user.username,
-      creatorUsername: creator.username,
-      redirect_url
-    });
-
     const response = await fetch('https://api.flutterwave.com/v3/payments', {
       method: 'POST',
       headers: {
@@ -152,27 +131,22 @@ async function initializePayment(userId, creatorId, bundleId) {
 
     const data = await response.json();
 
-    console.log('initializePayment: Flutterwave response', {
-      status: data.status,
-      message: data.message,
-      responseStatus: response.status
-    });
-
-    if (data.status === 'success') {
-      return {
-        status: 'success',
-        meta: {
-          authorization: {
-            payment_link: data.data.link,
-            transfer_reference: tx_ref
-          }
-        }
-      };
-    } else {
+    if (data.status !== 'success') {
+      logger.error(`Flutterwave API failed in initializePayment: ${data.message || 'Unknown error'}`);
       throw new Error(`Failed to initialize payment: ${data.message || 'Unknown error'}`);
     }
+
+    return {
+      status: 'success',
+      meta: {
+        authorization: {
+          payment_link: data.data.link,
+          transfer_reference: tx_ref
+        }
+      }
+    };
   } catch (error) {
-    console.error('initializePayment: Error', error);
+    logger.error(`Error in initializePayment: ${error.message}`);
     throw error;
   }
 }
@@ -184,6 +158,11 @@ async function initializeSpecialPayment(userId, creatorId, contentId, amount) {
   try {
     const user = await User.findById(userId);
     const creator = await User.findById(creatorId);
+
+    if (!user || !creator) {
+      logger.warn('Missing user or creator data in initializeSpecialPayment');
+      throw new Error('Missing user or creator data');
+    }
 
     const tx_ref = `SPECIAL_${Date.now()}_${userId}_${contentId}`;
 
@@ -231,9 +210,11 @@ async function initializeSpecialPayment(userId, creatorId, contentId, amount) {
         }
       };
     } else {
+      logger.error(`Flutterwave API failed in initializeSpecialPayment: ${data.message || 'Unknown error'}`);
       throw new Error('Failed to initialize special payment');
     }
   } catch (error) {
+    logger.error(`Error in initializeSpecialPayment: ${error.message}`);
     throw error;
   }
 }
@@ -254,6 +235,7 @@ async function verifyPayment(transaction_id) {
     });
 
     if (!response.ok) {
+      logger.error(`HTTP error in verifyPayment: status ${response.status}`);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
@@ -261,6 +243,7 @@ async function verifyPayment(transaction_id) {
 
     return data;
   } catch (error) {
+    logger.error(`Error in verifyPayment: ${error.message}`);
     throw error;
   }
 }
@@ -294,9 +277,11 @@ async function transferToBank(bankCode, accountNumber, amount, reference = `WITH
     if (data.status === 'success') {
       return data;
     } else {
+      logger.error(`Flutterwave transfer failed in transferToBank: ${data.message || 'Unknown error'}`);
       throw new Error('Failed to initiate transfer');
     }
   } catch (error) {
+    logger.error(`Error in transferToBank: ${error.message}`);
     throw error;
   }
 }
@@ -308,6 +293,12 @@ async function initializeTipPayment(userId, creatorId, postId, amount, message =
   try {
     const user = await User.findById(userId);
     const creator = await User.findById(creatorId);
+
+    if (!user || !creator) {
+      logger.warn('Missing user or creator data in initializeTipPayment');
+      throw new Error('Missing user or creator data');
+    }
+
     const tx_ref = `TIP_${Date.now()}_${userId}_${postId || 'profile'}`;
 
     const payload = {
@@ -354,9 +345,11 @@ async function initializeTipPayment(userId, creatorId, postId, amount, message =
         }
       };
     } else {
+      logger.error(`Flutterwave API failed in initializeTipPayment: ${data.message || 'Unknown error'}`);
       throw new Error('Failed to initialize tip payment');
     }
   } catch (error) {
+    logger.error(`Error in initializeTipPayment: ${error.message}`);
     throw error;
   }
 }

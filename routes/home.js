@@ -4,11 +4,12 @@ const router = express.Router();
 const User = require('../models/users');
 const Post = require('../models/Post');
 const { generateSignedUrl } = require('../utilis/cloudStorage');
+const logger = require('../logs/logger'); // Import Winston logger
 
 // Authentication middleware
 const authCheck = (req, res, next) => {
   if (!req.user) {
-    console.log('authCheck failed: No user found in session');
+    logger.warn('authCheck failed: No user found in session');
     return res.redirect('/');
   }
   next();
@@ -30,7 +31,12 @@ const processPostUrlForFeed = async (post, currentUser) => {
       );
     if (hasPurchased) {
       if (post.contentUrl && !post.contentUrl.startsWith('http')) {
-        post.contentUrl = await generateSignedUrl(post.contentUrl);
+        try {
+          post.contentUrl = await generateSignedUrl(post.contentUrl);
+        } catch (err) {
+          logger.error(`Failed to generate signed URL for post: ${err.message}`);
+          post.contentUrl = '/uploads/placeholder.png';
+        }
       }
       post.locked = false;
     } else {
@@ -39,7 +45,12 @@ const processPostUrlForFeed = async (post, currentUser) => {
     }
   } else {
     if (post.contentUrl && !post.contentUrl.startsWith('http')) {
-      post.contentUrl = await generateSignedUrl(post.contentUrl);
+      try {
+        post.contentUrl = await generateSignedUrl(post.contentUrl);
+      } catch (err) {
+        logger.error(`Failed to generate signed URL for post: ${err.message}`);
+        post.contentUrl = '/uploads/placeholder.png';
+      }
     }
     post.locked = false;
   }
@@ -58,7 +69,12 @@ router.get('/', authCheck, async (req, res) => {
           { username: { $regex: query, $options: 'i' } },
           { profileName: { $regex: query, $options: 'i' } }
         ]
-      });
+      }); // Removed .lean() to work with Mongoose documents
+
+      // Update subscriberCount for each creator
+      for (const creator of matchingCreators) {
+        await creator.updateSubscriberCount();
+      }
 
       return res.render('home', {
         user: req.user,
@@ -66,7 +82,8 @@ router.get('/', authCheck, async (req, res) => {
         posts: [],
         creators: matchingCreators,
         featuredCreators: [],
-        search: query
+        search: query,
+        env: process.env.NODE_ENV || 'development'
       });
     } else {
       // Feed mode
@@ -84,30 +101,20 @@ router.get('/', authCheck, async (req, res) => {
         .populate('comments.user', 'username')
         .sort({ createdAt: -1 });
 
-      // Filter out posts where creator is null (e.g., deleted user)
       const validPosts = posts.filter(post => post.creator !== null);
 
-      // Filter out comments with invalid users and process post URLs
       for (const post of validPosts) {
-        // Log comments before filtering for debugging
-        console.log(`Post ${post._id} comments before filtering:`, post.comments);
-
-        // Filter out comments where the user is null (i.e., deleted user)
         post.comments = post.comments.filter(comment => {
           if (comment.user === null) {
-            console.log(`Removing invalid comment on post ${post._id}:`, comment);
+            logger.warn(`Removing invalid comment on post`);
             return false;
           }
           return true;
         });
 
-        // Log comments after filtering for debugging
-        console.log(`Post ${post._id} comments after filtering:`, post.comments);
-
         await processPostUrlForFeed(post, currentUser);
       }
 
-      // Fetch trending creators and update subscriberCount
       const featuredCreators = await User.aggregate([
         { $match: { role: 'creator' } },
         {
@@ -124,15 +131,11 @@ router.get('/', authCheck, async (req, res) => {
         { $limit: 5 }
       ]);
 
-      // Update subscriberCount for each featured creator
       for (const creator of featuredCreators) {
         const creatorDoc = await User.findById(creator._id);
         await creatorDoc.updateSubscriberCount();
-        creator.subscriberCount = creatorDoc.subscriberCount; // Update the aggregated object
+        creator.subscriberCount = creatorDoc.subscriberCount;
       }
-
-      console.log('Current User Bookmarks:', currentUser.bookmarks.map(b => b.toString()));
-      console.log('Post IDs:', validPosts.map(p => p._id.toString()));
 
       return res.render('home', {
         user: req.user,
@@ -140,11 +143,12 @@ router.get('/', authCheck, async (req, res) => {
         posts: validPosts,
         creators: [],
         featuredCreators,
-        search: ''
+        search: '',
+        env: process.env.NODE_ENV || 'development'
       });
     }
   } catch (err) {
-    console.error('Error in home route:', err);
+    logger.error(`Error in home route: ${err.message}`);
     res.status(500).send('Error loading home page');
   }
 });
@@ -152,9 +156,7 @@ router.get('/', authCheck, async (req, res) => {
 // Search suggestions route for autocomplete
 router.get('/search-suggestions', authCheck, async (req, res) => {
   try {
-    console.log('User in session for /search-suggestions:', req.user);
     const query = req.query.query;
-    console.log('Search suggestions query:', query);
     if (!query || query.trim() === '') {
       return res.json({ creators: [] });
     }
@@ -163,36 +165,8 @@ router.get('/search-suggestions', authCheck, async (req, res) => {
       role: 'creator',
       $or: [
         { username: { $regex: query, $options: 'i' } },
-        { profileName: { $regex: query, $options: 'i' } },
-      ],
-    })
-      .select('username profileName profilePicture')
-      .limit(5);
-
-    console.log('Matching creators for suggestions:', matchingCreators);
-    res.json({ creators: matchingCreators });
-  } catch (err) {
-    console.error('Error in search-suggestions route:', err);
-    res.status(500).json({ message: 'Error fetching suggestions', error: err.message });
-  }
-});
-
-// Search creators route for dynamic results
-router.get('/search-creators', authCheck, async (req, res) => {
-  try {
-    console.log('User in session for /search-creators:', req.user);
-    const query = req.query.query;
-    console.log('Search creators query:', query);
-    if (!query || query.trim() === '') {
-      return res.json({ creators: [] });
-    }
-
-    const matchingCreators = await User.find({
-      role: 'creator',
-      $or: [
-        { username: { $regex: query, $options: 'i' } },
-        { profileName: { $regex: query, $options: 'i' } },
-      ],
+        { profileName: { $regex: query, $options: 'i' } }
+      ]
     })
       .select('username profileName profilePicture subscriberCount')
       .limit(5);
@@ -202,10 +176,39 @@ router.get('/search-creators', authCheck, async (req, res) => {
       await creator.updateSubscriberCount();
     }
 
-    console.log('Matching creators for search:', matchingCreators);
     res.json({ creators: matchingCreators });
   } catch (err) {
-    console.error('Error in search-creators route:', err);
+    logger.error(`Error in search-suggestions route: ${err.message}`);
+    res.status(500).json({ message: 'Error fetching suggestions', error: err.message });
+  }
+});
+
+// Search creators route for dynamic results
+router.get('/search-creators', authCheck, async (req, res) => {
+  try {
+    const query = req.query.query;
+    if (!query || query.trim() === '') {
+      return res.json({ creators: [] });
+    }
+
+    const matchingCreators = await User.find({
+      role: 'creator',
+      $or: [
+        { username: { $regex: query, $options: 'i' } },
+        { profileName: { $regex: query, $options: 'i' } }
+      ]
+    })
+      .select('username profileName profilePicture subscriberCount')
+      .limit(5);
+
+    // Update subscriberCount for each creator
+    for (const creator of matchingCreators) {
+      await creator.updateSubscriberCount();
+    }
+
+    res.json({ creators: matchingCreators });
+  } catch (err) {
+    logger.error(`Error in search-creators route: ${err.message}`);
     res.status(500).json({ message: 'Error fetching search results', error: err.message });
   }
 });
