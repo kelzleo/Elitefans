@@ -779,7 +779,8 @@
     const profileContainer = document.querySelector('.profile-container');
     const isCreatorViewingOwnProfile = getDataBoolean(profileContainer, 'isCreatorViewing');
     const isVisitorSubscribed = getDataBoolean(profileContainer, 'isSubscribed');
-    const isLoggedIn = getDataBoolean(profileContainer, 'currentUser'); // Check if user is logged in
+    const isLoggedIn = getDataBoolean(profileContainer, 'currentUser');
+    const creatorUsername = '<%= user.username %>'; // Ensure creator username is available
 
     // --- Subscription Dropdown Toggle ---
     const toggleBtn = document.getElementById('toggleBundlesBtn');
@@ -787,10 +788,28 @@
 
     if (toggleBtn && dropdown) {
       dropdown.classList.add('hidden');
-      toggleBtn.addEventListener('click', (e) => {
+      toggleBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
+        console.log('ToggleBundlesBtn clicked - isLoggedIn:', isLoggedIn, 'creatorUsername:', creatorUsername);
         if (!isLoggedIn) {
-          window.location.href = '/'; // Redirect to welcome.ejs for non-logged-in users
+          console.log('Non-logged-in user, storing redirect and redirecting');
+          try {
+            const redirectResponse = await fetch('/store-redirect', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ redirectTo: `/profile/${encodeURIComponent(creatorUsername)}` })
+            });
+            if (!redirectResponse.ok) {
+              console.error('Failed to store redirect, status:', redirectResponse.status, 'message:', await redirectResponse.text());
+            } else {
+              console.log('Successfully stored redirect to:', `/profile/${encodeURIComponent(creatorUsername)}`);
+            }
+          } catch (error) {
+            console.error('Error during /store-redirect fetch for toggleBtn:', error.message);
+          }
+          const redirectUrl = `/?creator=${encodeURIComponent(creatorUsername)}`;
+          console.log('Redirecting non-logged-in user to:', redirectUrl);
+          window.location.href = redirectUrl;
           return;
         }
         dropdown.classList.toggle('hidden');
@@ -802,6 +821,8 @@
           if (toggleBtn) toggleBtn.classList.remove('active');
         }
       });
+    } else {
+      console.warn('toggleBundlesBtn or subscriptionDropdown not found');
     }
 
     // --- Toggle Unlock Price based on Special Checkbox ---
@@ -963,23 +984,49 @@
     });
 
     // --- AJAX for Bundle Subscription ---
+    // AJAX for Bundle Subscription
 document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
     const creatorId = form.querySelector('input[name="creatorId"]').value;
-    console.log('Subscribe form submitted - isLoggedIn:', isLoggedIn, 'creatorId:', creatorId);
+    const bundleId = form.querySelector('input[name="bundleId"]').value;
+    const creatorUsername = form.querySelector('input[name="creatorUsername"]').value || '<%= user.username %>';
+    console.log('Subscribe form submitted - isLoggedIn:', isLoggedIn, 'creatorId:', creatorId, 'bundleId:', bundleId, 'creatorUsername:', creatorUsername);
+    
     if (!isLoggedIn) {
-      const creator = '<%= user.username %>'; // Use server-side username
-      console.log('Non-logged-in user, redirecting to:', `/?creator=${encodeURIComponent(creator)}`);
-      window.location.href = `/?creator=${encodeURIComponent(creator)}`;
+      console.log('Non-logged-in user detected, attempting to store redirect');
+      try {
+        const redirectResponse = await fetch('/store-redirect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ redirectTo: `/profile/${encodeURIComponent(creatorUsername)}` })
+        });
+        if (!redirectResponse.ok) {
+          console.error('Failed to store redirect, status:', redirectResponse.status, 'message:', await redirectResponse.text());
+        } else {
+          console.log('Successfully stored redirect to:', `/profile/${encodeURIComponent(creatorUsername)}`);
+        }
+      } catch (error) {
+        console.error('Error during /store-redirect fetch:', error.message);
+      }
+      const redirectUrl = `/?creator=${encodeURIComponent(creatorUsername)}`;
+      console.log('Redirecting non-logged-in user to:', redirectUrl);
+      window.location.href = redirectUrl;
       return;
     }
+
     const submitButton = form.querySelector('button[type="submit"]');
     const originalHtml = submitButton.innerHTML;
-    submitButton.innerHTML = 'Processing...'; submitButton.disabled = true;
+    submitButton.innerHTML = 'Processing...';
+    submitButton.disabled = true;
+
     try {
       const formData = new FormData(form);
-      const data = { creatorId: formData.get('creatorId'), bundleId: formData.get('bundleId') };
+      const data = {
+        creatorId: formData.get('creatorId'),
+        bundleId: formData.get('bundleId'),
+        creatorUsername: formData.get('creatorUsername')
+      };
       console.log('Sending subscribe request:', data);
       const response = await fetch('/profile/subscribe', {
         method: 'POST',
@@ -988,17 +1035,20 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
       });
       const result = await response.json();
       console.log('Subscribe response:', result);
+
       if (response.ok && result.status === 'success' && result.data.paymentLink) {
         submitButton.innerHTML = 'Redirecting...';
         window.location.href = result.data.paymentLink;
       } else {
         alert(result.message || `Failed to subscribe (Status: ${response.status})`);
-        submitButton.innerHTML = originalHtml; submitButton.disabled = false;
+        submitButton.innerHTML = originalHtml;
+        submitButton.disabled = false;
       }
     } catch (error) {
       console.error('Sub Error:', error);
       alert('Error subscribing.');
-      submitButton.innerHTML = originalHtml; submitButton.disabled = false;
+      submitButton.innerHTML = originalHtml;
+      submitButton.disabled = false;
     }
   });
 });
@@ -1185,7 +1235,6 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
       fullscreenImage.src = ''; // Clear src to reset
     });
 
-    // Optional: Close on overlay click (outside image)
     fullscreenOverlay.addEventListener('click', (e) => {
       if (e.target === fullscreenOverlay) {
         fullscreenOverlay.classList.remove('active');

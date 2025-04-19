@@ -1252,8 +1252,8 @@ router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
 // routes/profile.js
 router.post('/subscribe', async (req, res) => {
   try {
-    console.log('Processing /subscribe - URL:', req.url, 'Body:', req.body, 'Query:', req.query, 'SessionID:', req.sessionID, 'Session:', req.session, 'Cookies:', req.headers.cookie, 'User:', req.user ? req.user._id : 'Not logged in');
     const { creatorId, bundleId, creatorUsername } = req.body;
+    console.log('Subscribe Request - Body:', req.body, 'SessionID:', req.sessionID, 'Session:', req.session);
 
     // Validate required fields
     if (!creatorId || !bundleId || !creatorUsername) {
@@ -1295,10 +1295,10 @@ router.post('/subscribe', async (req, res) => {
       await new Promise((resolve, reject) => {
         req.session.save(err => {
           if (err) {
-            console.error('Session save error:', err);
+            console.error('Session save error in /subscribe:', err);
             reject(err);
           } else {
-            console.log('Session saved successfully:', req.session, 'SessionID:', req.sessionID);
+            console.log('Session saved successfully in /subscribe:', req.session);
             resolve();
           }
         });

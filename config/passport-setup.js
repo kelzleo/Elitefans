@@ -52,7 +52,8 @@ passport.use(
           user.isOnline = true;
           if (creator) {
             user.redirectAfterVerify = `/profile/${encodeURIComponent(creator)}`;
-            console.log('Google Strategy - Set redirectAfterVerify:', user.redirectAfterVerify);
+            req.session.redirectTo = `/profile/${encodeURIComponent(creator)}`;
+            console.log('Google Strategy - Set redirectAfterVerify and session.redirectTo:', user.redirectAfterVerify);
           }
           await user.save();
           return done(null, user);
@@ -67,7 +68,8 @@ passport.use(
           user.isOnline = true;
           if (creator) {
             user.redirectAfterVerify = `/profile/${encodeURIComponent(creator)}`;
-            console.log('Google Strategy - Set redirectAfterVerify:', user.redirectAfterVerify);
+            req.session.redirectTo = `/profile/${encodeURIComponent(creator)}`;
+            console.log('Google Strategy - Set redirectAfterVerify and session.redirectTo:', user.redirectAfterVerify);
           }
           await user.save();
           return done(null, user);
@@ -96,7 +98,8 @@ passport.use(
 
         if (creator) {
           user.redirectAfterVerify = `/profile/${encodeURIComponent(creator)}`;
-          console.log('Google Strategy - Set redirectAfterVerify for new user:', user.redirectAfterVerify);
+          req.session.redirectTo = `/profile/${encodeURIComponent(creator)}`;
+          console.log('Google Strategy - Set redirectAfterVerify and session.redirectTo for new user:', user.redirectAfterVerify);
         }
 
         await user.save();

@@ -93,13 +93,29 @@ async function initializePayment(userId, creatorId, bundleId) {
     const creator = await User.findById(creatorId);
     const bundle = await SubscriptionBundle.findById(bundleId);
 
+    if (!user || !creator || !bundle) {
+      console.error('initializePayment: Missing data', { user: !!user, creator: !!creator, bundle: !!bundle });
+      throw new Error('Missing user, creator, or bundle data');
+    }
+
+    if (!process.env.BASE_URL) {
+      console.error('initializePayment: BASE_URL is not set');
+      throw new Error('BASE_URL environment variable is missing');
+    }
+
+    if (!process.env.FLUTTERWAVE_SECRET_KEY) {
+      console.error('initializePayment: Missing FLUTTERWAVE_SECRET_KEY');
+      throw new Error('Flutterwave API key is missing');
+    }
+
     const tx_ref = `SUB_${Date.now()}_${creatorId}_${bundleId}`;
+    const redirect_url = `${process.env.BASE_URL}/profile/verify-payment`;
 
     const payload = {
       tx_ref,
       amount: bundle.price,
       currency: "NGN",
-      redirect_url: `${process.env.BASE_URL}/profile/verify-payment`,
+      redirect_url,
       customer: {
         email: user.email,
         name: user.username
@@ -116,6 +132,15 @@ async function initializePayment(userId, creatorId, bundleId) {
       }
     };
 
+    console.log('initializePayment: Payload', {
+      tx_ref,
+      amount: bundle.price,
+      email: user.email,
+      username: user.username,
+      creatorUsername: creator.username,
+      redirect_url
+    });
+
     const response = await fetch('https://api.flutterwave.com/v3/payments', {
       method: 'POST',
       headers: {
@@ -126,6 +151,12 @@ async function initializePayment(userId, creatorId, bundleId) {
     });
 
     const data = await response.json();
+
+    console.log('initializePayment: Flutterwave response', {
+      status: data.status,
+      message: data.message,
+      responseStatus: response.status
+    });
 
     if (data.status === 'success') {
       return {
@@ -138,9 +169,10 @@ async function initializePayment(userId, creatorId, bundleId) {
         }
       };
     } else {
-      throw new Error('Failed to initialize payment');
+      throw new Error(`Failed to initialize payment: ${data.message || 'Unknown error'}`);
     }
   } catch (error) {
+    console.error('initializePayment: Error', error);
     throw error;
   }
 }

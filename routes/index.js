@@ -8,12 +8,41 @@ const crypto = require('crypto');
 const sendEmail = require('../config/sendEmail');
 const PendingSubscription = require('../models/pendingSubscription');
 
-router.get('/', (req, res) => {
-  console.log('Welcome page - Query:', req.query, 'Session:', req.session);
+router.get('/', async (req, res) => {
+  console.log('Welcome page - Query:', req.query, 'Session:', req.session, 'SessionID:', req.sessionID);
+  const { creator, ref } = req.query;
+
+  // Store creator in session.redirectTo if provided
+  if (creator) {
+    req.session.redirectTo = `/profile/${encodeURIComponent(creator)}`;
+    console.log('Stored creator redirect in session:', req.session.redirectTo, 'SessionID:', req.sessionID);
+    req.session.save(err => {
+      if (err) {
+        console.error('Error saving session in GET /:', err);
+      } else {
+        console.log('Session saved in GET /:', req.session);
+      }
+    });
+  } else {
+    console.log('No creator query parameter provided');
+  }
+
+  // Store referral ID if provided
+  if (ref) {
+    const referrer = await User.findOne({ _id: ref });
+    if (referrer && referrer.role === 'creator') {
+      req.session.referralId = ref;
+      console.log('Stored referralId in session:', ref);
+    } else {
+      console.log('Invalid referral ID:', ref);
+    }
+  }
+
   res.render('welcome', {
-    errorMessage: null,
-    creator: req.query.creator || req.session.creator || '',
-    ref: req.query.ref || req.session.referralId || ''
+    errorMessage: req.flash('error'),
+    successMessage: req.flash('success'),
+    creator: creator || req.session.creator || '',
+    ref: ref || req.session.referralId || ''
   });
 });
 router.post('/signup', async (req, res) => {
@@ -22,10 +51,12 @@ router.post('/signup', async (req, res) => {
   const queryCreator = req.query.creator;
   const sessionCreator = req.session.creator;
   const ref = req.query.ref || req.body.ref || req.session.referralId;
+  console.log('Signup Request - Body:', req.body, 'Query:', req.query, 'Session:', req.session, 'SessionID:', req.sessionID);
+
   try {
-    console.log('Signup Request - URL:', req.url, 'Query:', req.query, 'Body:', req.body, 'Session:', req.session);
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
+      console.log('Existing user found:', { email, username });
       return res.render('signup', {
         errorMessage: 'Email or username already exists',
         ref: ref || '',
@@ -38,7 +69,7 @@ router.post('/signup', async (req, res) => {
     if (creatorParam) {
       const creatorUser = await User.findOne({ username: creatorParam });
       if (creatorUser) {
-        redirectUrl = `/profile/${creatorParam}`;
+        redirectUrl = `/profile/${encodeURIComponent(creatorParam)}`;
         console.log('Valid creator found:', creatorParam, 'Setting redirectUrl:', redirectUrl);
       } else {
         console.log('Invalid creator:', creatorParam);
@@ -55,6 +86,7 @@ router.post('/signup', async (req, res) => {
       isOnline: false,
       lastSeen: new Date(),
       redirectAfterVerify: redirectUrl,
+      referredBy: null
     });
 
     if (ref) {
@@ -63,6 +95,8 @@ router.post('/signup', async (req, res) => {
       if (referrer && referrer.role === 'creator') {
         newUser.referredBy = referrer._id;
         console.log('Setting referredBy to:', referrer._id);
+      } else {
+        console.log('Invalid referrer:', ref);
       }
     }
 
@@ -72,10 +106,10 @@ router.post('/signup', async (req, res) => {
       await new Promise((resolve, reject) => {
         req.session.save(err => {
           if (err) {
-            console.error('Session save error:', err);
+            console.error('Session save error in /signup:', err);
             reject(err);
           } else {
-            console.log('Session saved:', req.session);
+            console.log('Session saved successfully in /signup:', req.session);
             resolve();
           }
         });
@@ -116,12 +150,12 @@ router.post('/signup', async (req, res) => {
     });
   }
 });
-// routes/index.js
 router.get('/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
     const { creator, ref } = req.query;
-    console.log('Verification Request - Token:', token, 'Creator:', creator, 'Ref:', ref, 'Session:', req.session, 'User:', req.user ? req.user._id : 'Not logged in');
+    console.log('Verification Request - Token:', token, 'Creator:', creator, 'Ref:', ref, 'Session:', req.session, 'SessionID:', req.sessionID);
+
     const user = await User.findOne({ verificationToken: token });
     if (!user) {
       console.log('No user found for token:', token);
@@ -135,59 +169,41 @@ router.get('/verify/:token', async (req, res) => {
         });
       }
       return res.render('welcome', {
-        errorMessage: 'Invalid or expired verification link.',
+        errorMessage: ' ecuInvalid or expired verification link.',
         creator: creator || req.session.creator || '',
         ref: ref || ''
       });
     }
 
     // Determine redirect URL
-    let redirectTo = '/home'; // Default redirect
+    let redirectTo = '/home';
     if (creator) {
       const creatorUser = await User.findOne({ username: creator });
       if (creatorUser) {
         redirectTo = `/profile/${encodeURIComponent(creator)}`;
-        req.session.redirectTo = redirectTo;
-        req.session.creator = creator;
-        await new Promise((resolve, reject) => {
-          req.session.save(err => {
-            if (err) {
-              console.error('Session save error:', err);
-              reject(err);
-            } else {
-              console.log('Session saved after verification:', req.session);
-              resolve();
-            }
-          });
-        });
+        console.log('Redirecting based on query creator:', creator);
       }
     } else if (user.redirectAfterVerify) {
       redirectTo = user.redirectAfterVerify;
-      const creatorUsername = redirectTo.split('/profile/')[1];
-      if (creatorUsername) {
-        req.session.redirectTo = redirectTo;
-        req.session.creator = creatorUsername;
-        await new Promise((resolve, reject) => {
-          req.session.save(err => {
-            if (err) {
-              console.error('Session save error:', err);
-              reject(err);
-            } else {
-              console.log('Session saved from redirectAfterVerify:', req.session);
-              resolve();
-            }
-          });
-        });
-      }
+      console.log('Redirecting based on user.redirectAfterVerify:', redirectTo);
     } else if (req.session.redirectTo) {
       redirectTo = req.session.redirectTo;
-      console.log('Using session.redirectTo:', redirectTo);
+      console.log('Redirecting based on session.redirectTo:', redirectTo);
+    } else {
+      const pendingSub = await PendingSubscription.findOne({ sessionId: req.sessionID });
+      if (pendingSub) {
+        const creatorUser = await User.findById(pendingSub.creatorId);
+        if (creatorUser) {
+          redirectTo = `/profile/${encodeURIComponent(pendingSub.creatorUsername)}`;
+          console.log('Redirecting based on PendingSubscription:', redirectTo);
+        }
+      }
     }
 
     // Update user
     user.verified = true;
     user.verificationToken = undefined;
-    user.redirectAfterVerify = null; // Clear after use
+    user.redirectAfterVerify = null;
     await user.save();
     console.log('User verified:', user._id, 'Redirecting to:', redirectTo);
 
@@ -203,7 +219,6 @@ router.get('/verify/:token', async (req, res) => {
       }
 
       try {
-        // Update user status
         await User.findByIdAndUpdate(user._id, {
           isOnline: true,
           lastSeen: new Date(),
@@ -212,6 +227,18 @@ router.get('/verify/:token', async (req, res) => {
         // Clear session data
         delete req.session.redirectTo;
         delete req.session.creator;
+        delete req.session.subscriptionData;
+        await new Promise((resolve, reject) => {
+          req.session.save(err => {
+            if (err) {
+              console.error('Session save error in /verify/:token:', err);
+              reject(err);
+            } else {
+              console.log('Session cleared in /verify/:token:', req.session);
+              resolve();
+            }
+          });
+        });
 
         console.log('User logged in after verification, redirecting to:', redirectTo);
         return res.redirect(redirectTo);
@@ -332,20 +359,21 @@ router.post('/login', (req, res, next) => {
   const sessionCreator = req.session.creator;
   console.log('Login Request - Body:', req.body, 'Query:', req.query, 'Session:', req.session, 'SessionID:', req.sessionID, 'Cookies:', req.headers.cookie, 'Creator from body:', creator, 'Creator from query:', queryCreator, 'Creator from session:', sessionCreator);
 
+  // Validate creator parameter early for debugging
   const creatorParam = creator || queryCreator || sessionCreator;
   if (creatorParam) {
-    User.findOne({ username: creatorParam }).then(creatorUser => {
-      if (creatorUser) {
-        req.session.redirectTo = `/profile/${encodeURIComponent(creatorParam)}`;
-        req.session.creator = creatorParam;
-        req.session.save(err => {
-          if (err) console.error('Session save error:', err);
-          else console.log('Session saved:', req.session);
-        });
-      } else {
-        console.log('Invalid creator:', creatorParam);
-      }
-    }).catch(err => console.error('Error validating creator:', err));
+    console.log('Checking creatorParam:', creatorParam);
+    User.findOne({ username: creatorParam })
+      .then(creatorUser => {
+        if (creatorUser) {
+          console.log('Valid creator found:', creatorParam);
+        } else {
+          console.log('Invalid creator:', creatorParam);
+        }
+      })
+      .catch(err => console.error('Error validating creator:', err));
+  } else {
+    console.log('No creatorParam provided');
   }
 
   passport.authenticate('local', async (err, user, info) => {
@@ -358,7 +386,7 @@ router.post('/login', (req, res, next) => {
       console.log('Login failed:', info.message || 'Invalid login credentials');
       return res.render('welcome', {
         errorMessage: info.message || 'Invalid username/email or password',
-        creator: creatorParam || req.query.creator || req.session.creator || '',
+        creator: creatorParam || '',
         ref: req.body.ref || req.query.ref || ''
       });
     }
@@ -376,90 +404,95 @@ router.post('/login', (req, res, next) => {
           lastSeen: new Date(),
         });
 
-        if (req.session.subscriptionData) {
-          console.log('Found pending subscription data:', req.session.subscriptionData);
-        }
-
+        // Determine redirect URL
         let redirectTo = '/home';
+        let creatorParam = creator || queryCreator || sessionCreator;
+
+        // Log all redirect conditions
+        console.log('Redirect conditions - pendingSub:', !!await PendingSubscription.findOne({ sessionId: req.sessionID }), 'session.redirectTo:', req.session.redirectTo, 'creatorParam:', creatorParam, 'req.query.creator:', req.query.creator, 'user.redirectAfterVerify:', user.redirectAfterVerify);
+
+        // Check PendingSubscription
+        console.log('Checking PendingSubscription for session:', req.sessionID);
         const pendingSub = await PendingSubscription.findOne({ sessionId: req.sessionID });
         if (pendingSub) {
-          console.log('Found pending subscription in database:', pendingSub);
+          console.log('Found pending subscription:', pendingSub);
           redirectTo = `/profile/${encodeURIComponent(pendingSub.creatorUsername)}`;
-          req.session.redirectTo = redirectTo;
-          req.session.creator = pendingSub.creatorUsername;
-          await new Promise((resolve, reject) => {
-            req.session.save(err => {
-              if (err) {
-                console.error('Session save error:', err);
-                reject(err);
-              } else {
-                console.log('Session saved:', req.session);
-                resolve();
-              }
-            });
-          });
+          creatorParam = pendingSub.creatorUsername;
           await PendingSubscription.deleteOne({ sessionId: req.sessionID });
           console.log('Cleared pending subscription for session:', req.sessionID);
-        } else if (req.session.redirectTo) {
+        } else {
+          console.log('No pending subscription found for session:', req.sessionID);
+        }
+
+        // Check session.redirectTo
+        if (!pendingSub && req.session.redirectTo) {
           console.log('Using session.redirectTo:', req.session.redirectTo);
           redirectTo = req.session.redirectTo;
-        } else if (creatorParam) {
+        } else if (!pendingSub) {
+          console.log('No session.redirectTo found');
+        }
+
+        // Check creatorParam
+        if (!pendingSub && !req.session.redirectTo && creatorParam) {
           console.log('Using creatorParam:', creatorParam);
           const creatorUser = await User.findOne({ username: creatorParam });
           if (creatorUser) {
             redirectTo = `/profile/${encodeURIComponent(creatorParam)}`;
-            req.session.redirectTo = redirectTo;
-            req.session.creator = creatorParam;
-            await new Promise((resolve, reject) => {
-              req.session.save(err => {
-                if (err) {
-                  console.error('Session save error:', err);
-                  reject(err);
-                } else {
-                  console.log('Session saved:', req.session);
-                  resolve();
-                }
-              });
-            });
+          } else {
+            console.log('Invalid creator:', creatorParam);
           }
-        } else if (req.query.creator) {
+        } else if (!pendingSub && !req.session.redirectTo) {
+          console.log('No creatorParam used');
+        }
+
+        // Check req.query.creator
+        if (!pendingSub && !req.session.redirectTo && !creatorParam && req.query.creator) {
           console.log('Using req.query.creator:', req.query.creator);
           const creatorUser = await User.findOne({ username: req.query.creator });
           if (creatorUser) {
             redirectTo = `/profile/${encodeURIComponent(req.query.creator)}`;
-            req.session.redirectTo = redirectTo;
-            req.session.creator = req.query.creator;
-            await new Promise((resolve, reject) => {
-              req.session.save(err => {
-                if (err) {
-                  console.error('Session save error:', err);
-                  reject(err);
-                } else {
-                  console.log('Session saved:', req.session);
-                  resolve();
-                }
-              });
-            });
+            creatorParam = req.query.creator;
+          } else {
+            console.log('Invalid req.query.creator:', req.query.creator);
           }
-        } else if (user.redirectAfterVerify) {
+        } else if (!pendingSub && !req.session.redirectTo && !creatorParam) {
+          console.log('No req.query.creator used');
+        }
+
+        // Check user.redirectAfterVerify
+        if (!pendingSub && !req.session.redirectTo && !creatorParam && !req.query.creator && user.redirectAfterVerify) {
           console.log('Using user.redirectAfterVerify:', user.redirectAfterVerify);
           redirectTo = user.redirectAfterVerify;
           user.redirectAfterVerify = null;
           await user.save();
+        } else if (!pendingSub && !req.session.redirectTo && !creatorParam && !req.query.creator) {
+          console.log('No user.redirectAfterVerify used');
         }
-        console.log('Login successful - Redirecting to:', redirectTo, 'User:', user._id);
 
         // Clear session data
+        console.log('Clearing session data');
         delete req.session.redirectTo;
         delete req.session.subscriptionData;
         delete req.session.creator;
+        await new Promise((resolve, reject) => {
+          req.session.save(err => {
+            if (err) {
+              console.error('Session clear save error in /login:', err);
+              reject(err);
+            } else {
+              console.log('Session cleared in /login:', req.session);
+              resolve();
+            }
+          });
+        });
 
+        console.log('Login successful - Redirecting to:', redirectTo, 'User:', user._id);
         return res.redirect(redirectTo);
       } catch (error) {
         console.error('Error during login processing:', error);
         return res.render('welcome', {
           errorMessage: 'Error processing login. Please try again.',
-          creator: creatorParam || req.query.creator || req.session.creator || '',
+          creator: creatorParam || '',
           ref: req.body.ref || req.query.ref || ''
         });
       }

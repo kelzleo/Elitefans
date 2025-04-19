@@ -9,6 +9,7 @@ const mongoose = require('mongoose');
 const expressLayouts = require('express-ejs-layouts');
 const passport = require('passport');
 const session = require('express-session');
+const MongoStore = require('connect-mongo');
 const flash = require('connect-flash');
 const http = require('http');
 const socketIo = require('socket.io');
@@ -50,8 +51,6 @@ app.set('trust proxy', 1);
 // MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
     serverSelectionTimeoutMS: 30000
   })
   .then(() => console.log('Connected to MongoDB'))
@@ -74,6 +73,12 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
 });
 
+// Temporary request logging middleware for debugging
+app.use((req, res, next) => {
+  console.log('Request:', req.method, req.url, 'Body:', req.body, 'Query:', req.query, 'SessionID:', req.sessionID, 'Session:', req.session);
+  next();
+});
+
 // Middleware setup
 app.use(expressLayouts);
 app.set('view engine', 'ejs');
@@ -82,39 +87,7 @@ app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(express.json({ limit: '5mb' }));
 
 // Session middleware
-const MongoStore = require('connect-mongo');
-app.use(
-  session({
-    secret: process.env.COOKIE_KEY || 'fallback-secret',
-    resave: false,
-    saveUninitialized: false,
-    store: MongoStore.create({
-      mongoUrl: process.env.MONGO_URI,
-      collectionName: 'sessions',
-      ttl: 24 * 60 * 60,
-      autoRemove: 'native'
-    }).on('error', (err) => console.error('MongoStore error:', err)),
-    cookie: {
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 24 * 60 * 60 * 1000,
-      sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
-      httpOnly: true,
-      path: '/'
-    }
-  })
-);
-
-// Enhanced session debugging
-app.use((req, res, next) => {
-  console.log('Session before request - SessionID:', req.sessionID, 'Session:', req.session, 'Cookies:', req.headers.cookie);
-  if (!req.sessionID) {
-    console.warn('No sessionID generated, checking cookies:', req.headers.cookie);
-  }
-  next();
-});
-
-// Store session middleware for Socket.io
-app.set('sessionMiddleware', session({
+const sessionMiddleware = session({
   secret: process.env.COOKIE_KEY || 'fallback-secret',
   resave: false,
   saveUninitialized: false,
@@ -126,12 +99,22 @@ app.set('sessionMiddleware', session({
   }).on('error', (err) => console.error('MongoStore error:', err)),
   cookie: {
     secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000,
+    maxAge: 24 * 60 * 60 * 1000, // 1 day
     sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
     httpOnly: true,
     path: '/'
   }
-}));
+});
+app.use(sessionMiddleware);
+
+// Enhanced session debugging
+app.use((req, res, next) => {
+  console.log('Session before request - SessionID:', req.sessionID, 'Session:', req.session, 'Cookies:', req.headers.cookie);
+  if (!req.sessionID) {
+    console.warn('No sessionID generated, checking cookies:', req.headers.cookie);
+  }
+  next();
+});
 
 // Passport middleware
 app.use(passport.initialize());
@@ -177,6 +160,32 @@ app.locals.formatRelativeTime = (date) => {
     return `${diffWeeks} week${diffWeeks === 1 ? '' : 's'} ago`;
   }
 };
+
+// Route to store redirect URL in session
+app.post('/store-redirect', (req, res) => {
+  console.log('Received /store-redirect request:', req.body, 'SessionID:', req.sessionID, 'Session:', req.session);
+  const { redirectTo } = req.body;
+  if (redirectTo && typeof redirectTo === 'string') {
+    // Validate redirectTo is a valid profile URL
+    if (!redirectTo.startsWith('/profile/')) {
+      console.error('Invalid redirectTo format:', redirectTo);
+      return res.status(400).json({ status: 'error', message: 'Redirect URL must be a profile URL' });
+    }
+    req.session.redirectTo = redirectTo;
+    console.log('Stored redirectTo in session:', req.session.redirectTo, 'SessionID:', req.sessionID);
+    req.session.save(err => {
+      if (err) {
+        console.error('Error saving session in /store-redirect:', err);
+        return res.status(500).json({ status: 'error', message: 'Failed to save session' });
+      }
+      console.log('Session saved in /store-redirect:', req.session);
+      res.status(200).json({ status: 'success' });
+    });
+  } else {
+    console.error('Invalid or missing redirectTo:', redirectTo);
+    res.status(400).json({ status: 'error', message: 'Invalid redirect URL' });
+  }
+});
 
 // Media upload route for chat
 const { chatBucket: bucket } = require('./utilis/cloudStorage');
@@ -265,17 +274,7 @@ const io = socketIo(server);
 
 // Share session with Socket.io
 io.use((socket, next) => {
-  const req = socket.request;
-  const res = {};
-  const sessionMiddleware = app.get('sessionMiddleware');
-  sessionMiddleware(req, res, (err) => {
-    if (err) {
-      console.error('Socket.io session middleware error:', err);
-      return next(err);
-    }
-    console.log('Socket.io session:', req.sessionID, req.session);
-    next();
-  });
+  sessionMiddleware(socket.request, {}, next);
 });
 
 // Authenticate Socket.io with Passport
