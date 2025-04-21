@@ -182,7 +182,6 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
 // Owner's profile route
 // View own profile
 router.get('/', authCheck, async (req, res) => {
- 
   try {
     const user = await User.findById(req.user._id);
 
@@ -193,9 +192,8 @@ router.get('/', authCheck, async (req, res) => {
       .populate('comments.user', 'username')
       .sort({ createdAt: -1 });
 
-    // Filter out comments with invalid users
     for (const post of posts) {
-      post.comments = post.comments.filter(comment => {
+      post.comments = post.comments.filter((comment) => {
         if (comment.user === null) {
           logger.warn('Removing invalid comment on post');
           return false;
@@ -205,22 +203,24 @@ router.get('/', authCheck, async (req, res) => {
     }
 
     await processPostUrls(posts, req.user, user);
-    const bundles = await SubscriptionBundle.find({ creatorId: req.user._id });
+
+    const bundles =
+      user.role === 'creator'
+        ? await SubscriptionBundle.find({ creatorId: req.user._id }).sort({
+            isFree: -1,
+            durationWeight: 1,
+          })
+        : [];
+    logger.info(`Fetched bundles for user ${req.user._id}: ${JSON.stringify(bundles)}`);
 
     const stats = await Post.aggregate([
       { $match: { creator: new mongoose.Types.ObjectId(req.user._id) } },
       {
         $group: {
           _id: null,
-          imagesCount: {
-            $sum: { $cond: [{ $eq: ['$type', 'image'] }, 1, 0] },
-          },
-          videosCount: {
-            $sum: { $cond: [{ $eq: ['$type', 'video'] }, 1, 0] },
-          },
-          totalLikes: {
-            $sum: { $size: { $ifNull: ['$likes', []] } },
-          },
+          imagesCount: { $sum: { $cond: [{ $eq: ['$type', 'image'] }, 1, 0] } },
+          videosCount: { $sum: { $cond: [{ $eq: ['$type', 'video'] }, 1, 0] } },
+          totalLikes: { $sum: { $size: { $ifNull: ['$likes', []] } } },
         },
       },
     ]);
@@ -239,17 +239,17 @@ router.get('/', authCheck, async (req, res) => {
         subscriberCount,
       },
       currentUser: req.user,
-      isSubscribed: false,
+      isSubscribed: true,
       posts,
       bundles,
-      env: process.env.NODE_ENV || 'development' // Pass NODE_ENV
+      adminView: false,
+      env: process.env.NODE_ENV || 'development',
     });
   } catch (err) {
-    logger.error(`Error loading profile: ${err.message}`);
+    logger.error(`Error loading profile: ${err.message}, Stack: ${err.stack}`);
     res.status(500).send('Error loading profile');
   }
 });
-
 // Unlock special content route (using the Post model)
 router.post('/unlock-special-content', authCheck, async (req, res) => {
  
@@ -1216,101 +1216,508 @@ router.post('/admin-delete-post/:postId', authCheck, async (req, res) => {
 });
 
 // Create a new subscription bundle
-router.post('/create-bundle', authCheck, async (req, res) => {
-
+router.post('/create-bundle', authCheck, upload.none(), async (req, res) => {
   try {
+    logger.info(`Create bundle request: Method=${req.method}, URL=${req.originalUrl}, Headers=${JSON.stringify(req.headers)}, Body=${JSON.stringify(req.body)}`);
+
     if (req.user.role !== 'creator') {
       logger.warn('Unauthorized bundle creation attempt by non-creator');
+      if (req.is('json')) {
+        return res.status(403).json({ status: 'error', message: 'Only creators can create bundles.' });
+      }
       return res.status(403).send('Only creators can create bundles.');
     }
 
-    // Count existing bundles
+    const hasFreeBundle = await SubscriptionBundle.findOne({
+      creatorId: req.user._id,
+      isFree: true,
+    });
+    if (hasFreeBundle) {
+      logger.warn('Cannot create paid bundle while free bundle is active');
+      if (req.is('json')) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Cannot create paid bundles while free subscription is enabled.',
+        });
+      }
+      req.flash('error_msg', 'Cannot create paid bundles while free subscription is enabled.');
+      return res.redirect('/profile');
+    }
+
     const existingCount = await SubscriptionBundle.countDocuments({
-      creatorId: req.user._id
+      creatorId: req.user._id,
     });
     if (existingCount >= 4) {
       logger.warn('Maximum bundle limit reached in create-bundle');
+      if (req.is('json')) {
+        return res.status(400).json({ status: 'error', message: 'You have reached the maximum of 4 bundles.' });
+      }
       return res.status(400).send('You have reached the maximum of 4 bundles.');
     }
 
-    const { price, duration, description } = req.body;
+    const { price, duration: rawDuration, description, discountPercentage } = req.body;
+    const duration = rawDuration ? rawDuration.toLowerCase() : null;
 
-    // Validate the duration
-    const validDurations = ['1 day', '1 month', '3 months', '6 months', '1 year'];
-    if (!validDurations.includes(duration)) {
-      logger.warn('Invalid duration in create-bundle');
-      return res.status(400).send('Invalid duration selected.');
+    if (!duration) {
+      logger.warn('Duration is missing in create-bundle');
+      if (req.is('json')) {
+        return res.status(400).json({ status: 'error', message: 'Duration is required.' });
+      }
+      req.flash('error_msg', 'Duration is required.');
+      return res.status(400).redirect('/profile');
     }
 
-    // Create the new bundle
+    const validDurations = ['1 day', '1 month', '3 months', '6 months', '1 year'];
+    if (!validDurations.includes(duration)) {
+      logger.warn(`Invalid duration in create-bundle: ${duration}`);
+      if (req.is('json')) {
+        return res.status(400).json({
+          status: 'error',
+          message: `Invalid duration selected. Must be one of: ${validDurations.join(', ')}`,
+        });
+      }
+      req.flash('error_msg', `Invalid duration selected. Must be one of: ${validDurations.join(', ')}`);
+      return res.status(400).redirect('/profile');
+    }
+
+    if (!description || typeof description !== 'string' || description.trim() === '') {
+      logger.warn('Invalid description in create-bundle');
+      if (req.is('json')) {
+        return res.status(400).json({ status: 'error', message: 'Description is required.' });
+      }
+      req.flash('error_msg', 'Description is required.');
+      return res.status(400).redirect('/profile');
+    }
+
+    const parsedPrice = parseFloat(price);
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      logger.warn('Invalid price in create-bundle');
+      if (req.is('json')) {
+        return res.status(400).json({ status: 'error', message: 'Price must be a positive number.' });
+      }
+      req.flash('error_msg', 'Price must be a positive number.');
+      return res.status(400).redirect('/profile');
+    }
+
+    const parsedDiscount = discountPercentage ? parseFloat(discountPercentage) : 0;
+    if (parsedDiscount < 0 || parsedDiscount > 100) {
+      logger.warn('Invalid discount percentage in create-bundle');
+      if (req.is('json')) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Discount percentage must be between 0 and 100.',
+        });
+      }
+      req.flash('error_msg', 'Discount percentage must be between 0 and 100.');
+      return res.status(400).redirect('/profile');
+    }
+
+    const durationOrder = {
+      '1 day': 1,
+      '1 month': 2,
+      '3 months': 3,
+      '6 months': 4,
+      '1 year': 5,
+    };
+
+    let finalPrice = parsedPrice;
+    let originalPrice = null;
+    if (parsedDiscount > 0) {
+      originalPrice = parsedPrice;
+      finalPrice = Math.round(parsedPrice * (1 - parsedDiscount / 100));
+    }
+
     const bundle = new SubscriptionBundle({
-      price,
+      price: finalPrice,
       duration,
+      durationWeight: durationOrder[duration],
+      description: description.trim(),
+      creatorId: req.user._id,
+      discountPercentage: parsedDiscount,
+      originalPrice,
+    });
+
+    await bundle.save();
+    logger.info(`Bundle created successfully: ${bundle._id}`);
+
+    // Set flash message for traditional form submissions
+    req.flash('success_msg', 'Bundle created successfully');
+
+    // For AJAX requests, return JSON; for others, redirect
+    if (req.is('json')) {
+      return res.json({
+        status: 'success',
+        message: 'Bundle created successfully',
+        redirect: '/profile',
+      });
+    }
+
+    // Save session and redirect for traditional submissions
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('Session save timed out'));
+      }, 5000); // 5-second timeout
+      req.session.save((err) => {
+        clearTimeout(timeout);
+        if (err) {
+          logger.error(`Session save error: ${err.message}, Stack: ${err.stack}`);
+          reject(err);
+        } else {
+          logger.info(`Session saved successfully for bundle creation`);
+          resolve();
+        }
+      });
+    });
+
+    return res.redirect('/profile');
+  } catch (err) {
+    logger.error(`Error creating bundle: ${err.message}, Stack: ${err.stack}`);
+    if (req.is('json')) {
+      return res.status(500).json({
+        status: 'error',
+        message: `Error creating bundle: ${err.message}`,
+      });
+    }
+    req.flash('error_msg', `Error creating bundle: ${err.message}`);
+    try {
+      await new Promise((resolve, reject) => {
+        const timeout = setTimeout(() => {
+          reject(new Error('Session save timed out in catch block'));
+        }, 5000);
+        req.session.save((err) => {
+          clearTimeout(timeout);
+          if (err) {
+            logger.error(`Session save error in catch block: ${err.message}, Stack: ${err.stack}`);
+            reject(err);
+          } else {
+            resolve();
+          }
+        });
+      });
+      return res.redirect('/profile');
+    } catch (sessionErr) {
+      logger.error(`Failed to save session in catch block: ${sessionErr.message}, Stack: ${sessionErr.stack}`);
+      return res.status(500).send('Error creating bundle: Session save failed');
+    }
+  }
+});
+router.post('/edit-bundle/:bundleId', authCheck, upload.none(), async (req, res) => {
+  try {
+    const { bundleId } = req.params;
+    const { price, discountPercentage, description } = req.body;
+    const parsedPrice = parseFloat(price);
+    const parsedDiscount = discountPercentage ? parseFloat(discountPercentage) : 0;
+
+    console.log('Received edit-bundle request:', {
+      bundleId,
+      price,
       description,
+      discountPercentage,
+      parsedPrice,
+      parsedDiscount,
+    });
+
+    if (isNaN(parsedPrice) || parsedPrice <= 0) {
+      console.warn('Invalid price:', price);
+      return res.status(400).json({
+        status: 'error',
+        message: 'Price must be a positive number.',
+      });
+    }
+
+    if (parsedDiscount < 0 || parsedDiscount > 100) {
+      console.warn('Invalid discount percentage:', discountPercentage);
+      return res.status(400).json({
+        status: 'error',
+        message: 'Discount percentage must be between 0 and 100.',
+      });
+    }
+
+    if (!description || typeof description !== 'string' || description.trim() === '') {
+      console.warn('Invalid description:', description);
+      return res.status(400).json({
+        status: 'error',
+        message: 'Description is required.',
+      });
+    }
+
+    const bundle = await SubscriptionBundle.findOne({
+      _id: bundleId,
       creatorId: req.user._id,
     });
-    await bundle.save();
 
-    res.redirect('/profile');
+    if (!bundle) {
+      console.warn('Bundle not found or unauthorized:', { bundleId, creatorId: req.user._id });
+      return res.status(404).json({
+        status: 'error',
+        message: 'Bundle not found or you are not authorized to edit it.',
+      });
+    }
+
+    console.log('Current bundle state:', {
+      _id: bundle._id,
+      isFree: bundle.isFree,
+      duration: bundle.duration,
+      durationWeight: bundle.durationWeight,
+      price: bundle.price,
+      discountPercentage: bundle.discountPercentage,
+      originalPrice: bundle.originalPrice,
+    });
+
+    // Update bundle fields
+    bundle.description = description.trim();
+    bundle.discountPercentage = parsedDiscount;
+
+    if (parsedDiscount > 0) {
+      // Apply discount: update price to discounted amount
+      bundle.originalPrice = parsedPrice; // Store original price
+      bundle.price = Math.round(parsedPrice * (1 - parsedDiscount / 100)); // Set discounted price
+    } else {
+      // Remove discount: restore original price or use input price
+      bundle.price = bundle.originalPrice || parsedPrice; // Use originalPrice if available
+      bundle.originalPrice = null; // Clear originalPrice
+      bundle.discountPercentage = 0; // Ensure no discount
+    }
+
+    const durationOrder = {
+      '1 day': 1,
+      '1 month': 2,
+      '3 months': 3,
+      '6 months': 4,
+      '1 year': 5,
+    };
+
+    if (!bundle.isFree) {
+      if (bundle.duration && durationOrder[bundle.duration]) {
+        bundle.durationWeight = durationOrder[bundle.duration];
+        console.log('Set durationWeight:', bundle.durationWeight);
+      } else {
+        console.warn('Invalid or missing duration for bundle:', {
+          bundleId,
+          duration: bundle.duration,
+        });
+        return res.status(400).json({
+          status: 'error',
+          message: 'Bundle duration is invalid or missing. Please contact support.',
+        });
+      }
+    } else {
+      bundle.duration = undefined;
+      bundle.durationWeight = undefined;
+      console.log('Cleared duration and durationWeight for free bundle');
+    }
+
+    await bundle.save();
+    console.log('Bundle updated successfully:', {
+      bundleId,
+      price: bundle.price,
+      discountPercentage: bundle.discountPercentage,
+      originalPrice: bundle.originalPrice,
+    });
+
+    return res.json({
+      status: 'success',
+      message: 'Bundle updated successfully.',
+    });
   } catch (err) {
-    logger.error(`Error creating bundle: ${err.message}`);
-    res.status(500).send('Error creating bundle');
+    console.error('Error updating bundle:', {
+      bundleId: req.params.bundleId,
+      error: err.message,
+      stack: err.stack,
+    });
+    return res.status(500).json({
+      status: 'error',
+      message: 'Failed to update bundle. Please try again.',
+    });
   }
 });
 
+
 router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
-  
   try {
-    // Find the bundle by ID
     const bundle = await SubscriptionBundle.findById(req.params.bundleId);
     if (!bundle) {
       logger.warn('Bundle not found in delete-bundle/:bundleId');
       return res.status(404).send('Bundle not found');
     }
 
-    // Check if the logged-in user is the owner
     if (bundle.creatorId.toString() !== req.user._id.toString()) {
       logger.warn('Unauthorized bundle deletion attempt in delete-bundle/:bundleId');
       return res.status(403).send('You do not have permission to delete this bundle');
     }
 
-    // Delete it
     await SubscriptionBundle.findByIdAndDelete(bundle._id);
 
+    req.flash('success_msg', 'Bundle deleted successfully');
     res.redirect('/profile');
   } catch (err) {
     logger.error(`Error deleting bundle: ${err.message}`);
-    res.status(500).send('Error deleting bundle');
+    req.flash('error_msg', 'Error deleting bundle');
+    res.status(500).redirect('/profile');
   }
 });
 
-// Subscribe route
-router.post('/subscribe', async (req, res) => {
+// POST /profile/subscribe-free (subscribe to a free bundle)
+// POST /profile/subscribe-free
+router.post('/subscribe-free', authCheck, async (req, res) => {
+  try {
+    const { creatorId, creatorUsername } = req.body;
 
+    if (!creatorId || !creatorUsername) {
+      logger.warn('Missing creatorId or creatorUsername in subscribe-free');
+      return res.status(400).json({
+        status: 'error',
+        message: 'Creator ID and Creator Username are required',
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(creatorId)) {
+      logger.error(`Invalid creatorId: ${creatorId} in subscribe-free`);
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid ID format',
+      });
+    }
+
+    const creator = await User.findById(creatorId);
+    if (!creator || creator.username !== creatorUsername || creator.role !== 'creator') {
+      logger.warn('Creator not found, username mismatch, or not a creator in subscribe-free');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Creator not found or not a valid creator',
+      });
+    }
+
+    if (!creator.freeSubscriptionEnabled) {
+      logger.warn('Free subscription not enabled for creator in subscribe-free');
+      return res.status(400).json({
+        status: 'error',
+        message: 'Free subscription is not available for this creator',
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      logger.error('User not found in subscribe-free');
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found',
+      });
+    }
+
+    const now = new Date();
+    const isSubscribed = user.subscriptions.some(
+      (sub) =>
+        sub.creatorId.toString() === creatorId &&
+        sub.status === 'active' &&
+        (!sub.subscriptionExpiry || sub.subscriptionExpiry > now)
+    );
+    if (isSubscribed) {
+      logger.warn(`User ${user._id} already subscribed to creator ${creatorId} in subscribe-free`);
+      return res.status(400).json({
+        status: 'error',
+        message: 'You are already subscribed to this creator',
+      });
+    }
+
+    if (!user.subscriptions) user.subscriptions = [];
+    if (!creator.subscriptions) {
+      creator.subscriptions = [];
+      await creator.save();
+    }
+
+    let freeBundle = await SubscriptionBundle.findOne({
+      creatorId: creator._id,
+      isFree: true,
+    });
+    if (!freeBundle) {
+      freeBundle = new SubscriptionBundle({
+        price: 0,
+        currency: 'NGN',
+        description: 'Free subscription to access creator content',
+        creatorId: creator._id,
+        isFree: true,
+      });
+      await freeBundle.save();
+      logger.info(`Created free bundle for creator: ${creatorId}`);
+    }
+
+    const subscriptionData = {
+      creatorId,
+      subscriptionBundle: freeBundle._id,
+      subscribedAt: new Date(),
+      subscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      status: 'active',
+    };
+    user.subscriptions.push(subscriptionData);
+    await user.save();
+
+    await Notification.create({
+      user: creatorId,
+      message: `${user.username} just subscribed to your free plan!`,
+      type: 'new_subscription',
+    });
+
+    await creator.updateSubscriberCount();
+
+    return res.json({
+      status: 'success',
+      message: 'Subscribed successfully for free',
+      redirect: `/profile/${creatorUsername}`,
+    });
+  } catch (err) {
+    logger.error(`Error processing free subscription for creator ${req.body.creatorId}: ${err.message}`);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Error processing free subscription',
+    });
+  }
+});
+
+// POST /profile/subscribe
+router.post('/subscribe', async (req, res) => {
   try {
     const { creatorId, bundleId, creatorUsername } = req.body;
 
-    // Validate required fields
     if (!creatorId || !bundleId || !creatorUsername) {
       logger.warn('Missing creatorId, bundleId, or creatorUsername in subscribe');
-      return res.status(400).json({ status: 'error', message: 'Creator ID, Bundle ID, and Creator Username are required' });
+      return res.status(400).json({
+        status: 'error',
+        message: 'Creator ID, Bundle ID, and Creator Username are required',
+      });
     }
 
-    // Validate creator
     const creator = await User.findById(creatorId);
     if (!creator || creator.username !== creatorUsername || creator.role !== 'creator') {
       logger.warn('Creator not found, username mismatch, or not a creator in subscribe');
-      return res.status(404).json({ status: 'error', message: 'Creator not found or not a valid creator' });
+      return res.status(404).json({
+        status: 'error',
+        message: 'Creator not found or not a valid creator',
+      });
     }
 
-    // If user is not logged in, store subscription data
+    const bundle = await SubscriptionBundle.findById(bundleId);
+    if (!bundle) {
+      logger.warn('Bundle not found in subscribe');
+      return res.status(404).json({
+        status: 'error',
+        message: 'Subscription bundle not found',
+      });
+    }
+    if (!bundle.creatorId.equals(creator._id)) {
+      logger.warn(`Bundle ${bundleId} does not belong to creator ${creatorId} in subscribe`);
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid bundle for this creator',
+      });
+    }
+
     if (!req.user) {
       const redirectUrl = `/profile/${encodeURIComponent(creator.username)}`;
       req.session.redirectTo = redirectUrl;
       req.session.creator = creator.username;
       req.session.subscriptionData = { creatorId, bundleId };
 
-      // Store in PendingSubscription
       const pendingSub = await PendingSubscription.findOneAndUpdate(
         { sessionId: req.sessionID },
         {
@@ -1318,14 +1725,14 @@ router.post('/subscribe', async (req, res) => {
           creatorUsername: creator.username,
           creatorId,
           bundleId,
-          createdAt: new Date()
+          createdAt: new Date(),
+          isFree: bundle.isFree,
         },
         { upsert: true, new: true }
       );
 
-      // Save session
       await new Promise((resolve, reject) => {
-        req.session.save(err => {
+        req.session.save((err) => {
           if (err) {
             logger.error(`Session save error in subscribe: ${err.message}`);
             reject(err);
@@ -1339,7 +1746,6 @@ router.post('/subscribe', async (req, res) => {
       return res.redirect(welcomeUrl);
     }
 
-    // Logic for logged-in users
     const user = await User.findById(req.user._id);
     if (!user) {
       logger.error('User not found in subscribe');
@@ -1357,24 +1763,50 @@ router.post('/subscribe', async (req, res) => {
     if (changed) await user.save();
 
     const isSubscribed = user.subscriptions.some(
-      (sub) => sub.creatorId.toString() === creatorId && sub.status === 'active' && sub.subscriptionExpiry > now
+      (sub) =>
+        sub.creatorId.toString() === creatorId &&
+        sub.status === 'active' &&
+        (!sub.subscriptionExpiry || sub.subscriptionExpiry > now)
     );
     if (isSubscribed) {
       logger.warn('User already subscribed to creator in subscribe');
-      return res.status(400).json({ status: 'error', message: 'You are already subscribed to this creator' });
+      return res.status(400).json({
+        status: 'error',
+        message: 'You are already subscribed to this creator',
+      });
     }
 
-    const bundle = await SubscriptionBundle.findById(bundleId);
-    if (!bundle) {
-      logger.warn('Bundle not found in subscribe');
-      return res.status(404).json({ status: 'error', message: 'Subscription bundle not found' });
-    }
-    if (bundle.creatorId.toString() !== creatorId) {
-      logger.warn('Bundle does not belong to creator in subscribe');
-      return res.status(400).json({ status: 'error', message: 'Invalid bundle for this creator' });
+    if (bundle.isFree) {
+      if (!user.subscriptions) user.subscriptions = [];
+      const subscription = {
+        creatorId: creator._id,
+        subscriptionBundle: bundle._id,
+        subscribedAt: new Date(),
+        subscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        status: 'active',
+      };
+      user.subscriptions.push(subscription);
+      await user.save();
+      await Notification.create({
+        user: creatorId,
+        message: `${user.username} just subscribed to your free plan!`,
+        type: 'new_subscription',
+      });
+      await creator.updateSubscriberCount();
+      logger.info(`User ${user._id} subscribed to free bundle ${bundleId} for creator ${creatorId}`);
+      return res.json({
+        status: 'success',
+        message: 'Subscribed successfully for free',
+        redirect: `/profile/${creator.username}`,
+      });
     }
 
-    const paymentResponse = await flutter.initializePayment(req.user._id, creatorId, bundleId);
+    const paymentResponse = await flutter.initializePayment(
+      req.user._id,
+      creatorId,
+      bundleId,
+      bundle.price
+    );
 
     if (paymentResponse.status === 'success' && paymentResponse.meta?.authorization) {
       const authorization = paymentResponse.meta.authorization;
@@ -1412,7 +1844,9 @@ router.post('/subscribe', async (req, res) => {
         },
       });
     } else {
-      logger.error(`Payment initialization failed in subscribe: ${paymentResponse.message || 'Unknown error'}`);
+      logger.error(
+        `Payment initialization failed in subscribe: ${paymentResponse.message || 'Unknown error'}`
+      );
       return res.status(400).json({
         status: 'error',
         message: paymentResponse.message || 'Payment initialization failed',
@@ -1427,7 +1861,106 @@ router.post('/subscribe', async (req, res) => {
     });
   }
 });
+// Toggle free subscription mode
+router.post('/toggle-free-subscription', authCheck, async (req, res) => {
+  try {
+    if (req.user.role !== 'creator') {
+      logger.warn('Unauthorized free subscription toggle attempt by non-creator');
+      const errorMsg = 'Only creators can toggle free subscriptions.';
+      if (req.headers['content-type'] === 'application/json') {
+        return res.status(403).json({ status: 'error', message: errorMsg });
+      }
+      req.flash('error_msg', errorMsg);
+      return res.status(403).redirect('/profile');
+    }
 
+    const user = await User.findById(req.user._id);
+    const existingFreeBundle = await SubscriptionBundle.findOne({
+      creatorId: req.user._id,
+      isFree: true,
+    });
+
+    let message;
+    if (existingFreeBundle) {
+      // Disable free subscription
+      logger.info(`Disabling free bundle ${existingFreeBundle._id} for creator ${req.user._id}`);
+      await SubscriptionBundle.deleteOne({ _id: existingFreeBundle._id });
+
+      // Find all users with active free subscriptions to this creator
+      const subscribers = await User.find({
+        'subscriptions.creatorId': req.user._id,
+        'subscriptions.subscriptionBundle': existingFreeBundle._id,
+        'subscriptions.status': 'active',
+      });
+
+      // Update subscriptions and clean up bookmarks
+      const now = new Date();
+      const updatePromises = subscribers.map(async (subscriber) => {
+        let subscriptionsChanged = false;
+        subscriber.subscriptions.forEach((sub) => {
+          if (
+            sub.creatorId.toString() === req.user._id.toString() &&
+            sub.subscriptionBundle.toString() === existingFreeBundle._id.toString() &&
+            sub.status === 'active'
+          ) {
+            sub.status = 'expired';
+            sub.subscriptionExpiry = now; // Set expiry to now to ensure immediate expiration
+            subscriptionsChanged = true;
+          }
+        });
+        if (subscriptionsChanged) {
+          await subscriber.save(); // Triggers pre('save') hook
+          await subscriber.removeBookmarksForExpiredSubscriptions(); // Clean bookmarks
+        }
+      });
+
+      await Promise.all(updatePromises);
+      user.freeSubscriptionEnabled = false;
+      await user.save();
+      await user.updateSubscriberCount();
+      logger.info(`Expired free subscriptions for ${subscribers.length} users`);
+
+      message = 'Free subscription mode disabled. You can now create paid bundles.';
+    } else {
+      // Enable free subscription: delete all existing paid bundles
+      logger.info(`Enabling free subscription for creator ${req.user._id}`);
+      await SubscriptionBundle.deleteMany({
+        creatorId: req.user._id,
+        isFree: false,
+      });
+      const freeBundle = new SubscriptionBundle({
+        price: 0,
+        description: 'Free access to all content',
+        creatorId: req.user._id,
+        isFree: true,
+      });
+      await freeBundle.save();
+      user.freeSubscriptionEnabled = true;
+      await user.save();
+      logger.info(`Created free bundle ${freeBundle._id}`);
+      message = 'Free subscription mode enabled. All paid bundles have been removed.';
+    }
+
+    if (req.headers['content-type'] === 'application/json') {
+      return res.json({
+        status: 'success',
+        message,
+        freeSubscriptionEnabled: user.freeSubscriptionEnabled,
+      });
+    }
+
+    req.flash('success_msg', message);
+    res.redirect('/profile');
+  } catch (err) {
+    logger.error(`Error toggling free subscription: ${err.message}`);
+    const errorMsg = 'Error toggling free subscription';
+    if (req.headers['content-type'] === 'application/json') {
+      return res.status(500).json({ status: 'error', message: errorMsg });
+    }
+    req.flash('error_msg', errorMsg);
+    res.status(500).redirect('/profile');
+  }
+});
 // Webhook route to handle payment notifications
 router.post('/webhook', async (req, res) => {
  
@@ -1483,7 +2016,6 @@ router.post('/webhook', async (req, res) => {
 });
 
 router.get('/:username', async (req, res) => {
-  
   try {
     const username = req.params.username;
     const ownerUser = await User.findOne({ username });
@@ -1492,17 +2024,12 @@ router.get('/:username', async (req, res) => {
       return res.status(404).send('User not found');
     }
 
-    // Update subscriber count and check expired subscriptions
     await ownerUser.checkExpiredSubscriptions();
     await ownerUser.updateSubscriberCount();
 
-    // Check if the user is viewing their own profile
     const isOwnProfile = req.user ? req.user._id.toString() === ownerUser._id.toString() : false;
-
-    // Handle admin view
     const adminView = req.user && req.query.adminView === 'true' && req.user.role === 'admin';
 
-    // Fetch subscription status
     let isSubscribed = false;
     if (req.user && !isOwnProfile && ownerUser.role === 'creator') {
       const now = new Date();
@@ -1514,19 +2041,23 @@ router.get('/:username', async (req, res) => {
       );
     }
 
-    // Fetch bundles
-    const bundles = ownerUser.role === 'creator' ? await SubscriptionBundle.find({ creatorId: ownerUser._id }) : [];
+    // Fetch bundles with sorting
+    const bundles =
+      ownerUser.role === 'creator'
+        ? await SubscriptionBundle.find({ creatorId: ownerUser._id }).sort({
+            isFree: -1,
+            durationWeight: 1,
+          })
+        : [];
 
-    // Fetch posts only for authorized users
     let posts = [];
     if (req.user && (isOwnProfile || isSubscribed || adminView)) {
-      posts = await Post.find({ creator: ownerUser._id })
+      posts = (await Post.find({ creator: ownerUser._id })
         .populate('comments.user', 'username')
-        .sort({ createdAt: -1 }) || [];
+        .sort({ createdAt: -1 })) || [];
       await processPostUrls(posts, req.user, ownerUser, adminView);
     }
 
-    // Construct the user object explicitly
     const user = {
       _id: ownerUser._id,
       username: ownerUser.username,
@@ -1540,10 +2071,9 @@ router.get('/:username', async (req, res) => {
       imagesCount: ownerUser.imagesCount || 0,
       videosCount: ownerUser.videosCount || 0,
       totalLikes: ownerUser.totalLikes || 0,
-      subscriberCount: ownerUser.subscriberCount || 0
+      subscriberCount: ownerUser.subscriberCount || 0,
     };
 
-    // Render the profile view
     res.render('profile', {
       user,
       currentUser: req.user || null,
@@ -1551,17 +2081,18 @@ router.get('/:username', async (req, res) => {
       isSubscribed,
       bundles,
       adminView,
-      env: process.env.NODE_ENV || 'development' // Pass NODE_ENV
+      env: process.env.NODE_ENV || 'development',
+      messages: res.locals.messages, 
     });
   } catch (err) {
     logger.error(`Error loading profile by username: ${err.message}`);
+    req.flash('error', 'Error loading profile'); // Use flash for errors
     res.status(500).send('Error loading profile');
   }
 });
 
 // View another user's profile
 router.get('/view/:id', authCheck, async (req, res) => {
-  
   try {
     const ownerUser = await User.findById(req.params.id);
     if (!ownerUser) {
@@ -1580,7 +2111,10 @@ router.get('/view/:id', authCheck, async (req, res) => {
         sub.status === 'active' &&
         sub.subscriptionExpiry > now
     );
-    const bundles = await SubscriptionBundle.find({ creatorId: req.params.id });
+    const bundles = await SubscriptionBundle.find({ creatorId: req.params.id }).sort({
+      isFree: -1,
+      durationWeight: 1,
+    });
     const adminView = req.query.adminView && req.user.role === 'admin';
 
     let posts = [];
@@ -1589,9 +2123,8 @@ router.get('/view/:id', authCheck, async (req, res) => {
         .populate('comments.user', 'username')
         .sort({ createdAt: -1 });
 
-      // Filter out comments with invalid users
       for (const post of posts) {
-        post.comments = post.comments.filter(comment => {
+        post.comments = post.comments.filter((comment) => {
           if (comment.user === null) {
             logger.warn('Removing invalid comment on post in view/:id');
             return false;
@@ -1608,15 +2141,9 @@ router.get('/view/:id', authCheck, async (req, res) => {
       {
         $group: {
           _id: null,
-          imagesCount: {
-            $sum: { $cond: [{ $eq: ['$type', 'image'] }, 1, 0] },
-          },
-          videosCount: {
-            $sum: { $cond: [{ $eq: ['$type', 'video'] }, 1, 0] },
-          },
-          totalLikes: {
-            $sum: { $size: { $ifNull: ['$likes', []] } },
-          },
+          imagesCount: { $sum: { $cond: [{ $eq: ['$type', 'image'] }, 1, 0] } },
+          videosCount: { $sum: { $cond: [{ $eq: ['$type', 'video'] }, 1, 0] } },
+          totalLikes: { $sum: { $size: { $ifNull: ['$likes', []] } } },
         },
       },
     ]);
@@ -1639,12 +2166,13 @@ router.get('/view/:id', authCheck, async (req, res) => {
       posts,
       bundles,
       adminView,
-      env: process.env.NODE_ENV || 'development' // Pass NODE_ENV
+      env: process.env.NODE_ENV || 'development',
+     
     });
   } catch (err) {
     logger.error(`Error loading user profile: ${err.message}`);
+    
     res.status(500).send('Error loading profile');
   }
 });
-
 module.exports = router;

@@ -1959,7 +1959,6 @@ html, body {
     height: 160px;
   }
 }
-
 /********************************************
  * SUBSCRIPTION SECTION STYLES
  ********************************************/
@@ -1970,6 +1969,24 @@ html, body {
   padding: 15px;
   width: 100%;
   box-sizing: border-box;
+}
+
+/* Flash Messages */
+.flash-message {
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 5px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 500;
+}
+.flash-message.success {
+  background-color: #d4edda;
+  color: #155724;
+}
+.flash-message.error {
+  background-color: #f8d7da;
+  color: #721c24;
 }
 
 /* Subscribe Now Button: Full width and centered text */
@@ -2029,14 +2046,16 @@ html, body {
 /* Bundle Item */
 .bundle-item {
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
 }
 
 /* Bundle Button Styles (for clickable subscribe buttons and info blocks) */
-/* Updated to use flexbox for duration and amount on opposite ends */
 .bundle-subscribe-button,
 .bundle-info-block {
   display: flex;
-  justify-content: space-between;  /* Positions duration to left and price to right */
+  justify-content: space-between; /* Positions duration to left and price to right */
   align-items: center;
   width: 100%;
   background-color: #ff4655;
@@ -2045,7 +2064,6 @@ html, body {
   padding: 15px;
   font-size: 1rem;
   border-radius: 25px;
-  cursor: pointer;
   transition: background-color 0.3s ease;
   box-sizing: border-box;
   text-decoration: none;
@@ -2053,6 +2071,18 @@ html, body {
 
 .bundle-subscribe-button:hover {
   background-color: #e53647;
+  cursor: pointer;
+}
+
+/* Free Subscription Button */
+.free-subscribe-button {
+  background-color: #28a745;
+  color: #fff;
+}
+
+.free-subscribe-button:hover {
+  background-color: #218838;
+  cursor: pointer;
 }
 
 /* For non-clickable info blocks (e.g., when viewed by the creator), remove pointer cues */
@@ -2064,12 +2094,40 @@ html, body {
 .bundle-duration {
   font-weight: bold;
   font-size: 1rem;
+  flex: 1; /* Takes available space on left */
 }
 
 /* Bundle Price (right side) */
 .bundle-price {
   font-size: 1rem;
   font-weight: bold;
+  text-align: right;
+  flex: 1; /* Takes available space on right */
+}
+
+/* Discount Price Styling */
+.bundle-price.discount {
+  font-size: 0.95rem; /* Slightly smaller for discount text */
+  white-space: nowrap; /* Prevents wrapping */
+  overflow: hidden; /* Handles overflow */
+  text-overflow: ellipsis; /* Adds ellipsis if text is too long */
+}
+
+/* Edit Bundle Button */
+.edit-bundle-button {
+  background-color: #ffc107;
+  color: #000;
+  border: none;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 5px;
+}
+
+.edit-bundle-button:hover {
+  background-color: #e0a800;
 }
 
 /* Delete Bundle Button */
@@ -2094,6 +2152,26 @@ html, body {
   margin-top: 5px;
 }
 
+/* Toggle Free Subscription Button */
+.toggle-free-subscription-btn {
+  display: block;
+  width: 100%;
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 15px;
+  font-size: 1rem;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  text-align: center;
+  margin: 10px 0 0 0;
+}
+
+.toggle-free-subscription-btn:hover {
+  background-color: #0056b3;
+}
+
 /* Create Bundle Form (for creators) */
 .create-bundle-form {
   margin: 20px 15px;
@@ -2110,21 +2188,41 @@ html, body {
   margin-bottom: 10px;
 }
 
+.create-bundle-form p {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  color: #444;
+}
+
+.create-bundle-form-inner {
+  width: 100%;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
 .create-bundle-form label {
   display: block;
-  margin-top: 10px;
+  margin-bottom: 5px;
   font-weight: bold;
   color: #444;
 }
 
 .create-bundle-form input,
-.create-bundle-form select {
+.create-bundle-form select,
+.create-bundle-form textarea {
   width: 100%;
   padding: 8px;
-  margin-top: 5px;
   border-radius: 4px;
   border: 1px solid #ccc;
   font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.create-bundle-form textarea {
+  resize: vertical;
+  min-height: 80px;
 }
 
 .create-bundle-form button {
@@ -2135,11 +2233,171 @@ html, body {
   font-size: 1rem;
   border-radius: 25px;
   cursor: pointer;
-  margin-top: 15px;
+  width: 100%;
 }
 
 .create-bundle-form button:hover {
   background-color: #ff3e75;
+}
+
+/* No Bundle Creation Message */
+.no-bundle-creation-message {
+  margin: 20px 15px;
+  padding: 15px;
+  background-color: #f8d7da;
+  color: #721c24;
+  font-weight: bold;
+  border-radius: 8px;
+  text-align: center;
+}
+
+/* Edit Bundle Modal */
+.edit-bundle-modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  overflow: auto;
+}
+
+.edit-bundle-modal:not(.hidden) {
+  display: block;
+}
+
+.edit-bundle-modal-content {
+  background-color: #fff;
+  margin: 15% auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 90%;
+  max-width: 500px;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
+
+.close-edit-bundle-modal {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.close-edit-bundle-modal:hover,
+.close-edit-bundle-modal:focus {
+  color: #000;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.edit-bundle-modal-content h3 {
+  margin-top: 0;
+  font-size: 1.2rem;
+  color: #ff6f91;
+  margin-bottom: 15px;
+}
+
+.edit-bundle-modal-content label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: bold;
+  color: #444;
+}
+
+.edit-bundle-modal-content input,
+.edit-bundle-modal-content textarea {
+  width: 100%;
+  padding: 8px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.edit-bundle-modal-content textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.edit-bundle-modal-content button {
+  background-color: #ff6f91;
+  color: #fff;
+  border: none;
+  padding: 10px 16px;
+  font-size: 1rem;
+  border-radius: 25px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.edit-bundle-modal-content button:hover {
+  background-color: #ff3e75;
+}
+
+/* Success Message for Toggle */
+.success-msg {
+  padding: 10px;
+  margin: 10px 0;
+  border-radius: 5px;
+  text-align: center;
+  font-size: 1rem;
+  font-weight: 500;
+  background-color: #d4edda;
+  color: #155724;
+}
+
+/* Paid Subscription Options Container */
+.paid-subscription-options {
+  padding: 10px 0;
+  text-align: center;
+}
+
+.paid-subscription-options p {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  font-weight: bold;
+  color: #444;
+}
+
+.paid-subscription-options .subscribe-bundle-form {
+  margin-bottom: 10px;
+}
+
+.paid-subscription-options .subscribe-bundle-form button {
+  width: 100%;
+  background-color: #ff4655;
+  color: #fff;
+  border: none;
+  padding: 15px;
+  font-size: 1rem;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.paid-subscription-options .subscribe-bundle-form button:hover {
+  background-color: #e53647;
+}
+
+/* No Subscription Options Message */
+.no-subscription-options {
+  margin: 10px 0;
+  padding: 15px;
+  background-color: #f8d7da;
+  color: #721c24;
+  font-weight: bold;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 1rem;
+}
+/* hide the free subscription button entirely */
+.free-subscribe-button {
+  display: none !important;
 }
 
 /********************************************

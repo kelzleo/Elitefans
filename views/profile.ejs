@@ -2,40 +2,37 @@
     data-is-creator-viewing="<%= currentUser && currentUser._id.toString() === user._id.toString() %>"
     data-is-subscribed="<%= isSubscribed %>"
     data-current-user="<%= currentUser ? 'true' : 'false' %>">
-
-  <div class="profile-header">
+    data-env="<%= env %>">  <div class="profile-header">
     <div class="cover-photo-container">
       <% if (user.coverPhoto) { %>
         <img class="cover-photo" src="<%= user.coverPhoto %>" alt="Cover Photo">
       <% } else { %>
         <img class="cover-photo" src="/uploads/default-cover.jpg" alt="Default Cover Photo">
       <% } %>
-
-      <div class="cover-stats">
-        <div class="stat-item">
-          <i class="fa fa-image"></i>
-          <div class="stat-count"><%= user.imagesCount || 0 %></div>
-          <div class="stat-label">Photos</div>
-        </div>
-        <div class="stat-item">
-          <i class="fa fa-video"></i>
-          <div class="stat-count"><%= user.videosCount || 0 %></div>
-          <div class="stat-label">Videos</div>
-        </div>
-        <div class="stat-item">
-          <i class="fa fa-heart"></i>
-          <div class="stat-count"><%= user.totalLikes || 0 %></div>
-          <div class="stat-label">Likes</div>
-        </div>
-        <% if (user.role === 'creator') { %>
-          <div class="stat-item">
-            <i class="fa fa-users"></i>
-            <div class="stat-count"><%= user.subscriberCount || 0 %></div>
-            <div class="stat-label">Subscribers</div>
-          </div>
-        <% } %>
-      </div>
+  <div class="cover-stats">
+    <div class="stat-item">
+      <i class="fa fa-image"></i>
+      <div class="stat-count"><%= user.imagesCount || 0 %></div>
+      <div class="stat-label">Photos</div>
     </div>
+    <div class="stat-item">
+      <i class="fa fa-video"></i>
+      <div class="stat-count"><%= user.videosCount || 0 %></div>
+      <div class="stat-label">Videos</div>
+    </div>
+    <div class="stat-item">
+      <i class="fa fa-heart"></i>
+      <div class="stat-count"><%= user.totalLikes || 0 %></div>
+      <div class="stat-label">Likes</div>
+    </div>
+    <% if (user.role === 'creator') { %>
+      <div class="stat-item">
+        <i class="fa fa-users"></i>
+        <div class="stat-count"><%= user.subscriberCount || 0 %></div>
+        <div class="stat-label">Subscribers</div>
+      </div>
+    <% } %>
+  </div></div>
 
    <!-- Profile Actions (Chat, Tip, Share Icons) -->
 <div class="profile-actions">
@@ -68,119 +65,146 @@
   <% } %>
 </div>
     <div class="profile-details">
-      <img class="profile-picture" src="<%= user.profilePicture ? user.profilePicture : '/uploads/default-profile-picture.jpg' %>" alt="Profile Picture">
-      <div class="profile-names">
-        <h1 class="profile-name">
-          <%= user.profileName %>
-          <% if (user.role === 'creator') { %>
-            <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
-          <% } %>
-        </h1>
-        <p class="username">@<%= user.username %></p>
-        <% if (user.isOnline) { %>
-          <p class="online-status">Available now</p>
-        <% } else { %>
-          <p class="last-seen-status">Last seen <%= formatRelativeTime(user.lastSeen) %></p>
-        <% } %>
-      </div>
+     
 
-      <% if (user.bio) { %>
-        <div class="profile-bio">
-          <p class="bio"><%= user.bio %></p>
-        </div>
+  <img class="profile-picture" src="<%= user.profilePicture ? user.profilePicture : '/uploads/default-profile-picture.jpg' %>" alt="Profile Picture">
+  <div class="profile-names">
+    <h1 class="profile-name">
+      <%= user.profileName %>
+      <% if (user.role === 'creator') { %>
+        <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
+      <% } %>
+    </h1>
+    <p class="username">@<%= user.username %></p>
+    <% if (user.isOnline) { %>
+      <p class="online-status">Available now</p>
+    <% } else { %>
+      <p class="last-seen-status">Last seen <%= formatRelativeTime(user.lastSeen) %></p>
+    <% } %>
+  </div>
+
+  <% if (user.bio) { %>
+    <div class="profile-bio">
+      <p class="bio"><%= user.bio %></p>
+    </div>
+  <% } %>  <% if (user.role === 'creator') { %>
+    <div class="subscription-section">
+      <%# --- Toggle Buttons --- %>
+      <% if (currentUser && currentUser._id.toString() !== user._id.toString()) { %>
+        <%# Logged-in Visitor View %>
+        <% if (isSubscribed) { %>
+          <div class="subscription-actions">
+            <form action="/profile/unsubscribe/<%= user._id %>" method="POST" style="display: inline;">
+              <button type="submit" class="unsubscribe-btn">Subscribed</button>
+            </form>
+            <% if (bundles && bundles.length > 0) { %>
+              <button class="view-bundles-button" id="toggleBundlesBtn">View Options</button>
+            <% } %>
+          </div>
+        <% } else { %>
+          <%# Not Subscribed Visitor %>
+          <% if (bundles && bundles.length > 0) { %>
+            <button class="subscribe-now-button" id="toggleBundlesBtn">
+              SUBSCRIBE NOW
+            </button>
+          <% } else { %>
+            <p class="no-bundles-message">No subscription options currently available.</p>
+          <% } %>
+        <% } %>
+      <% } else if (currentUser && currentUser._id.toString() === user._id.toString() && user.role === 'creator') { %>
+        <%# Creator's Own View %>
+        <% if (bundles && bundles.length > 0) { %>
+          <button class="manage-bundles-button" id="toggleBundlesBtn">
+            Manage Bundles (<%= bundles.length %>)
+          </button>
+        <% } %>
+        <% } else { %>
+          <%# Non-Logged-In Visitor View %>
+          <% if (user.role === 'creator' && (user.freeSubscriptionEnabled || (bundles && bundles.length > 0))) { %>
+            <button class="subscribe-now-button" id="toggleBundlesBtn">
+              SUBSCRIBE NOW
+            </button>
+          <% } else { %>
+            <p class="no-bundles-message">No subscription options currently available.</p>
+          <% } %>
       <% } %>
 
-      <% if (user.role === 'creator') { %>
-        <div class="subscription-section">
-          <%# --- Toggle Buttons --- %>
-          <% if (currentUser && currentUser._id.toString() !== user._id.toString()) { %>
-            <%# Logged-in Visitor View %>
-            <% if (isSubscribed) { %>
-              <div class="subscription-actions">
-                <form action="/profile/unsubscribe/<%= user._id %>" method="POST" style="display: inline;">
-                  <button type="submit" class="unsubscribe-btn">Subscribed</button>
-                </form>
-                <% if (bundles && bundles.length > 0) { %>
-                  <button class="view-bundles-button" id="toggleBundlesBtn">View Options</button>
-                <% } %>
-              </div>
-            <% } else { %>
-              <%# Not Subscribed Visitor %>
-              <% if (bundles && bundles.length > 0) { %>
-                <button class="subscribe-now-button" id="toggleBundlesBtn">
-                  SUBSCRIBE NOW
+  <%# --- Bundle Dropdown --- %>
+  <% if (bundles && bundles.length > 0) { %>
+    <div class="subscription-dropdown hidden" id="subscriptionDropdown">
+      <ul class="bundle-list">
+        <% if (user.freeSubscriptionEnabled && currentUser && currentUser._id.toString() !== user._id.toString() && !isSubscribed) { %>
+          <li class="bundle-item">
+            <form action="/profile/subscribe-free" method="POST" class="subscribe-free-bundle-form">
+              <input type="hidden" name="creatorId" value="<%= user._id %>">
+              <input type="hidden" name="creatorUsername" value="<%= user.username %>">
+              <button type="submit" class="bundle-subscribe-button free-subscribe-button">
+                <span class="bundle-duration">Free Subscription</span>
+                <span class="bundle-price">₦0</span>
+              </button>
+            </form>
+          </li>
+        <% } %>
+        <% bundles.forEach(bundle => { %>
+          <li class="bundle-item">
+            <% if (currentUser && currentUser._id.toString() !== user._id.toString() && !isSubscribed) { %>
+              <form action="/profile/subscribe" method="POST" class="subscribe-bundle-form">
+                <input type="hidden" name="creatorId" value="<%= user._id %>">
+                <input type="hidden" name="bundleId" value="<%= bundle._id %>">
+                <input type="hidden" name="creatorUsername" value="<%= user.username %>">
+                <button type="submit" class="bundle-subscribe-button">
+                  <span class="bundle-duration"><%= bundle.duration || 'Free' %></span>
+                  <span class="bundle-price <%= bundle.discountPercentage && bundle.discountPercentage > 0 && bundle.originalPrice ? 'discount' : '' %>">
+                    <% if (bundle.discountPercentage && bundle.discountPercentage > 0 && bundle.originalPrice) { %>
+                      ₦<%= (bundle.price / 1000).toFixed(1) %>k at <%= bundle.discountPercentage %>% discount
+                    <% } else { %>
+                      ₦<%= bundle.price %>
+                    <% } %>
+                  </span>
                 </button>
-              <% } else { %>
-                <p class="no-bundles-message">No subscription options currently available.</p>
+              </form>
+            <% } else { %>
+              <div class="bundle-info-block">
+                <span class="bundle-duration"><%= bundle.duration || 'Free' %></span>
+                <span class="bundle-price <%= bundle.discountPercentage && bundle.discountPercentage > 0 && bundle.originalPrice ? 'discount' : '' %>">
+                  <% if (bundle.discountPercentage && bundle.discountPercentage > 0 && bundle.originalPrice) { %>
+                    ₦<%= (bundle.price / 1000).toFixed(1) %>k at <%= bundle.discountPercentage %>% discount
+                  <% } else { %>
+                    ₦<%= bundle.price %>
+                  <% } %>
+                </span>
+              </div>
+              <% if (currentUser && currentUser._id.toString() === user._id.toString() && !bundle.isFree) { %>
+                <form action="/profile/delete-bundle/<%= bundle._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this bundle?');" class="delete-bundle-form">
+                  <button type="submit" class="delete-bundle-button">Delete</button>
+                </form>
+                <button class="edit-bundle-button" 
+                        data-bundle-id="<%= bundle._id %>"
+                        data-price="<%= bundle.originalPrice || bundle.price %>"
+                        data-description="<%= bundle.description %>"
+                        data-discount-percentage="<%= bundle.discountPercentage || 0 %>">
+                  Edit
+                </button>
               <% } %>
             <% } %>
-          <% } else if (currentUser && currentUser._id.toString() === user._id.toString() && user.role === 'creator') { %>
-            <%# Creator's Own View %>
-            <% if (bundles && bundles.length > 0) { %>
-              <button class="manage-bundles-button" id="toggleBundlesBtn">
-                Manage Bundles (<%= bundles.length %>)
-              </button>
-            <% } %>
-          <% } else { %>
-            <%# Non-Logged-In Visitor View %>
-            <% if (user.role === 'creator' && bundles && bundles.length > 0) { %>
-              <button class="subscribe-now-button" id="toggleBundlesBtn">
-                SUBSCRIBE NOW
-              </button>
-            <% } else { %>
-              <p class="no-bundles-message">No subscription options currently available.</p>
-            <% } %>
-          <% } %>
-
-          <%# --- Bundle Dropdown --- %>
-          <% if (bundles && bundles.length > 0) { %>
-            <div class="subscription-dropdown hidden" id="subscriptionDropdown">
-              <ul class="bundle-list">
-                <% bundles.forEach(bundle => { %>
-                  <li class="bundle-item">
-                    <% if (currentUser && currentUser._id.toString() !== user._id.toString() && !isSubscribed) { %>
-                      <form action="/profile/subscribe" method="POST" class="subscribe-bundle-form">
-                        <input type="hidden" name="creatorId"       value="<%= user._id %>">
-                        <input type="hidden" name="bundleId"        value="<%= bundle._id %>">
-                        <input type="hidden" name="creatorUsername" value="<%= user.username %>">
-                        <button type="submit" class="bundle-subscribe-button">
-                          <span class="bundle-duration"><%= bundle.duration %></span>
-                          <span class="bundle-price">₦<%= bundle.price %></span>
-                        </button>
-                      </form>
-                      
-                    <% } else { %>
-                      <div class="bundle-info-block">
-                        <span class="bundle-duration"><%= bundle.duration %></span>
-                        <span class="bundle-price">₦<%= bundle.price %></span>
-                      </div>
-                      <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-                        <form action="/profile/delete-bundle/<%= bundle._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this bundle?');" class="delete-bundle-form">
-                          <button type="submit" class="delete-bundle-button">Delete</button>
-                        </form>
-                      <% } %>
-                    <% } %>
-                  </li>
-                <% }) %>
-              </ul>
-            </div>
-          <% } %>
-        </div>
-      <% } %>
+          </li>
+        <% }) %>
+      </ul>
     </div>
+  <% } %>
+</div>
+
+  <% } %></div>
+
   </div>
 
   <% if (currentUser && currentUser.role === 'admin') { %>
     <a class="admin-dashboard-link" href="/admin">Admin Dashboard</a>
-  <% } %>
-
-  <!-- Tabbed Content -->
+  <% } %>  <!-- Tabbed Content -->
   <div class="profile-tabs">
     <button class="tab-button active" data-tab="posts">Posts <span class="tab-count"><%= posts.length %></span></button>
     <button class="tab-button" data-tab="media">Media <span class="tab-count"><%= (user.imagesCount || 0) + (user.videosCount || 0) %></span></button>
-  </div>
-
-  <!-- Posts Tab -->
+  </div>  <!-- Posts Tab -->
   <div class="tab-content" id="posts-tab">
     <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
       <!-- Creator View -->
@@ -245,111 +269,111 @@
                 <button type="submit" class="delete-post-btn">Delete Post</button>
               </form>
              
-            </div>
-          <% }); %>
-        </div>
-      <% } else { %>
-        <p class="no-posts-message">You have not uploaded any posts yet.</p>
-      <% } %>
-    <% } else { %>
-      <!-- Visitor View -->
-      <% if (isSubscribed) { %>
-        <% if (posts && posts.length > 0) { %>
-          <div class="posts-list">
-            <% posts.forEach(post => { %>
-              <div class="post-card" id="post-<%= post._id %>">
-                <% 
-                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-                  currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
-                const showLocked = post.special && !isAdminView && !hasPurchased;
-              %>
-              <% if (showLocked) { %>
-                <div class="locked-content-container">
-                  <% if (post.type === 'image' || post.type === 'video') { %>
-                    <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                  <% } %>
-                  <% if (post.writeUp) { %>
-                    <p class="post-writeUp preview-text"><%= post.writeUp.substring(0, 100) %><% if (post.writeUp.length > 100) { %>...<% } %></p>
-                  <% } %>
-                  <div class="unlock-overlay">
-                    <i class="fa fa-lock"></i>
-                    <div>Unlock for ₦<%= post.unlockPrice %></div>
-                    <% if (!isAdminView) { %>
-                      <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock Post</button>
-                    <% } %>
-                  </div>
-                </div>
-              <% } else { %>
-                  <div class="post-content">
-                    <% if (post.type === 'image') { %>
-                      <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
-                    <% } else if (post.type === 'video') { %>
-                      <video controls class="post-video">
-                        <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
-                        Your browser does not support the video tag.
-                      </video>
-                    <% } else if (post.type === 'text') { %>
-                      <p class="post-text"><%= post.writeUp %></p>
-                    <% } %>
-                    <% if (post.writeUp && post.type !== 'text') { %>
-                      <p class="post-writeUp"><%= post.writeUp %></p>
-                    <% } %>
-                  </div>
-                <% } %>
-                <div class="post-actions">
-                  <button class="like-button" data-post-id="<%= post._id %>">
-                    <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
-                    <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
-                  </button>
-                  <button class="comment-icon" data-post-id="<%= post._id %>">
-                    <i class="fa-solid fa-comment"></i>
-                    <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-                  </button>
-                  <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
-                    <i class="fa-solid fa-gift"></i>
-                    Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
-                  </button>
-                  <button class="bookmark-button" data-post-id="<%= post._id %>">
-                    <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
-                  </button>
-                </div>
-                <div class="comments">
-                  <% if (post.comments && post.comments.length > 0) { %>
-                    <% post.comments.slice(0, 2).forEach(comment => { %>
-                      <div class="comment">
-                        <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
-                      </div>
-                    <% }); %>
-                    <% if (post.comments.length > 2) { %>
-                      <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
-                    <% } %>
-                  <% } %>
-                </div>
-                <div class="comment-form-container hidden">
-                  <form class="comment-form" data-post-id="<%= post._id %>">
-                    <input type="text" name="comment" placeholder="Write a comment...">
-                    <button type="submit">Post</button>
-                  </form>
-                </div>
-                <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
-                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
-                    <label for="reason-<%= post._id %>">Reason for deletion:</label>
-                    <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
-                    <button type="submit" class="delete-post-btn">Delete Post</button>
-                  </form>
+    </div>
+  <% }); %>
+</div>
+
+  <% } else { %>
+    <p class="no-posts-message">You have not uploaded any posts yet.</p>
+  <% } %>
+<% } else { %>
+  <!-- Visitor View -->
+  <% if (isSubscribed) { %>
+    <% if (posts && posts.length > 0) { %>
+      <div class="posts-list">
+        <% posts.forEach(post => { %>
+          <div class="post-card" id="post-<%= post._id %>">
+            <% 
+            const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+            const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+              currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
+            const showLocked = post.special && !isAdminView && !hasPurchased;
+          %>
+          <% if (showLocked) { %>
+            <div class="locked-content-container">
+              <% if (post.type === 'image' || post.type === 'video') { %>
+                <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+              <% } %>
+              <% if (post.writeUp) { %>
+                <p class="post-writeUp preview-text"><%= post.writeUp.substring(0, 100) %><% if (post.writeUp.length > 100) { %>...<% } %></p>
+              <% } %>
+              <div class="unlock-overlay">
+                <i class="fa fa-lock"></i>
+                <div>Unlock for ₦<%= post.unlockPrice %></div>
+                <% if (!isAdminView) { %>
+                  <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock Post</button>
                 <% } %>
               </div>
-            <% }); %>
+            </div>
+          <% } else { %>
+              <div class="post-content">
+                <% if (post.type === 'image') { %>
+                  <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
+                <% } else if (post.type === 'video') { %>
+                  <video controls class="post-video">
+                    <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
+                    Your browser does not support the video tag.
+                  </video>
+                <% } else if (post.type === 'text') { %>
+                  <p class="post-text"><%= post.writeUp %></p>
+                <% } %>
+                <% if (post.writeUp && post.type !== 'text') { %>
+                  <p class="post-writeUp"><%= post.writeUp %></p>
+                <% } %>
+              </div>
+            <% } %>
+            <div class="post-actions">
+              <button class="like-button" data-post-id="<%= post._id %>">
+                <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
+                <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
+              </button>
+              <button class="comment-icon" data-post-id="<%= post._id %>">
+                <i class="fa-solid fa-comment"></i>
+                <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+              </button>
+              <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
+                <i class="fa-solid fa-gift"></i>
+                Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+              </button>
+              <button class="bookmark-button" data-post-id="<%= post._id %>">
+                <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
+              </button>
+            </div>
+            <div class="comments">
+              <% if (post.comments && post.comments.length > 0) { %>
+                <% post.comments.slice(0, 2).forEach(comment => { %>
+                  <div class="comment">
+                    <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
+                  </div>
+                <% }); %>
+                <% if (post.comments.length > 2) { %>
+                  <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
+                <% } %>
+              <% } %>
+            </div>
+            <div class="comment-form-container hidden">
+              <form class="comment-form" data-post-id="<%= post._id %>">
+                <input type="text" name="comment" placeholder="Write a comment...">
+                <button type="submit">Post</button>
+              </form>
+            </div>
+            <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
+              <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                <label for="reason-<%= post._id %>">Reason for deletion:</label>
+                <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
+                <button type="submit" class="delete-post-btn">Delete Post</button>
+              </form>
+            <% } %>
           </div>
-        <% } else { %>
-          <p class="no-posts-message">This creator hasn't posted anything yet.</p>
-        <% } %>
-      <% } else { %>
-        <p class="subscribe-prompt">Subscribe to see posts from <%= user.username %>.</p>
-      <% } %>
+        <% }); %>
+      </div>
+    <% } else { %>
+      <p class="no-posts-message">This creator hasn't posted anything yet.</p>
     <% } %>
-  </div>
+  <% } else { %>
+    <p class="subscribe-prompt">Subscribe to see posts from <%= user.username %>.</p>
+  <% } %>
+<% } %>  </div>
 
   <!-- Media Tab -->
   <div class="tab-content hidden" id="media-tab">
@@ -359,287 +383,290 @@
       <button class="subtab-button" data-subtab="videos">Videos <span class="tab-count"><%= user.videosCount || 0 %></span></button>
       <button class="view-toggle-button" title="Toggle Compact View"><i class="fa fa-th"></i></button>
     </div>
-
-    <!-- All Media -->
-    <div class="media-view active" id="media-all">
-      <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
-        <% if (posts && posts.some(post => post.type === 'image' || post.type === 'video')) { %>
-          <div class="media-content posts-list">
-            <% posts.filter(post => post.type === 'image' || post.type === 'video').forEach(post => { %>
-              <div class="media-item" id="media-post-<%= post._id %>">
-                <% 
-                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-                  currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
-                const showLocked = post.special && !isAdminView && !hasPurchased;
-              %>
-              <% if (showLocked) { %>
-                <div class="locked-content-container">
-                  <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                  <div class="unlock-overlay">
-                    <i class="fa fa-lock"></i>
-                    <div>Unlock for ₦<%= post.unlockPrice %></div>
-                    <% if (!isAdminView) { %>
-                      <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
-                    <% } %>
-                  </div>
-                </div>
-              <% } else { %>
-                  <% if (post.type === 'image') { %>
-                    <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
-                  <% } else if (post.type === 'video') { %>
-                    <video controls class="post-video">
-                      <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
-                      Your browser does not support the video tag.
-                    </video>
+<!-- All Media -->
+<div class="media-view active" id="media-all">
+  <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
+    <% if (posts && posts.some(post => post.type === 'image' || post.type === 'video')) { %>
+      <div class="media-content posts-list">
+        <% posts.filter(post => post.type === 'image' || post.type === 'video').forEach(post => { %>
+          <div class="media-item" id="media-post-<%= post._id %>">
+            <% 
+            const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+            const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+              currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
+            const showLocked = post.special && !isAdminView && !hasPurchased;
+          %>
+          <% if (showLocked) { %>
+            <div class="locked-content-container">
+              <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+              <div class="unlock-overlay">
+                <i class="fa fa-lock"></i>
+                <div>Unlock for ₦<%= post.unlockPrice %></div>
+                <% if (!isAdminView) { %>
+                  <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                <% } %>
+              </div>
+            </div>
+          <% } else { %>
+              <% if (post.type === 'image') { %>
+                <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
+              <% } else if (post.type === 'video') { %>
+                <video controls class="post-video">
+                  <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
+                  Your browser does not support the video tag.
+                </video>
+              <% } %>
+            <% } %>
+            <!-- Normal View Content -->
+            <div class="normal-view-content">
+              <% if (!showLocked && post.writeUp) { %>
+                <p class="post-writeUp"><%= post.writeUp %></p>
+              <% } %>
+              <% if (post.special) { %>
+                <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
+              <% } %>
+              <div class="post-actions">
+                <button class="like-button" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
+                  <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
+                </button>
+                <button class="comment-icon" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-comment"></i>
+                  <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+                </button>
+                <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
+                  <i class="fa-solid fa-gift"></i>
+                  Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+                </button>
+                <button class="bookmark-button" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
+                </button>
+              </div>
+              <div class="comments">
+                <% if (post.comments && post.comments.length > 0) { %>
+                  <% post.comments.slice(0, 2).forEach(comment => { %>
+                    <div class="comment">
+                      <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
+                    </div>
+                  <% }); %>
+                  <% if (post.comments.length > 2) { %>
+                    <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
                   <% } %>
                 <% } %>
-                <!-- Normal View Content -->
-                <div class="normal-view-content">
-                  <% if (!showLocked && post.writeUp) { %>
-                    <p class="post-writeUp"><%= post.writeUp %></p>
-                  <% } %>
-                  <% if (post.special) { %>
-                    <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
-                  <% } %>
-                  <div class="post-actions">
-                    <button class="like-button" data-post-id="<%= post._id %>">
-                      <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
-                      <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
-                    </button>
-                    <button class="comment-icon" data-post-id="<%= post._id %>">
-                      <i class="fa-solid fa-comment"></i>
-                      <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-                    </button>
-                    <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
-                      <i class="fa-solid fa-gift"></i>
-                      Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
-                    </button>
-                    <button class="bookmark-button" data-post-id="<%= post._id %>">
-                      <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
-                    </button>
-                  </div>
-                  <div class="comments">
-                    <% if (post.comments && post.comments.length > 0) { %>
-                      <% post.comments.slice(0, 2).forEach(comment => { %>
-                        <div class="comment">
-                          <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
-                        </div>
-                      <% }); %>
-                      <% if (post.comments.length > 2) { %>
-                        <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
-                      <% } %>
-                    <% } %>
-                  </div>
-                  <div class="comment-form-container hidden">
-                    <form class="comment-form" data-post-id="<%= post._id %>">
-                      <input type="text" name="comment" placeholder="Write a comment...">
-                      <button type="submit">Post</button>
-                    </form>
-                  </div>
-                  <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-                    <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
-                      <button type="submit" class="delete-post-btn">Delete Post</button>
-                    </form>
-                   
-                  <% } %>
-                  <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
-                    <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
-                      <label for="reason-<%= post._id %>">Reason for deletion:</label>
-                      <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
-                      <button type="submit" class="delete-post-btn">Delete Post</button>
-                    </form>
-                  <% } %>
-                </div>
               </div>
-            <% }); %>
-          </div>
-        <% } else { %>
-          <p class="no-media-message">No media available yet.</p>
-        <% } %>
-      <% } else { %>
-        <p class="subscribe-prompt">Subscribe to see media from <%= user.username %>.</p>
-      <% } %>
-    </div>
+              <div class="comment-form-container hidden">
+                <form class="comment-form" data-post-id="<%= post._id %>">
+                  <input type="text" name="comment" placeholder="Write a comment...">
+                  <button type="submit">Post</button>
+                </form>
+              </div>
+              <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+                <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                  <button type="submit" class="delete-post-btn">Delete Post</button>
+                </form>
+               
 
-    <!-- Pictures -->
-    <div class="media-view" id="media-pics">
-      <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
-        <% if (posts && posts.some(post => post.type === 'image')) { %>
-          <div class="media-content posts-list">
-            <% posts.filter(post => post.type === 'image').forEach(post => { %>
-              <div class="media-item" id="media-post-<%= post._id %>">
-                <% 
-                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-                  currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
-                const showLocked = post.special && !isAdminView && !hasPurchased;
-              %>
-              <% if (showLocked) { %>
-                <div class="locked-content-container">
-                  <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                  <div class="unlock-overlay">
-                    <i class="fa fa-lock"></i>
-                    <div>Unlock for ₦<%= post.unlockPrice %></div>
-                    <% if (!isAdminView) { %>
-                      <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
-                    <% } %>
-                  </div>
-                </div>
-              <% } else { %>
-                  <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
-                <% } %>
-                <!-- Normal View Content -->
-                <div class="normal-view-content">
-                  <% if (!showLocked && post.writeUp) { %>
-                    <p class="post-writeUp"><%= post.writeUp %></p>
-                  <% } %>
-                  <% if (post.special) { %>
-                    <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
-                  <% } %>
-                  <div class="post-actions">
-                    <button class="like-button" data-post-id="<%= post._id %>">
-                      <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
-                      <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
-                    </button>
-                    <button class="comment-icon" data-post-id="<%= post._id %>">
-                      <i class="fa-solid fa-comment"></i>
-                      <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-                    </button>
-                    <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
-                      <i class="fa-solid fa-gift"></i>
-                      Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
-                    </button>
-                    <button class="bookmark-button" data-post-id="<%= post._id %>">
-                      <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
-                    </button>
-                  </div>
-                  <div class="comments">
-                    <% if (post.comments && post.comments.length > 0) { %>
-                      <% post.comments.slice(0, 2).forEach(comment => { %>
-                        <div class="comment">
-                          <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
-                        </div>
-                      <% }); %>
-                      <% if (post.comments.length > 2) { %>
-                        <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
-                      <% } %>
-                    <% } %>
-                  </div>
-                  <div class="comment-form-container hidden">
-                    <form class="comment-form" data-post-id="<%= post._id %>">
-                      <input type="text" name="comment" placeholder="Write a comment...">
-                      <button type="submit">Post</button>
-                    </form>
-                  </div>
-                  <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-                    <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
-                      <button type="submit" class="delete-post-btn">Delete Post</button>
-                    </form>
-                    
-                  <% } %>
-                </div>
-              </div>
-            <% }); %>
-          </div>
-        <% } else { %>
-          <p class="no-media-message">No pictures available yet.</p>
-        <% } %>
-      <% } else { %>
-        <p class="subscribe-prompt">Subscribe to see pictures from <%= user.username %>.</p>
-      <% } %>
-    </div>
+          <% } %>
+          <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
+            <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+              <label for="reason-<%= post._id %>">Reason for deletion:</label>
+              <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
+              <button type="submit" class="delete-post-btn">Delete Post</button>
+            </form>
+          <% } %>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+<% } else { %>
+  <p class="no-media-message">No media available yet.</p>
+<% } %>
 
-    <!-- Videos -->
-    <div class="media-view" id="media-videos">
-      <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
-        <% if (posts && posts.some(post => post.type === 'video')) { %>
-          <div class="media-content posts-list">
-            <% posts.filter(post => post.type === 'video').forEach(post => { %>
-              <div class="media-item" id="media-post-<%= post._id %>">
-                <% 
-                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-                  currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
-                const showLocked = post.special && !isAdminView && !hasPurchased;
-              %>
-              <% if (showLocked) { %>
-                <div class="locked-content-container">
-                  <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                  <div class="unlock-overlay">
-                    <i class="fa fa-lock"></i>
-                    <div>Unlock for ₦<%= post.unlockPrice %></div>
-                    <% if (!isAdminView) { %>
-                      <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
-                    <% } %>
-                  </div>
-                </div>
-              <% } else { %>
-                  <video controls class="post-video">
-                    <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
-                    Your browser does not support the video tag.
-                  </video>
+  <% } else { %>
+    <p class="subscribe-prompt">Subscribe to see media from <%= user.username %>.</p>
+  <% } %></div>
+
+<!-- Pictures -->
+<div class="media-view" id="media-pics">
+  <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
+    <% if (posts && posts.some(post => post.type === 'image')) { %>
+      <div class="media-content posts-list">
+        <% posts.filter(post => post.type === 'image').forEach(post => { %>
+          <div class="media-item" id="media-post-<%= post._id %>">
+            <% 
+            const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+            const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+              currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
+            const showLocked = post.special && !isAdminView && !hasPurchased;
+          %>
+          <% if (showLocked) { %>
+            <div class="locked-content-container">
+              <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+              <div class="unlock-overlay">
+                <i class="fa fa-lock"></i>
+                <div>Unlock for ₦<%= post.unlockPrice %></div>
+                <% if (!isAdminView) { %>
+                  <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
                 <% } %>
-                <!-- Normal View Content -->
-                <div class="normal-view-content">
-                  <% if (!showLocked && post.writeUp) { %>
-                    <p class="post-writeUp"><%= post.writeUp %></p>
-                  <% } %>
-                  <% if (post.special) { %>
-                    <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
-                  <% } %>
-                  <div class="post-actions">
-                    <button class="like-button" data-post-id="<%= post._id %>">
-                      <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
-                      <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
-                    </button>
-                    <button class="comment-icon" data-post-id="<%= post._id %>">
-                      <i class="fa-solid fa-comment"></i>
-                      <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-                    </button>
-                    <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
-                      <i class="fa-solid fa-gift"></i>
-                      Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
-                    </button>
-                    <button class="bookmark-button" data-post-id="<%= post._id %>">
-                      <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
-                    </button>
-                  </div>
-                  <div class="comments">
-                    <% if (post.comments && post.comments.length > 0) { %>
-                      <% post.comments.slice(0, 2).forEach(comment => { %>
-                        <div class="comment">
-                          <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
-                        </div>
-                      <% }); %>
-                      <% if (post.comments.length > 2) { %>
-                        <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
-                      <% } %>
-                    <% } %>
-                  </div>
-                  <div class="comment-form-container hidden">
-                    <form class="comment-form" data-post-id="<%= post._id %>">
-                      <input type="text" name="comment" placeholder="Write a comment...">
-                      <button type="submit">Post</button>
-                    </form>
-                  </div>
-                  <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-                    <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
-                      <button type="submit" class="delete-post-btn">Delete Post</button>
-                    </form>
-                    
-                  <% } %>
-                </div>
               </div>
-            <% }); %>
-          </div>
-        <% } else { %>
-          <p class="no-media-message">No videos available yet.</p>
-        <% } %>
-      <% } else { %>
-        <p class="subscribe-prompt">Subscribe to see videos from <%= user.username %>.</p>
-      <% } %>
-    </div>
+            </div>
+          <% } else { %>
+              <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
+            <% } %>
+            <!-- Normal View Content -->
+            <div class="normal-view-content">
+              <% if (!showLocked && post.writeUp) { %>
+                <p class="post-writeUp"><%= post.writeUp %></p>
+              <% } %>
+              <% if (post.special) { %>
+                <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
+              <% } %>
+              <div class="post-actions">
+                <button class="like-button" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
+                  <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
+                </button>
+                <button class="comment-icon" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-comment"></i>
+                  <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+                </button>
+                <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
+                  <i class="fa-solid fa-gift"></i>
+                  Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+                </button>
+                <button class="bookmark-button" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
+                </button>
+              </div>
+              <div class="comments">
+                <% if (post.comments && post.comments.length > 0) { %>
+                  <% post.comments.slice(0, 2).forEach(comment => { %>
+                    <div class="comment">
+                      <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
+                    </div>
+                  <% }); %>
+                  <% if (post.comments.length > 2) { %>
+                    <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
+                  <% } %>
+                <% } %>
+              </div>
+              <div class="comment-form-container hidden">
+                <form class="comment-form" data-post-id="<%= post._id %>">
+                  <input type="text" name="comment" placeholder="Write a comment...">
+                  <button type="submit">Post</button>
+                </form>
+              </div>
+              <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+                <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                  <button type="submit" class="delete-post-btn">Delete Post</button>
+                </form>
+                
+
+          <% } %>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+<% } else { %>
+  <p class="no-media-message">No pictures available yet.</p>
+<% } %>
+
+  <% } else { %>
+    <p class="subscribe-prompt">Subscribe to see pictures from <%= user.username %>.</p>
+  <% } %></div>
+
+<!-- Videos -->
+<div class="media-view" id="media-videos">
+  <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
+    <% if (posts && posts.some(post => post.type === 'video')) { %>
+      <div class="media-content posts-list">
+        <% posts.filter(post => post.type === 'video').forEach(post => { %>
+          <div class="media-item" id="media-post-<%= post._id %>">
+            <% 
+            const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+            const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+              currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
+            const showLocked = post.special && !isAdminView && !hasPurchased;
+          %>
+          <% if (showLocked) { %>
+            <div class="locked-content-container">
+              <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+              <div class="unlock-overlay">
+                <i class="fa fa-lock"></i>
+                <div>Unlock for ₦<%= post.unlockPrice %></div>
+                <% if (!isAdminView) { %>
+                  <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                <% } %>
+              </div>
+            </div>
+          <% } else { %>
+              <video controls class="post-video">
+                <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
+                Your browser does not support the video tag.
+              </video>
+            <% } %>
+            <!-- Normal View Content -->
+            <div class="normal-view-content">
+              <% if (!showLocked && post.writeUp) { %>
+                <p class="post-writeUp"><%= post.writeUp %></p>
+              <% } %>
+              <% if (post.special) { %>
+                <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
+              <% } %>
+              <div class="post-actions">
+                <button class="like-button" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
+                  <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
+                </button>
+                <button class="comment-icon" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-comment"></i>
+                  <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+                </button>
+                <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
+                  <i class="fa-solid fa-gift"></i>
+                  Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+                </button>
+                <button class="bookmark-button" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
+                </button>
+              </div>
+              <div class="comments">
+                <% if (post.comments && post.comments.length > 0) { %>
+                  <% post.comments.slice(0, 2).forEach(comment => { %>
+                    <div class="comment">
+                      <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
+                    </div>
+                  <% }); %>
+                  <% if (post.comments.length > 2) { %>
+                    <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
+                  <% } %>
+                <% } %>
+              </div>
+              <div class="comment-form-container hidden">
+                <form class="comment-form" data-post-id="<%= post._id %>">
+                  <input type="text" name="comment" placeholder="Write a comment...">
+                  <button type="submit">Post</button>
+                </form>
+              </div>
+              <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+                <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                  <button type="submit" class="delete-post-btn">Delete Post</button>
+                </form>
+                
+
+          <% } %>
+        </div>
+      </div>
+    <% }); %>
+  </div>
+<% } else { %>
+  <p class="no-media-message">No videos available yet.</p>
+<% } %>
+
+  <% } else { %>
+    <p class="subscribe-prompt">Subscribe to see videos from <%= user.username %>.</p>
+  <% } %></div>
+
   </div>
 
   <!-- Fullscreen Overlay -->
@@ -653,81 +680,92 @@
     <div class="creator-actions">
       <div class="edit-profile-container">
         <a href="/profile/edit" class="edit-profile-btn">Edit Profile</a>
-      </div>
-
-      <% if (user.role === 'creator') { %>
-        <div class="create-bundle-form">
-          <h4>Create Subscription Bundle</h4>
-          <p>Limit: 4 bundles. Currently: <%= bundles ? bundles.length : 0 %></p>
-          <% if (!bundles || bundles.length < 4) { %>
-            <form action="/profile/create-bundle" method="POST">
-              <div style="margin-bottom: 10px;">
-                <label for="bundlePrice">Bundle Price (NGN):</label><br>
-                <input type="number" name="price" id="bundlePrice" min="0" required class="form-input">
-              </div>
-              <div style="margin-bottom: 10px;">
-                <label for="bundleDuration">Bundle Duration:</label><br>
-                <select name="duration" id="bundleDuration" required class="form-select">
-                  <option value="" disabled selected>-- Select Duration --</option>
-                  <option value="1 day">1 day</option>
-                  <option value="1 month">1 month</option>
-                  <option value="3 months">3 months</option>
-                  <option value="6 months">6 months</option>
-                  <option value="1 year">1 year</option>
-                </select>
-              </div>
-              <div style="margin-bottom: 10px;">
-                <label for="bundleDescription">Bundle Description:</label><br>
-                <textarea name="description" id="bundleDescription" required placeholder="e.g., Access all my content for 1 month" class="form-textarea"></textarea>
-              </div>
-              <button type="submit" class="form-button">Create Bundle</button>
-            </form>
-          <% } else { %>
-            <p>You have reached the maximum limit of 4 bundles.</p>
-          <% } %>
+      </div>  <% if (user.role === 'creator') { %>
+    <div class="create-bundle-form">
+      <h4>Create Subscription Bundle</h4>
+      <p>Limit: 4 bundles. Currently: <%= bundles ? bundles.length : 0 %></p>
+      <% if (user.freeSubscriptionEnabled) { %>
+        <div class="no-bundle-creation-message">
+          Bundle creation is disabled while free subscription mode is enabled.
         </div>
-
-        <div class="upload-content-form">
-          <h3>Upload New Content</h3>
-          <form action="/profile/uploadContent" method="POST" enctype="multipart/form-data">
-            <div style="margin-bottom: 10px;">
-              <label for="contentImage">Upload Image:</label><br>
-              <input type="file" name="contentImage" id="contentImage" accept="image/*" class="form-input">
-            </div>
-            <div style="margin-bottom: 10px;">
-              <label for="contentVideo">Upload Video:</label><br>
-              <input type="file" name="contentVideo" id="contentVideo" accept="video/*" class="form-input">
-            </div>
-            <div style="margin-bottom: 10px;">
-              <label for="writeUp">Write-up / Caption:</label><br>
-              <textarea name="writeUp" id="writeUp" class="form-textarea"></textarea>
-            </div>
-            <div style="margin-bottom: 10px;">
-              <label for="specialCheckbox">
-                <input type="checkbox" name="special" value="true" id="specialCheckbox"> Mark as Special Content? (Pay-per-view)
-              </label>
-            </div>
-            <div style="margin-bottom: 10px;" id="unlockPriceContainer" class="hidden">
-              <label for="unlockPrice">Unlock Price (NGN):</label><br>
-              <input type="number" name="unlockPrice" id="unlockPrice" min="0" class="form-input">
-            </div>
-            <button type="submit" class="form-button">Upload</button>
-          </form>
-        </div>
+      <% } else if (!bundles || bundles.length < 4) { %>
+        <form action="/profile/create-bundle" method="POST" id="createBundleForm" class="create-bundle-form-inner">
+          <div class="form-group">
+            <label for="bundlePrice">Bundle Price (NGN):</label>
+            <input type="number" name="price" id="bundlePrice" min="1" step="1" required class="form-input" placeholder="e.g., 1000">
+          </div>
+          <div class="form-group">
+            <label for="bundleDiscount">Discount Percentage (optional):</label>
+            <input type="number" name="discountPercentage" id="bundleDiscount" min="0" max="100" value="0" class="form-input" placeholder="e.g., 20 for 20%">
+          </div>
+          <div class="form-group">
+            <label for="bundleDuration">Bundle Duration:</label>
+            <select name="duration" id="bundleDuration" required class="form-select">
+              <option value="" disabled selected>-- Select Duration --</option>
+              <option value="1 day">1 Day</option>
+              <option value="1 month">1 Month</option>
+              <option value="3 months">3 Months</option>
+              <option value="6 months">6 Months</option>
+              <option value="1 year">1 Year</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="bundleDescription">Bundle Description:</label>
+            <textarea name="description" id="bundleDescription" required class="form-textarea" placeholder="e.g., Access all my content for 1 month"></textarea>
+          </div>
+          <button type="submit" class="form-button">Create Bundle</button>
+        </form>
+      <% } else { %>
+        <p>You have reached the maximum limit of 4 bundles.</p>
       <% } %>
     </div>
+
+ <!-- Add toggle free subscription here -->
+
+<div class="toggle-free-subscription">
+  <form action="/profile/toggle-free-subscription" method="POST" class="toggle-free-subscription-form">
+    <button type="submit" class="toggle-free-subscription-btn">
+      <%= user.freeSubscriptionEnabled ? 'Disable Free Subscription' : 'Enable Free Subscription' %>
+    </button>
+  </form>
+</div>
+<div class="upload-content-form">
+  <h3>Upload New Content</h3>
+  <form action="/profile/uploadContent" method="POST" enctype="multipart/form-data">
+    <div style="margin-bottom: 10px;">
+      <label for="contentImage">Upload Image:</label><br>
+      <input type="file" name="contentImage" id="contentImage" accept="image/*" class="form-input">
+    </div>
+    <div style="margin-bottom: 10px;">
+      <label for="contentVideo">Upload Video:</label><br>
+      <input type="file" name="contentVideo" id="contentVideo" accept="video/*" class="form-input">
+    </div>
+    <div style="margin-bottom: 10px;">
+      <label for="writeUp">Write-up / Caption:</label><br>
+      <textarea name="writeUp" id="writeUp" class="form-textarea"></textarea>
+    </div>
+    <div style="margin-bottom: 10px;">
+      <label for="specialCheckbox">
+        <input type="checkbox" name="special" value="true" id="specialCheckbox"> Mark as Special Content? (Pay-per-view)
+      </label>
+    </div>
+    <div style="margin-bottom: 10px;" id="unlockPriceContainer" class="hidden">
+      <label for="unlockPrice">Unlock Price (NGN):</label><br>
+      <input type="number" name="unlockPrice" id="unlockPrice" min="0" class="form-input">
+    </div>
+    <button type="submit" class="form-button">Upload</button>
+  </form>
+</div>
+
+  <% } %></div>
+
   <% } else if (isSubscribed) { %>
     <div class="chat-link-container">
       <a class="chat-link" href="/chat?creatorId=<%= user._id %>">
         Chat with <%= user.username %>
       </a>
     </div>
-  <% } %>
-
-  <a class="pro-logout-link" href="/logout">Log out</a>
-</div>
-
-<!-- Tip Modal for Creator-Level Tip -->
+  <% } %>  <a class="pro-logout-link" href="/logout">Log out</a></div><!-- Tip Modal for Creator-Level Tip -->
 <div id="tipModal" class="tip-modal hidden">
   <div class="tip-modal-content">
     <span id="closeTipModal" class="close-tip-modal">×</span>
@@ -768,6 +806,31 @@
     </div>
   </div>
 </div>
+<!-- Edit Bundle Modal -->
+<div id="editBundleModal" class="edit-bundle-modal hidden" role="dialog" aria-labelledby="editBundleModalTitle" aria-hidden="true">
+  <div class="edit-bundle-modal-content">
+    <span id="closeEditBundleModal" class="close-edit-bundle-modal" role="button" aria-label="Close">×</span>
+    <h3 id="editBundleModalTitle">Edit Subscription Bundle</h3>
+    <form id="editBundleForm" action="/profile/edit-bundle/" method="POST">
+      <div style="margin-bottom: 10px;">
+        <label for="editBundlePrice">Bundle Price (NGN):</label><br>
+        <input type="number" name="price" id="editBundlePrice" min="1" step="1" required class="form-input">
+      </div>
+      <div style="margin-bottom: 10px;">
+        <label for="editBundleDiscount">Discount Percentage (optional):</label><br>
+        <input type="number" name="discountPercentage" id="editBundleDiscount" min="0" max="100" placeholder="e.g., 10 for 10%" class="form-input">
+      </div>
+      <div style="margin-bottom: 10px;">
+        <label for="editBundleDescription">Bundle Description:</label><br>
+        <textarea name="description" id="editBundleDescription" required placeholder="e.g., Access all my content" class="form-textarea"></textarea>
+      </div>
+      <button type="submit" class="form-button">Update Bundle</button>
+    </form>
+  </div>
+</div>
+
+
+
 <script>
   // Helper function to safely get data attribute boolean
   function getDataBoolean(element, attributeName) {
@@ -775,12 +838,68 @@
   }
 
   document.addEventListener('DOMContentLoaded', function() {
-    console.log("Profile page script loaded.");
     const profileContainer = document.querySelector('.profile-container');
+    const isDevEnv = profileContainer && profileContainer.dataset.env === 'development'; // Check environment
     const isCreatorViewingOwnProfile = getDataBoolean(profileContainer, 'isCreatorViewing');
     const isVisitorSubscribed = getDataBoolean(profileContainer, 'isSubscribed');
     const isLoggedIn = getDataBoolean(profileContainer, 'currentUser');
-    const creatorUsername = '<%= user.username %>'; // Ensure creator username is available
+
+    
+   // --- Free Subscription Form ---
+document.querySelectorAll('.subscribe-free-bundle-form').forEach(form => {
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    if (!isLoggedIn) {
+      try {
+        const redirectResponse = await fetch('/store-redirect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ redirectTo: `/profile/<%= user.username %>` })
+        });
+        if (!redirectResponse.ok && isDevEnv) {
+          console.error('Failed to store redirect:', redirectResponse.status);
+        }
+      } catch (error) {
+        if (isDevEnv) console.error('Error storing redirect:', error.message);
+      }
+      window.location.href = `/?creator=<%= encodeURIComponent(user.username) %>`;
+      return;
+    }
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    const originalHtml = submitButton.innerHTML;
+    submitButton.innerHTML = 'Processing...';
+    submitButton.disabled = true;
+
+    try {
+      const formData = new FormData(form);
+      const data = {
+        creatorId: formData.get('creatorId'),
+        creatorUsername: formData.get('creatorUsername')
+      };
+      const response = await fetch('/profile/subscribe-free', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const result = await response.json();
+      if (response.ok && result.status === 'success') {
+        alert(result.message || 'Subscribed successfully.');
+        window.location.href = result.redirect || `/profile/<%= user.username %>`;
+      } else {
+        if (isDevEnv) console.error('Free subscription error:', result);
+        alert(result.message || 'Error subscribing. Please try again.');
+        submitButton.innerHTML = originalHtml;
+        submitButton.disabled = false;
+      }
+    } catch (err) {
+      if (isDevEnv) console.error('Error subscribing to free bundle:', err.message);
+      alert('Error subscribing. Please try again.');
+      submitButton.innerHTML = originalHtml;
+      submitButton.disabled = false;
+    }
+  });
+});
 
     // --- Subscription Dropdown Toggle ---
     const toggleBtn = document.getElementById('toggleBundlesBtn');
@@ -790,26 +909,20 @@
       dropdown.classList.add('hidden');
       toggleBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        console.log('ToggleBundlesBtn clicked - isLoggedIn:', isLoggedIn, 'creatorUsername:', creatorUsername);
         if (!isLoggedIn) {
-          console.log('Non-logged-in user, storing redirect and redirecting');
           try {
             const redirectResponse = await fetch('/store-redirect', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ redirectTo: `/profile/${encodeURIComponent(creatorUsername)}` })
+              body: JSON.stringify({ redirectTo: `/profile/<%= user.username %>` })
             });
-            if (!redirectResponse.ok) {
-              console.error('Failed to store redirect, status:', redirectResponse.status, 'message:', await redirectResponse.text());
-            } else {
-              console.log('Successfully stored redirect to:', `/profile/${encodeURIComponent(creatorUsername)}`);
+            if (!redirectResponse.ok && isDevEnv) {
+              console.error('Failed to store redirect:', redirectResponse.status);
             }
           } catch (error) {
-            console.error('Error during /store-redirect fetch for toggleBtn:', error.message);
+            if (isDevEnv) console.error('Error storing redirect:', error.message);
           }
-          const redirectUrl = `/?creator=${encodeURIComponent(creatorUsername)}`;
-          console.log('Redirecting non-logged-in user to:', redirectUrl);
-          window.location.href = redirectUrl;
+          window.location.href = `/?creator=<%= encodeURIComponent(user.username) %>`;
           return;
         }
         dropdown.classList.toggle('hidden');
@@ -821,10 +934,268 @@
           if (toggleBtn) toggleBtn.classList.remove('active');
         }
       });
-    } else {
-      console.warn('toggleBundlesBtn or subscriptionDropdown not found');
+    } else if (isDevEnv) {
+      console.warn('Missing toggleBundlesBtn or subscriptionDropdown');
     }
 
+    // --- Toggle Free Subscription Confirmation ---
+document.querySelector('.toggle-free-subscription-form')?.addEventListener('submit', (e) => {
+  const isEnabling = e.target.querySelector('button').textContent.includes('Enable');
+  if (isEnabling && !confirm('Enabling free mode will delete all paid bundles. Continue?')) {
+    e.preventDefault();
+  }
+});
+// --- Edit Bundle Form ---
+// --- Edit Bundle Modal and Form ---
+const editBundleModal = document.getElementById('editBundleModal');
+const editBundleForm = document.getElementById('editBundleForm');
+const closeEditBundleModal = document.getElementById('closeEditBundleModal');
+const editBundlePrice = document.getElementById('editBundlePrice');
+const editBundleDiscount = document.getElementById('editBundleDiscount');
+const editBundleDescription = document.getElementById('editBundleDescription');
+
+if (editBundleModal && editBundleForm && closeEditBundleModal && editBundlePrice && editBundleDiscount && editBundleDescription) {
+  // Handle "Edit" button clicks
+  document.querySelectorAll('.edit-bundle-button').forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      const bundleId = button.dataset.bundleId;
+      const price = button.dataset.price;
+      const description = button.dataset.description;
+      const discountPercentage = button.dataset.discountPercentage;
+
+      if (!bundleId) {
+        if (isDevEnv) console.error('Bundle ID not found on edit button');
+        alert('Error: Bundle ID missing.');
+        return;
+      }
+
+      // Populate form fields
+      editBundleForm.action = `/profile/edit-bundle/${bundleId}`;
+      editBundlePrice.value = price;
+      editBundleDiscount.value = discountPercentage || 0;
+      editBundleDescription.value = description;
+
+      if (isDevEnv) {
+        console.log('Populating edit form:', {
+          bundleId,
+          price,
+          discountPercentage,
+          description
+        });
+      }
+
+      // Show the modal
+      editBundleModal.classList.remove('hidden');
+    });
+  });
+
+  // Close modal on close button click
+  closeEditBundleModal.addEventListener('click', () => {
+    editBundleModal.classList.add('hidden');
+    editBundleForm.reset();
+  });
+
+  // Close modal when clicking outside the modal content
+  editBundleModal.addEventListener('click', (e) => {
+    if (e.target === editBundleModal) {
+      editBundleModal.classList.add('hidden');
+      editBundleForm.reset();
+    }
+  });
+
+  // Handle form submission
+  editBundleForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    const rawPrice = editBundlePrice.value.trim();
+    const price = Number(rawPrice);
+    const discount = editBundleDiscount.value ? Number(editBundleDiscount.value) : 0;
+    const description = editBundleDescription.value.trim();
+
+    if (isDevEnv) {
+      console.log('Form inputs:', {
+        rawPrice,
+        convertedPrice: price,
+        discount,
+        description
+      });
+    }
+
+    if (!rawPrice || isNaN(price) || price <= 0) {
+      alert('Please enter a valid price greater than 0.');
+      if (isDevEnv) console.warn('Invalid price input:', rawPrice);
+      return;
+    }
+
+    if (discount < 0 || discount > 100) {
+      alert('Discount percentage must be between 0 and 100.');
+      if (isDevEnv) console.warn('Invalid discount input:', editBundleDiscount.value);
+      return;
+    }
+
+    if (!description) {
+      alert('Please enter a bundle description.');
+      if (isDevEnv) console.warn('Empty description input');
+      return;
+    }
+
+    const data = {
+      price,
+      description,
+      discountPercentage: discount
+    };
+
+    if (isDevEnv) {
+      console.log('Data sent to server:', data);
+    }
+
+    const submitButton = editBundleForm.querySelector('.form-button');
+    const originalText = submitButton.textContent;
+    submitButton.textContent = 'Updating...';
+    submitButton.disabled = true;
+
+    const bundleId = editBundleForm.action.split('/').pop();
+    const actionUrl = `/profile/edit-bundle/${bundleId}`;
+    if (isDevEnv) console.log('Submitting to URL:', actionUrl);
+
+    try {
+      const response = await fetch(actionUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        if (isDevEnv) console.error('Unexpected non-JSON response:', response.status, response.statusText);
+        throw new Error('Unexpected response from server');
+      }
+
+      const result = await response.json();
+      if (isDevEnv) console.log('Server response:', result);
+
+      if (response.ok && result.status === 'success') {
+        alert(result.message || 'Bundle updated successfully.');
+        window.location.reload();
+      } else {
+        if (isDevEnv) console.error('Bundle update error:', result);
+        alert(result.message || 'Error updating bundle. Please try again.');
+        submitButton.textContent = originalText;
+        submitButton.disabled = false;
+      }
+    } catch (err) {
+      if (isDevEnv) console.error('Fetch error updating bundle:', err.message);
+      alert('Error updating bundle. Please try again.');
+      submitButton.textContent = originalText;
+      submitButton.disabled = false;
+    } finally {
+      editBundleModal.classList.add('hidden');
+      editBundleForm.reset();
+    }
+  });
+} else if (isDevEnv) {
+  console.warn('Edit bundle modal or form elements not found:', {
+    editBundleModal: !!editBundleModal,
+    editBundleForm: !!editBundleForm,
+    closeEditBundleModal: !!closeEditBundleModal,
+    editBundlePrice: !!editBundlePrice,
+    editBundleDiscount: !!editBundleDiscount,
+    editBundleDescription: !!editBundleDescription
+  });
+}
+// --- Create Bundle Form AJAX ---
+const createBundleForm = document.getElementById('createBundleForm');
+if (createBundleForm) {
+  createBundleForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const priceInput = document.getElementById('bundlePrice');
+    const discountInput = document.getElementById('bundleDiscount');
+    const durationInput = document.getElementById('bundleDuration');
+    const descriptionInput = document.getElementById('bundleDescription');
+
+    const price = Number(priceInput.value.trim());
+    const discount = Number(discountInput.value) || 0;
+    const duration = durationInput.value;
+    const description = descriptionInput.value.trim();
+
+    const submitButton = createBundleForm.querySelector('.form-button');
+    const originalText = submitButton.textContent;
+
+    if (isDevEnv) {
+      console.log('Create form inputs:', { price, discount, duration, description });
+    }
+
+    if (isNaN(price) || price <= 0) {
+      alert('Please enter a valid price greater than 0.');
+      if (isDevEnv) console.warn('Invalid price:', price);
+      return;
+    }
+    if (discount < 0 || discount > 100) {
+      alert('Discount percentage must be between 0 and 100.');
+      if (isDevEnv) console.warn('Invalid discount:', discount);
+      return;
+    }
+    if (!duration || !['1 day', '1 month', '3 months', '6 months', '1 year'].includes(duration)) {
+      alert('Please select a valid duration.');
+      if (isDevEnv) console.warn('Invalid duration:', duration);
+      return;
+    }
+    if (!description) {
+      alert('Please enter a bundle description.');
+      if (isDevEnv) console.warn('Empty description');
+      return;
+    }
+
+    const data = {
+      price,
+      discountPercentage: discount,
+      duration,
+      description,
+    };
+
+    if (isDevEnv) {
+      console.log('Data sent to server:', data);
+    }
+
+    submitButton.textContent = 'Creating...';
+    submitButton.disabled = true;
+
+    try {
+      const response = await fetch('/profile/create-bundle', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+
+      // Check if response is JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        if (isDevEnv) console.error('Unexpected non-JSON response:', response.status, response.statusText);
+        throw new Error('Unexpected response from server');
+      }
+
+      const result = await response.json();
+      if (isDevEnv) console.log('Server response:', result);
+
+      if (response.ok && result.status === 'success') {
+        alert(result.message || 'Bundle created successfully.');
+        window.location.href = result.redirect || '/profile';
+      } else {
+        if (isDevEnv) console.error('Bundle creation error:', result);
+        alert(result.message || 'Error creating bundle. Please try again.');
+        submitButton.textContent = originalText;
+        submitButton.disabled = false;
+      }
+    } catch (err) {
+      if (isDevEnv) console.error('Error creating bundle:', err.message);
+      alert('Error creating bundle. Please try again.');
+      submitButton.textContent = originalText;
+      submitButton.disabled = false;
+    }
+  });
+}
     // --- Toggle Unlock Price based on Special Checkbox ---
     if (isCreatorViewingOwnProfile) {
       const specialCheckbox = document.getElementById('specialCheckbox');
@@ -849,11 +1220,13 @@
     // --- Unlock Special Content ---
     document.querySelectorAll('.unlock-button').forEach(button => {
       button.addEventListener('click', async function(e) {
-        e.preventDefault(); e.stopPropagation();
+        e.preventDefault();
+        e.stopPropagation();
         const contentId = this.dataset.contentId;
         const creatorId = this.dataset.creatorId;
         const originalText = this.textContent;
-        this.textContent = 'Processing...'; this.disabled = true;
+        this.textContent = 'Processing...';
+        this.disabled = true;
         try {
           const response = await fetch('/profile/unlock-special-content', {
             method: 'POST',
@@ -866,19 +1239,21 @@
             window.location.href = result.data.paymentLink;
           } else {
             alert(result.message || 'Failed to initialize payment.');
-            this.textContent = originalText; this.disabled = false;
+            this.textContent = originalText;
+            this.disabled = false;
           }
         } catch (error) {
-          console.error('Unlock Error:', error);
+          if (isDevEnv) console.error('Error unlocking content:', error.message);
           alert('Error unlocking.');
-          this.textContent = originalText; this.disabled = false;
+          this.textContent = originalText;
+          this.disabled = false;
         }
       });
     });
 
     // --- Like Button ---
     document.querySelectorAll('.like-button').forEach(button => {
-      button.addEventListener('click', async function () {
+      button.addEventListener('click', async function() {
         const postId = this.dataset.postId;
         const likeIcon = this.querySelector('i');
         const likeCountSpan = this.querySelector('.like-count');
@@ -889,10 +1264,10 @@
             likeCountSpan.textContent = data.likes;
             likeIcon.classList.toggle('liked', data.userLiked);
           } else {
-            alert(data.message || `Could not like post (Status: ${res.status})`);
+            alert(data.message || 'Could not like post.');
           }
         } catch (error) {
-          console.error('Like Error:', error);
+          if (isDevEnv) console.error('Error liking post:', error.message);
           alert('Error liking post.');
         }
       });
@@ -902,9 +1277,15 @@
     document.querySelectorAll('.comment-icon').forEach(button => {
       button.addEventListener('click', function() {
         const parentElement = this.closest('.post-card') || this.closest('.media-item');
-        if (!parentElement) return;
+        if (!parentElement) {
+          if (isDevEnv) console.warn('Parent element not found for comment icon');
+          return;
+        }
         const commentContainer = parentElement.querySelector('.comment-form-container');
-        if (!commentContainer) return;
+        if (!commentContainer) {
+          if (isDevEnv) console.warn('Comment form container not found');
+          return;
+        }
         const isHidden = commentContainer.classList.contains('hidden');
         commentContainer.classList.toggle('hidden');
         if (isHidden) {
@@ -924,7 +1305,8 @@
         const submitButton = this.querySelector('button[type="submit"]');
         if (!commentText) return;
         const originalButtonText = submitButton.textContent;
-        submitButton.textContent = 'Posting...'; submitButton.disabled = true;
+        submitButton.textContent = 'Posting...';
+        submitButton.disabled = true;
         try {
           const res = await fetch('/profile/posts/' + postId + '/comment', {
             method: 'POST',
@@ -951,10 +1333,10 @@
             this.closest('.comment-form-container').classList.add('hidden');
           } else {
             const data = await res.json();
-            alert(data.message || `Failed to post comment (Status: ${res.status})`);
+            alert(data.message || 'Failed to post comment.');
           }
         } catch (error) {
-          console.error('Comment Error:', error);
+          if (isDevEnv) console.error('Error posting comment:', error.message);
           alert('Error posting comment.');
         } finally {
           submitButton.textContent = originalButtonText;
@@ -974,44 +1356,33 @@
           if (res.ok) {
             bookmarkIcon.classList.toggle('bookmarked', data.isBookmarked);
           } else {
-            alert(data.message || `Could not bookmark post (Status: ${res.status})`);
+            alert(data.message || 'Could not bookmark post.');
           }
         } catch (error) {
-          console.error('Bookmark Error:', error);
+          if (isDevEnv) console.error('Error bookmarking post:', error.message);
           alert('Error bookmarking post.');
         }
       });
     });
 
-    // --- AJAX for Bundle Subscription ---
-    // AJAX for Bundle Subscription
+   // --- AJAX for Bundle Subscription ---
 document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
   form.addEventListener('submit', async function(e) {
     e.preventDefault();
-    const creatorId = form.querySelector('input[name="creatorId"]').value;
-    const bundleId = form.querySelector('input[name="bundleId"]').value;
-    const creatorUsername = form.querySelector('input[name="creatorUsername"]').value || '<%= user.username %>';
-    console.log('Subscribe form submitted - isLoggedIn:', isLoggedIn, 'creatorId:', creatorId, 'bundleId:', bundleId, 'creatorUsername:', creatorUsername);
-    
     if (!isLoggedIn) {
-      console.log('Non-logged-in user detected, attempting to store redirect');
       try {
         const redirectResponse = await fetch('/store-redirect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ redirectTo: `/profile/${encodeURIComponent(creatorUsername)}` })
+          body: JSON.stringify({ redirectTo: `/profile/<%= user.username %>` })
         });
-        if (!redirectResponse.ok) {
-          console.error('Failed to store redirect, status:', redirectResponse.status, 'message:', await redirectResponse.text());
-        } else {
-          console.log('Successfully stored redirect to:', `/profile/${encodeURIComponent(creatorUsername)}`);
+        if (!redirectResponse.ok && isDevEnv) {
+          console.error('Failed to store redirect:', redirectResponse.status);
         }
       } catch (error) {
-        console.error('Error during /store-redirect fetch:', error.message);
+        if (isDevEnv) console.error('Error storing redirect:', error.message);
       }
-      const redirectUrl = `/?creator=${encodeURIComponent(creatorUsername)}`;
-      console.log('Redirecting non-logged-in user to:', redirectUrl);
-      window.location.href = redirectUrl;
+      window.location.href = `/?creator=<%= encodeURIComponent(user.username) %>`;
       return;
     }
 
@@ -1027,26 +1398,29 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
         bundleId: formData.get('bundleId'),
         creatorUsername: formData.get('creatorUsername')
       };
-      console.log('Sending subscribe request:', data);
       const response = await fetch('/profile/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
       const result = await response.json();
-      console.log('Subscribe response:', result);
-
-      if (response.ok && result.status === 'success' && result.data.paymentLink) {
-        submitButton.innerHTML = 'Redirecting...';
-        window.location.href = result.data.paymentLink;
+      if (response.ok && result.status === 'success') {
+        if (result.data && result.data.paymentLink) {
+          submitButton.innerHTML = 'Redirecting...';
+          window.location.href = result.data.paymentLink;
+        } else {
+          alert(result.message || 'Subscribed successfully.');
+          window.location.href = result.redirect || `/profile/<%= user.username %>`;
+        }
       } else {
-        alert(result.message || `Failed to subscribe (Status: ${response.status})`);
+        if (isDevEnv) console.error('Bundle subscription error:', result);
+        alert(result.message || 'Error subscribing. Please try again.');
         submitButton.innerHTML = originalHtml;
         submitButton.disabled = false;
       }
-    } catch (error) {
-      console.error('Sub Error:', error);
-      alert('Error subscribing.');
+    } catch (err) {
+      if (isDevEnv) console.error('Error subscribing to bundle:', err.message);
+      alert('Error subscribing. Please try again.');
       submitButton.innerHTML = originalHtml;
       submitButton.disabled = false;
     }
@@ -1058,14 +1432,15 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
         const postId = this.dataset.postId;
         const creatorId = this.dataset.creatorId;
         let tipAmountNum = NaN;
-        while(isNaN(tipAmountNum) || tipAmountNum <= 0) {
+        while (isNaN(tipAmountNum) || tipAmountNum <= 0) {
           const tipAmountStr = prompt("Enter tip amount in NGN (e.g., 500):");
           if (tipAmountStr === null) return;
           tipAmountNum = parseFloat(tipAmountStr);
           if (isNaN(tipAmountNum) || tipAmountNum <= 0) alert("Please enter a valid positive number.");
         }
         const originalHtml = this.innerHTML;
-        this.innerHTML = 'Processing...'; this.disabled = true;
+        this.innerHTML = 'Processing...';
+        this.disabled = true;
         try {
           const response = await fetch('/profile/posts/' + postId + '/tip', {
             method: 'POST',
@@ -1077,18 +1452,20 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
             this.innerHTML = 'Redirecting...';
             window.location.href = result.data.paymentLink;
           } else {
-            alert(result.message || `Failed to initialize tip payment (Status: ${response.status})`);
-            this.innerHTML = originalHtml; this.disabled = false;
+            alert(result.message || 'Failed to initialize tip payment.');
+            this.innerHTML = originalHtml;
+            this.disabled = false;
           }
         } catch (error) {
-          console.error('Tip Error:', error);
+          if (isDevEnv) console.error('Error processing tip:', error.message);
           alert('Error processing tip.');
-          this.innerHTML = originalHtml; this.disabled = false;
+          this.innerHTML = originalHtml;
+          this.disabled = false;
         }
       });
     });
 
-    // Initialize tip modal only if the user is subscribed and not viewing their own profile
+    // --- Tip Modal ---
     if (isVisitorSubscribed && !isCreatorViewingOwnProfile) {
       const initializeTipModal = () => {
         const tipProfileButtons = document.querySelectorAll('.tip-profile-button');
@@ -1099,17 +1476,14 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
         let currentCreatorId = null;
 
         if (!tipModal || tipProfileButtons.length === 0) {
-          console.log('Tip modal or buttons not found, initialization skipped.');
+          if (isDevEnv) console.warn('Tip modal or buttons not found');
           return;
         }
 
         tipProfileButtons.forEach(button => {
-          console.log('Adding event listener to button:', button);
           button.addEventListener('click', function() {
-            console.log('Tip button clicked! Creator ID:', this.dataset.creatorId);
             currentCreatorId = this.dataset.creatorId;
             tipModal.classList.add('active');
-            console.log('Modal active class added. Modal classes:', tipModal.classList);
           });
         });
 
@@ -1151,12 +1525,12 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
               submitButton.textContent = 'Redirecting...';
               window.location.href = result.data.paymentLink;
             } else {
-              alert(result.message || `Failed to initialize tip payment (Status: ${response.status})`);
+              alert(result.message || 'Failed to initialize tip payment.');
               submitButton.textContent = originalText;
               submitButton.disabled = false;
             }
           } catch (err) {
-            console.error('Profile Tip Error:', err);
+            if (isDevEnv) console.error('Error processing profile tip:', err.message);
             alert('Error processing tip.');
             submitButton.textContent = originalText;
             submitButton.disabled = false;
@@ -1232,7 +1606,7 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
 
     closeFullscreen.addEventListener('click', () => {
       fullscreenOverlay.classList.remove('active');
-      fullscreenImage.src = ''; // Clear src to reset
+      fullscreenImage.src = '';
     });
 
     fullscreenOverlay.addEventListener('click', (e) => {
@@ -1257,16 +1631,14 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
       let currentUsername = null;
 
       if (!shareModal || shareButtons.length === 0) {
-        console.log('Share modal or buttons not found, initialization skipped.');
+        if (isDevEnv) console.warn('Share modal or buttons not found');
         return;
       }
 
-      // Generate profile link without @ prefix
       const getProfileLink = (username) => {
         return `${window.location.origin}/profile/${username}`;
       };
 
-      // Populate share links
       const updateShareLinks = (username) => {
         const profileLink = getProfileLink(username);
         const encodedLink = encodeURIComponent(profileLink);
@@ -1279,14 +1651,12 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
         shareFacebook.href = `https://www.facebook.com/sharer/sharer.php?u=${encodedLink}`;
       };
 
-      // Open share modal
       shareButtons.forEach(button => {
         button.addEventListener('click', function() {
           currentUsername = this.dataset.username;
           updateShareLinks(currentUsername);
           shareModal.classList.add('active');
 
-          // Check for Web Share API support
           if (navigator.share) {
             shareNativeButton.classList.remove('hidden');
           } else {
@@ -1295,7 +1665,6 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
         });
       });
 
-      // Close share modal
       closeShareModal.addEventListener('click', () => {
         shareModal.classList.remove('active');
       });
@@ -1306,7 +1675,6 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
         }
       });
 
-      // Copy link to clipboard
       copyLinkButton.addEventListener('click', async function() {
         const link = this.dataset.link;
         try {
@@ -1318,12 +1686,11 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
             this.disabled = false;
           }, 2000);
         } catch (err) {
-          console.error('Copy Error:', err);
+          if (isDevEnv) console.error('Error copying link:', err.message);
           alert('Failed to copy link.');
         }
       });
 
-      // Native share (Web Share API)
       shareNativeButton.addEventListener('click', async () => {
         try {
           await navigator.share({
@@ -1333,13 +1700,12 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
           });
           shareModal.classList.remove('active');
         } catch (err) {
-          console.error('Native Share Error:', err);
+          if (isDevEnv) console.error('Error sharing profile:', err.message);
           alert('Error sharing profile.');
         }
       });
     };
 
-    // Initialize share modal
     initializeShareModal();
   });
 </script>

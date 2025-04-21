@@ -1,7 +1,7 @@
 // models/users.js
 const mongoose = require('mongoose');
 const path = require('path');
-const logger = require('../logs/logger'); // Import Winston logger at top
+const logger = require('../logs/logger');
 
 const userSchema = new mongoose.Schema({
   username: {
@@ -39,7 +39,7 @@ const userSchema = new mongoose.Schema({
   profileName: { type: String },
   bio: { type: String },
   profilePicture: { type: String, default: 'a1.png' },
-  coverPhoto: { type: String, default: '/uploads/default-cover.jpg' },
+  coverPhoto: { type: String, default: '/Uploads/default-cover.jpg' },
   uploadedContent: [
     {
       filename: { type: String, required: true },
@@ -99,38 +99,37 @@ const userSchema = new mongoose.Schema({
   creatorSince: { type: Date, default: null },
   lastSeen: { type: Date, default: Date.now },
   isOnline: { type: Boolean, default: false },
+  freeSubscriptionEnabled: { type: Boolean, default: false },
 });
 
-// Pre-save middleware to update subscription statuses
 userSchema.pre('save', async function (next) {
   const now = new Date();
   let subscriptionsChanged = false;
 
-  // Update expired subscriptions
   this.subscriptions.forEach((sub) => {
     if (
       sub.status === 'active' &&
       sub.subscriptionExpiry &&
-      sub.subscriptionExpiry < now
+      sub.subscriptionExpiry <= now // Updated to <= for immediate expiration
     ) {
       sub.status = 'expired';
       subscriptionsChanged = true;
+      logger.info(`Marked subscription as expired for user ${this._id}, creator ${sub.creatorId}`);
     }
   });
 
-  // Clean up bookmarks if subscriptions changed
   if (subscriptionsChanged && this.bookmarks.length > 0) {
     try {
       await this.removeBookmarksForExpiredSubscriptions();
+      logger.info(`Cleaned bookmarks for user ${this._id} due to expired subscriptions`);
     } catch (error) {
-      logger.error(`Error cleaning bookmarks in pre-save: ${error.message}`);
+      logger.error(`Error cleaning bookmarks in pre-save for user ${this._id}: ${error.message}`);
     }
   }
 
   next();
 });
 
-// Method to update post-related counts
 userSchema.methods.updatePostCounts = async function () {
   try {
     const posts = await mongoose.model('Post').find({ creator: this._id });
@@ -143,12 +142,11 @@ userSchema.methods.updatePostCounts = async function () {
   }
 };
 
-// Method to calculate subscriberCount
 userSchema.methods.updateSubscriberCount = async function () {
   try {
     const now = new Date();
     const subscriberCount = await mongoose.model('User').countDocuments({
-      'subscriptions': {
+      subscriptions: {
         $elemMatch: {
           creatorId: this._id,
           status: 'active',
@@ -165,7 +163,6 @@ userSchema.methods.updateSubscriberCount = async function () {
   }
 };
 
-// Method to check and update expired subscriptions
 userSchema.methods.checkExpiredSubscriptions = async function () {
   try {
     const now = new Date();
@@ -174,21 +171,21 @@ userSchema.methods.checkExpiredSubscriptions = async function () {
       if (
         sub.status === 'active' &&
         sub.subscriptionExpiry &&
-        sub.subscriptionExpiry < now
+        sub.subscriptionExpiry <= now // Updated to <= for immediate expiration
       ) {
         sub.status = 'expired';
         changed = true;
+        logger.info(`Marked subscription as expired for user ${this._id}, creator ${sub.creatorId}`);
       }
     });
     if (changed) {
-      await this.save(); // This will trigger pre-save middleware
+      await this.save();
     }
   } catch (error) {
-    logger.error(`Error checking expired subscriptions: ${error.message}`);
+    logger.error(`Error checking expired subscriptions for user ${this._id}: ${error.message}`);
   }
 };
 
-// Method to remove bookmarks from creators with expired subscriptions
 userSchema.methods.removeBookmarksForExpiredSubscriptions = async function () {
   try {
     const now = new Date();
@@ -196,8 +193,7 @@ userSchema.methods.removeBookmarksForExpiredSubscriptions = async function () {
       .filter(
         (sub) =>
           sub.status === 'active' &&
-          sub.subscriptionExpiry &&
-          sub.subscriptionExpiry > now
+          (!sub.subscriptionExpiry || sub.subscriptionExpiry > now)
       )
       .map((sub) => sub.creatorId.toString());
 
@@ -219,11 +215,11 @@ userSchema.methods.removeBookmarksForExpiredSubscriptions = async function () {
           );
           const keepBookmark = isCreatorSubscribed || !post.special || isPurchased;
           if (!keepBookmark) {
-            logger.warn('Removing bookmark due to expired subscription or special content not purchased');
+            logger.info(`Removing bookmark ${bookmarkId} due to expired subscription or special content not purchased`);
           }
           return keepBookmark ? bookmarkId : false;
         } catch (error) {
-          logger.error(`Error checking bookmark: ${error.message}`);
+          logger.error(`Error checking bookmark ${bookmarkId}: ${error.message}`);
           return false;
         }
       })
@@ -233,13 +229,13 @@ userSchema.methods.removeBookmarksForExpiredSubscriptions = async function () {
     if (validBookmarks.length !== this.bookmarks.length) {
       this.bookmarks = validBookmarks;
       await this.save();
+      logger.info(`Removed ${this.bookmarks.length - validBookmarks.length} invalid bookmarks for user ${this._id}`);
     }
   } catch (error) {
     logger.error(`Error removing bookmarks for expired subscriptions: ${error.message}`);
   }
 };
 
-// Method to force clean subscriptions and bookmarks
 userSchema.statics.cleanupAllUsers = async function () {
   try {
     const users = await this.find({ 'subscriptions.0': { $exists: true } });
@@ -250,19 +246,23 @@ userSchema.statics.cleanupAllUsers = async function () {
         if (
           sub.status === 'active' &&
           sub.subscriptionExpiry &&
-          sub.subscriptionExpiry < now
+          sub.subscriptionExpiry <= now // Updated to <= for immediate expiration
         ) {
           sub.status = 'expired';
           changed = true;
+          logger.info(`Marked subscription as expired for user ${user._id}, creator ${sub.creatorId}`);
         }
       });
       if (changed) {
-        await user.save(); // Triggers pre-save middleware
+        await user.save();
       }
     }
   } catch (error) {
     logger.error(`Error cleaning up all users’ subscriptions and bookmarks: ${error.message}`);
   }
 };
+
+userSchema.index({ 'subscriptions.creatorId': 1, 'subscriptions.status': 1 });
+userSchema.index({ 'subscriptions.subscriptionBundle': 1 }); // Added for performance
 
 module.exports = mongoose.model('User', userSchema);
