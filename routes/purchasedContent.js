@@ -17,17 +17,31 @@ const authCheck = (req, res, next) => {
 // Helper to process post URLs for purchased content
 const processPostUrls = async (posts) => {
   for (const post of posts) {
-    if (!post.contentUrl.startsWith('http')) {
+    // Process mediaItems (new schema)
+    if (post.mediaItems?.length > 0) {
+      for (const item of post.mediaItems) {
+        if (item.url && !item.url.startsWith('http')) {
+          try {
+            item.url = await generateSignedUrl(item.url);
+          } catch (err) {
+            logger.error(`Failed to generate signed URL for mediaItem ${item.url}: ${err.message}`);
+            item.url = `/Uploads/placeholder-${item.type}.png`;
+          }
+        }
+      }
+    }
+
+    // Process contentUrl (legacy schema)
+    if (post.contentUrl && !post.contentUrl.startsWith('http')) {
       try {
         post.contentUrl = await generateSignedUrl(post.contentUrl);
-      } catch (urlError) {
-        logger.error(`Failed to generate signed URL for post: ${urlError.message}`);
-        post.contentUrl = '/uploads/placeholder.png'; // Fallback
+      } catch (err) {
+        logger.error(`Failed to generate signed URL for post: ${err.message}`);
+        post.contentUrl = '/Uploads/placeholder.png';
       }
     }
   }
 };
-
 // Purchased content page
 router.get('/', authCheck, async (req, res) => {
   try {

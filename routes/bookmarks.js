@@ -14,40 +14,51 @@ const authCheck = (req, res, next) => {
   }
   next();
 };
-
 // Helper to process post URLs
 const processPostUrls = async (posts, currentUser) => {
   for (const post of posts) {
-    if (post.special) {
-      const hasPurchased = currentUser.purchasedContent.some(
-        (p) => p.contentId.toString() === post._id.toString()
-      );
-      if (hasPurchased) {
-        if (!post.contentUrl.startsWith('http')) {
-          try {
-            post.contentUrl = await generateSignedUrl(post.contentUrl);
-          } catch (err) {
-            logger.error(`Failed to generate signed URL for special post: ${err.message}`);
-            post.contentUrl = '/uploads/placeholder.png';
+    const hasPurchased = post.special && currentUser.purchasedContent.some(
+      (p) => p.contentId.toString() === post._id.toString()
+    );
+
+    if (post.special && !hasPurchased) {
+      // Locked special post
+      post.mediaItems = post.mediaItems?.map(item => ({
+        ...item,
+        url: `/uploads/locked-placeholder-${item.type}.png`
+      })) || [];
+      post.contentUrl = post.contentUrl ? '/uploads/locked-placeholder.png' : null;
+      post.locked = true;
+    } else {
+      // Unlocked post (purchased special or normal)
+      post.locked = false;
+
+      // Process mediaItems (new schema)
+      if (post.mediaItems?.length > 0) {
+        for (const item of post.mediaItems) {
+          if (item.url && !item.url.startsWith('http')) {
+            try {
+              item.url = await generateSignedUrl(item.url);
+            } catch (err) {
+              logger.error(`Failed to generate signed URL for mediaItem ${item.url}: ${err.message}`);
+              item.url = `/Uploads/placeholder-${item.type}.png`;
+            }
           }
         }
-      } else {
-        post.contentUrl = '/uploads/locked-placeholder.png';
-        post.locked = true;
       }
-    } else {
-      if (!post.contentUrl.startsWith('http')) {
+
+      // Process contentUrl (legacy schema)
+      if (post.contentUrl && !post.contentUrl.startsWith('http')) {
         try {
           post.contentUrl = await generateSignedUrl(post.contentUrl);
         } catch (err) {
-          logger.error(`Failed to generate signed URL for regular post: ${err.message}`);
+          logger.error(`Failed to generate signed URL for post: ${err.message}`);
           post.contentUrl = '/uploads/placeholder.png';
         }
       }
     }
   }
 };
-
 // Render Bookmarks Page
 router.get('/', authCheck, async (req, res) => {
   try {
