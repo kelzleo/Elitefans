@@ -17,33 +17,43 @@ const authCheck = (req, res, next) => {
 
 /**
  * For special posts:
- *   - If purchased, generate the real signed URL.
- *   - Otherwise, set a placeholder path & mark locked.
+ *   - If purchased, generate signed URLs for mediaItems or contentUrl.
+ *   - Otherwise, set placeholder paths & mark locked.
  * For normal posts:
- *   - Always generate a signed URL.
+ *   - Generate signed URLs for mediaItems or contentUrl.
  */
 const processPostUrlForFeed = async (post, currentUser) => {
-  if (post.special) {
-    const hasPurchased =
-      currentUser.purchasedContent &&
-      currentUser.purchasedContent.some(
-        (p) => p.contentId.toString() === post._id.toString()
-      );
-    if (hasPurchased) {
-      if (post.contentUrl && !post.contentUrl.startsWith('http')) {
-        try {
-          post.contentUrl = await generateSignedUrl(post.contentUrl);
-        } catch (err) {
-          logger.error(`Failed to generate signed URL for post: ${err.message}`);
-          post.contentUrl = '/uploads/placeholder.png';
+  const hasPurchased = post.special && currentUser.purchasedContent?.some(
+    (p) => p.contentId.toString() === post._id.toString()
+  );
+
+  if (post.special && !hasPurchased) {
+    // Locked special post
+    post.mediaItems = post.mediaItems?.map(item => ({
+      ...item,
+      url: `/uploads/locked-placeholder-${item.type}.png`
+    })) || [];
+    post.contentUrl = post.contentUrl ? '/uploads/locked-placeholder.png' : null;
+    post.locked = true;
+  } else {
+    // Unlocked post (purchased special or normal)
+    post.locked = false;
+
+    // Process mediaItems (new schema)
+    if (post.mediaItems?.length > 0) {
+      for (const item of post.mediaItems) {
+        if (item.url && !item.url.startsWith('http')) {
+          try {
+            item.url = await generateSignedUrl(item.url);
+          } catch (err) {
+            logger.error(`Failed to generate signed URL for mediaItem ${item.url}: ${err.message}`);
+            item.url = `/Uploads/placeholder-${item.type}.png`;
+          }
         }
       }
-      post.locked = false;
-    } else {
-      post.contentUrl = '/uploads/locked-placeholder.png';
-      post.locked = true;
     }
-  } else {
+
+    // Process contentUrl (legacy schema)
     if (post.contentUrl && !post.contentUrl.startsWith('http')) {
       try {
         post.contentUrl = await generateSignedUrl(post.contentUrl);
@@ -52,10 +62,8 @@ const processPostUrlForFeed = async (post, currentUser) => {
         post.contentUrl = '/uploads/placeholder.png';
       }
     }
-    post.locked = false;
   }
 };
-
 router.get('/', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id).populate('bookmarks');

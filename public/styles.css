@@ -2399,10 +2399,125 @@ html, body {
 .free-subscribe-button {
   display: none !important;
 }
+/********************************************
+ * UPLOAD FORM
+ ********************************************/
+ .upload-content-form {
+  margin: 20px 0;
+  padding: 20px;
+  background: #f9f9f9;
+  border-radius: 8px;
+}
+
+.form-textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  resize: vertical;
+}
+
+.form-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.form-button {
+  padding: 10px 20px;
+  background: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.form-button:hover {
+  background: #0056b3;
+}
+
+.add-more-button {
+  background: #28a745;
+  margin-top: 5px;
+}
+
+.add-more-button:hover {
+  background: #218838;
+}
+
+.hidden {
+  display: none;
+}
+
+.media-preview {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+  padding: 10px;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.preview-item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.preview-item img,
+.preview-item video {
+  width: 100%;
+  height: 80px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.preview-name {
+  font-size: 12px;
+  color: #333;
+  text-align: center;
+  word-break: break-all;
+  margin-top: 5px;
+}
+
+.remove-media-button {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 14px;
+  line-height: 20px;
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.remove-media-button:hover {
+  background: #c82333;
+}
 
 /********************************************
  * NEW: PROFILE TABS AND MEDIA STYLES
  ********************************************/
+
+/* Post Timestamp */
+.post-timestamp {
+  display: block;
+  font-size: 0.85rem; /* Slightly larger than original for readability, matches .comment */
+  color: #666; /* Consistent with .tab-button and .subtab-button */
+  margin: 8px 0; /* Slightly more margin for spacing */
+  font-weight: 500; /* Medium weight for subtle emphasis */
+}
 
 /* Profile Tabs */
 .profile-tabs {
@@ -2564,6 +2679,11 @@ html, body {
   margin-top: 5px;
 }
 
+/* Ensure timestamps are hidden in compact view */
+.media-list .normal-view-content {
+  display: none; /* Explicitly hide normal view content (including timestamps) */
+}
+
 /* Messages */
 .no-media-message,
 .subscribe-prompt {
@@ -2687,6 +2807,9 @@ html, body {
   .media-list .unlock-overlay {
     font-size: 14px; /* Larger text for readability */
   }
+  .post-timestamp {
+    font-size: 0.9rem; /* Slightly larger on tablets/desktops */
+  }
 }
 
 @media (min-width: 1024px) {
@@ -2702,6 +2825,9 @@ html, body {
   .media-list .media-item img {
     height: 200px; /* Taller for desktops */
   }
+  .post-timestamp {
+    font-size: 0.95rem; /* Larger for desktops */
+  }
 }
 
 .comments {
@@ -2716,6 +2842,181 @@ html, body {
 .view-all-comments {
   color: #007bff;
   text-decoration: none;
+}
+
+/********************************************
+ * CAROUSEL STYLES (Shared for Posts and Media Tabs)
+ ********************************************/
+.media-carousel-container {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.media-carousel {
+  display: flex;
+  transition: transform 0.3s ease;
+  width: 100%;
+}
+
+.carousel-item {
+  flex: 0 0 100%;
+  display: none;
+  width: 100%;
+  max-width: 100%;
+}
+
+.carousel-item.active {
+  display: block;
+}
+
+.carousel-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 5px;
+}
+
+.carousel-prev,
+.carousel-next {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #666;
+  padding: 5px;
+}
+
+.carousel-indicators {
+  display: flex;
+  gap: 5px;
+}
+
+.carousel-dot {
+  width: 8px;
+  height: 8px;
+  background: #ccc;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.carousel-dot.active {
+  background: #ff69b4;
+}
+
+/* Ensure media items in carousel are properly sized */
+.media-carousel .post-image,
+.media-carousel .post-video {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  object-fit: cover; /* or contain, depending on preference */
+  border-radius: 5px;
+}
+
+.media-carousel .post-video {
+  max-height: 400px; /* Limit video height in carousel */
+}
+
+/* Compact View Adjustments for Media Tab */
+.media-list .media-item {
+  position: relative;
+  overflow: visible;
+}
+
+.media-list .media-carousel-container {
+  width: 100%;
+  height: 120px; /* Match compact view image height */
+}
+
+.media-list .media-carousel .post-image {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.media-list .media-carousel .post-video {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+
+.media-list .media-item.locked .media-carousel .post-image,
+.media-list .media-item.locked .media-carousel .post-video {
+  filter: blur(5px);
+}
+
+.media-list .unlock-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  text-align: center;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.media-list .unlock-overlay i {
+  font-size: 24px;
+  margin-bottom: 5px;
+}
+
+.media-list .unlock-overlay .unlock-button {
+  background-color: #ff69b4;
+  color: #fff;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 5px;
+  font-size: 12px;
+}
+
+/* Responsive Adjustments */
+@media (min-width: 768px) {
+  .media-list .media-carousel-container {
+    height: 150px; /* Larger for tablets/desktops */
+  }
+
+  .media-list .media-carousel .post-image,
+  .media-list .media-carousel .post-video {
+    height: 150px;
+  }
+
+  .media-list .unlock-overlay {
+    font-size: 14px;
+  }
+
+  .media-carousel .post-video {
+    max-height: 500px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .media-list .media-carousel-container {
+    height: 200px; /* Taller for desktops */
+  }
+
+  .media-list .media-carousel .post-image,
+  .media-list .media-carousel .post-video {
+    height: 200px;
+  }
+
+  .media-carousel .post-video {
+    max-height: 600px;
+  }
 }
 
 /* --- Trending Creators Container --- */

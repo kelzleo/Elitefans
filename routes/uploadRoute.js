@@ -116,8 +116,8 @@ router.post(
 
       // Create new Post documents in the database
       for (const postData of postsToCreate) {
-        const Post = new Post(postData);
-        await Post.save();
+        const post = new Post(postData);
+        await post.save();
       }
 
       res.status(200).json({ message: 'Content uploaded successfully.', posts: postsToCreate });

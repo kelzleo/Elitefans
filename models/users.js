@@ -38,8 +38,12 @@ const userSchema = new mongoose.Schema({
   requestToBeCreator: { type: Boolean, default: false },
   profileName: { type: String },
   bio: { type: String },
-  profilePicture: { type: String, default: 'a1.png' },
-  coverPhoto: { type: String, default: '/Uploads/default-cover.jpg' },
+  profilePicture:  { 
+    type: String, 
+    default: 'https://storage.googleapis.com/my-public-profile-pictures/profilePictures/profile%20E.png' },
+    coverPhoto: {
+       type: String, 
+       default: 'https://storage.googleapis.com/my-public-profile-pictures/coverPhotos/cover%20E.png' },
   uploadedContent: [
     {
       filename: { type: String, required: true },

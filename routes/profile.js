@@ -30,7 +30,6 @@ const authCheck = (req, res, next) => {
   }
   next();
 };
-
 /**
  * Helper to process post URLs:
  * For special posts, only generate the signed URL if:
@@ -38,44 +37,54 @@ const authCheck = (req, res, next) => {
  * - The current user has purchased/unlocked the content, OR
  * - adminView is true (admin sees all content)
  * Otherwise, set a locked placeholder.
+ * Preserves createdAt for frontend relative time formatting.
  */
 const processPostUrls = async (posts, currentUser, ownerUser, adminView = false) => {
-  
   for (const post of posts) {
-    if (post.special) {
-      const isOwner =
-        currentUser && currentUser._id.toString() === ownerUser._id.toString();
-      const hasPurchased =
-        currentUser &&
-        currentUser.purchasedContent &&
-        currentUser.purchasedContent.some(
-          (p) => p.contentId.toString() === post._id.toString()
-        );
-      if (adminView || isOwner || hasPurchased) {
-        if (!post.contentUrl.startsWith('http')) {
-          try {
-            post.contentUrl = await generateSignedUrl(post.contentUrl);
-          } catch (err) {
-            logger.error(`Failed to generate signed URL for special post: ${err.message}`);
-            post.contentUrl = '/uploads/placeholder.png';
-          }
-        }
-      } else {
-        post.contentUrl = '/Uploads/locked-placeholder.png';
-      }
-    } else {
-      if (!post.contentUrl.startsWith('http')) {
-        try {
+    const isOwner = currentUser && currentUser._id.toString() === ownerUser._id.toString();
+    const hasPurchased = currentUser && currentUser.purchasedContent && 
+      currentUser.purchasedContent.some((p) => p.contentId.toString() === post._id.toString());
+    const canViewSpecialContent = adminView || isOwner || hasPurchased;
+    
+    // Handle old-style posts (single media)
+    if (post.contentUrl && !post.contentUrl.startsWith('http')) {
+      try {
+        if (!post.special || canViewSpecialContent) {
           post.contentUrl = await generateSignedUrl(post.contentUrl);
-        } catch (err) {
-          logger.error(`Failed to generate signed URL for regular post: ${err.message}`);
-          post.contentUrl = '/Uploads/placeholder.png';
+        } else {
+          post.contentUrl = '/Uploads/locked-placeholder.png';
+        }
+      } catch (err) {
+        logger.error(`Failed to generate signed URL for post: ${err.message}`);
+        post.contentUrl = '/Uploads/placeholder.png';
+      }
+    }
+    
+    // Handle new-style posts (multiple media)
+    if (post.mediaItems && post.mediaItems.length > 0) {
+      for (const mediaItem of post.mediaItems) {
+        if (!mediaItem.url.startsWith('http')) {
+          try {
+            if (!post.special || canViewSpecialContent) {
+              mediaItem.url = await generateSignedUrl(mediaItem.url);
+            } else {
+              mediaItem.url = '/Uploads/locked-placeholder.png';
+            }
+          } catch (err) {
+            logger.error(`Failed to generate signed URL for media item: ${err.message}`);
+            mediaItem.url = '/Uploads/placeholder.png';
+          }
         }
       }
     }
   }
+  
+  // Log createdAt timestamps for debugging
+  logger.debug('Processed posts with createdAt timestamps:', {
+    postIds: posts.map(p => p._id.toString()),
+    createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null)
+  });
 };
-
 router.get('/edit', authCheck, (req, res) => {
   res.render('edit-profile', { user: req.user, currentUser: req.user });
 });
@@ -184,6 +193,10 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
 router.get('/', authCheck, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
+    if (!user) {
+      logger.error('User not found in /profile');
+      return res.status(404).send('User not found');
+    }
 
     await user.checkExpiredSubscriptions();
     await user.updateSubscriberCount();
@@ -192,17 +205,31 @@ router.get('/', authCheck, async (req, res) => {
       .populate('comments.user', 'username')
       .sort({ createdAt: -1 });
 
+    // Filter out invalid comments
     for (const post of posts) {
       post.comments = post.comments.filter((comment) => {
         if (comment.user === null) {
-          logger.warn('Removing invalid comment on post');
+          logger.warn(`Removing invalid comment on post ${post._id}`);
           return false;
         }
         return true;
       });
     }
 
+    // Generate signed URLs for posts
     await processPostUrls(posts, req.user, user);
+
+    // Log post details for debugging
+    logger.info(`Fetched ${posts.length} posts for user ${user.username}`, {
+      postTypes: posts.map(p => p.type),
+      textPosts: posts.filter(p => p.type === 'text').map(p => ({
+        id: p._id,
+        contentUrl: p.contentUrl,
+        writeUp: p.writeUp,
+        createdAt: p.createdAt ? p.createdAt.toISOString() : null
+      })),
+      createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null)
+    });
 
     const bundles =
       user.role === 'creator'
@@ -211,7 +238,6 @@ router.get('/', authCheck, async (req, res) => {
             durationWeight: 1,
           })
         : [];
-    logger.info(`Fetched bundles for user ${req.user._id}: ${JSON.stringify(bundles)}`);
 
     const stats = await Post.aggregate([
       { $match: { creator: new mongoose.Types.ObjectId(req.user._id) } },
@@ -230,6 +256,7 @@ router.get('/', authCheck, async (req, res) => {
     const totalLikes = stats[0]?.totalLikes || 0;
     const subscriberCount = user.subscriberCount;
 
+    res.set('Cache-Control', 'no-store'); // Prevent caching
     res.render('profile', {
       user: {
         ...user.toObject(),
@@ -244,10 +271,12 @@ router.get('/', authCheck, async (req, res) => {
       bundles,
       adminView: false,
       env: process.env.NODE_ENV || 'development',
+      flashMessages: req.flash(), // Pass flash messages
     });
   } catch (err) {
     logger.error(`Error loading profile: ${err.message}, Stack: ${err.stack}`);
-    res.status(500).send('Error loading profile');
+    req.flash('error_msg', 'Error loading profile');
+    res.status(500).redirect('/profile');
   }
 });
 // Unlock special content route (using the Post model)
@@ -961,33 +990,52 @@ router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
 router.post(
   '/uploadContent',
   authCheck,
-  upload.fields([{ name: 'contentImage' }, { name: 'contentVideo' }]),
+  upload.fields([
+    { name: 'contentImages', maxCount: 10 }, // Updated to match frontend form
+    { name: 'contentVideos', maxCount: 10 }  // Updated to match frontend form
+  ]),
   async (req, res) => {
-   
     if (req.user.role !== 'creator') {
       logger.warn('Unauthorized content upload attempt by non-creator');
-      return res
-        .status(403)
-        .send('You do not have permission to upload content.');
+      return res.status(403).send('You do not have permission to upload content.');
     }
     try {
       const writeUp = req.body.writeUp || '';
-      const isSpecial = Boolean(req.body.special);
-      const unlockPrice = req.body.unlockPrice
-        ? Number(req.body.unlockPrice)
-        : undefined;
+      const isSpecial = req.body.special === 'true';
+      const unlockPrice = req.body.unlockPrice ? Number(req.body.unlockPrice) : undefined;
 
-      const postsToCreate = [];
+      // Check if we have any content
+      const hasImages = req.files.contentImages && req.files.contentImages.length > 0;
+      const hasVideos = req.files.contentVideos && req.files.contentVideos.length > 0;
 
-      // Helper function to upload each file to cloud storage
-      const uploadToCloud = async (file, type) => {
-        const blobName = `uploads/${type}/${Date.now()}_${path.basename(
-          file.originalname
-        )}`;
+      // Validate input
+      if (!writeUp && !hasImages && !hasVideos) {
+        logger.warn('Attempted to upload empty post (no text or media)');
+        req.flash('error_msg', 'Please provide text or upload at least one image or video.');
+        return res.status(400).redirect('/profile');
+      }
+      if (isSpecial && (!unlockPrice || unlockPrice < 100)) {
+        logger.warn(`Invalid unlock price for special content: ${unlockPrice}`);
+        req.flash('error_msg', 'Please provide a valid unlock price (minimum 100 NGN) for special content.');
+        return res.status(400).redirect('/profile');
+      }
+
+      // Check total media files
+      const totalMediaFiles = (hasImages ? req.files.contentImages.length : 0) +
+                             (hasVideos ? req.files.contentVideos.length : 0);
+      if (totalMediaFiles > 10) {
+        logger.warn(`Upload exceeds maximum limit: ${totalMediaFiles} files`);
+        req.flash('error_msg', 'You can upload a maximum of 10 media files per post.');
+        return res.status(400).redirect('/profile');
+      }
+
+      // Helper function to upload files to cloud storage
+      const uploadToCloud = async (data, type, filename) => {
+        const blobName = `uploads/${type}/${Date.now()}_${filename}`;
         const blob = bucket.file(blobName);
         const blobStream = blob.createWriteStream({
           resumable: false,
-          contentType: file.mimetype,
+          contentType: data.mimetype,
         });
         await new Promise((resolve, reject) => {
           blobStream.on('finish', resolve);
@@ -995,118 +1043,97 @@ router.post(
             logger.error(`Error uploading ${type} to cloud storage: ${err.message}`);
             reject(err);
           });
-          blobStream.end(file.buffer);
+          blobStream.end(data);
         });
         return blobName;
       };
 
-      // Handle uploaded images
-      if (req.files.contentImage) {
-        for (const file of req.files.contentImage) {
-          const blobName = await uploadToCloud(file, 'image');
-          postsToCreate.push({
-            creator: req.user._id,
-            contentUrl: blobName,
+      // Prepare post data
+      let postType = 'text'; // Default
+      const mediaItems = [];
+
+      // Handle images
+      if (hasImages) {
+        for (const file of req.files.contentImages) {
+          const blobName = await uploadToCloud(file.buffer, 'image', path.basename(file.originalname));
+          mediaItems.push({
+            url: blobName,
             type: 'image',
-            writeUp,
-            special: isSpecial,
-            unlockPrice: isSpecial ? unlockPrice : undefined,
+            contentType: file.mimetype
           });
         }
+        postType = 'image';
       }
-      // Handle uploaded videos
-      if (req.files.contentVideo) {
-        for (const file of req.files.contentVideo) {
-          const blobName = await uploadToCloud(file, 'video');
-          postsToCreate.push({
-            creator: req.user._id,
-            contentUrl: blobName,
+
+      // Handle videos
+      if (hasVideos) {
+        for (const file of req.files.contentVideos) {
+          const blobName = await uploadToCloud(file.buffer, 'video', path.basename(file.originalname));
+          mediaItems.push({
+            url: blobName,
             type: 'video',
-            writeUp,
-            special: isSpecial,
-            unlockPrice: isSpecial ? unlockPrice : undefined,
+            contentType: file.mimetype
           });
         }
-      }
-      // Text-only post if no files are provided
-      if (postsToCreate.length === 0 && writeUp) {
-        postsToCreate.push({
-          creator: req.user._id,
-          contentUrl: '',
-          type: 'text',
-          writeUp,
-          special: isSpecial,
-          unlockPrice: isSpecial ? unlockPrice : undefined,
-        });
+        postType = hasImages ? 'mixed' : 'video';
       }
 
-      // Create new Post documents and update creator counters
-      const user = await User.findById(req.user._id);
-      if (!user) {
-        logger.error('User not found in uploadContent');
-        return res.status(404).send('User not found');
-      }
+      // Create post
+      const post = new Post({
+        creator: req.user._id,
+        mediaItems,
+        type: postType,
+        writeUp,
+        special: isSpecial,
+        unlockPrice: isSpecial ? unlockPrice : undefined,
+        contentUrl: mediaItems.length > 0 ? mediaItems[0].url : null // For backward compatibility
+      });
 
-      const createdPosts = [];
-      let imageIncrement = 0;
-      let videoIncrement = 0;
+      await post.save();
+      logger.info(`Saved post: ${post._id}, type: ${post.type}, media count: ${mediaItems.length}`);
 
-      for (const postData of postsToCreate) {
-        const post = new Post(postData);
-        await post.save();
-        createdPosts.push(post);
-        // Track increments for images and videos
-        if (postData.type === 'image') {
-          imageIncrement += 1;
-        } else if (postData.type === 'video') {
-          videoIncrement += 1;
-        }
-      }
+      // Update user counts
+      const imageCount = mediaItems.filter(item => item.type === 'image').length;
+      const videoCount = mediaItems.filter(item => item.type === 'video').length;
 
-      // Update counts atomically
-      if (imageIncrement > 0 || videoIncrement > 0) {
+      if (imageCount > 0 || videoCount > 0) {
         await User.findByIdAndUpdate(req.user._id, {
           $inc: {
-            imagesCount: imageIncrement,
-            videosCount: videoIncrement,
-          },
+            imagesCount: imageCount,
+            videosCount: videoCount
+          }
         });
       }
 
-      // Notify subscribers if any new posts were created
-      if (createdPosts.length > 0) {
-        const creatorId = req.user._id;
-        const creator = await User.findById(creatorId);
-        const subscribers = await User.find({
-          'subscriptions.creatorId': creatorId,
-          'subscriptions.status': 'active',
-        });
+      // Notify subscribers
+      const creatorId = req.user._id;
+      const creator = await User.findById(creatorId);
+      const subscribers = await User.find({
+        'subscriptions.creatorId': creatorId,
+        'subscriptions.status': 'active'
+      });
 
-        for (const post of createdPosts) {
-          for (const subscriber of subscribers) {
-            const message = `New post from ${creator.username}!`;
-            await Notification.create({
-              user: subscriber._id,
-              message,
-              type: 'new_post',
-              postId: post._id,
-              creatorId: creator._id,
-              creatorName: creator.username,
-            });
-          }
-        }
+      for (const subscriber of subscribers) {
+        const message = `New post from ${creator.username}!`;
+        await Notification.create({
+          user: subscriber._id,
+          message,
+          type: 'new_post',
+          postId: post._id,
+          creatorId: creator._id,
+          creatorName: creator.username
+        });
       }
 
       req.flash('success_msg', 'Content uploaded successfully');
       res.redirect('/profile');
     } catch (err) {
-      logger.error(`Error uploading content: ${err.message}`);
+      logger.error(`Error uploading content: ${err.message}, Stack: ${err.stack}`);
       req.flash('error_msg', 'Error uploading content');
       res.status(500).redirect('/profile');
     }
   }
 );
-
 // Delete post route
 router.post('/delete-post/:postId', authCheck, async (req, res) => {
   
@@ -2020,8 +2047,9 @@ router.get('/:username', async (req, res) => {
     const username = req.params.username;
     const ownerUser = await User.findOne({ username });
     if (!ownerUser) {
-      logger.warn('User not found in :username');
-      return res.status(404).send('User not found');
+      logger.warn(`User not found for username: ${username}`);
+      req.flash('error_msg', 'User not found');
+      return res.status(404).redirect('/profile');
     }
 
     await ownerUser.checkExpiredSubscriptions();
@@ -2041,7 +2069,6 @@ router.get('/:username', async (req, res) => {
       );
     }
 
-    // Fetch bundles with sorting
     const bundles =
       ownerUser.role === 'creator'
         ? await SubscriptionBundle.find({ creatorId: ownerUser._id }).sort({
@@ -2052,10 +2079,23 @@ router.get('/:username', async (req, res) => {
 
     let posts = [];
     if (req.user && (isOwnProfile || isSubscribed || adminView)) {
-      posts = (await Post.find({ creator: ownerUser._id })
+      posts = await Post.find({ creator: ownerUser._id })
         .populate('comments.user', 'username')
-        .sort({ createdAt: -1 })) || [];
+        .sort({ createdAt: -1 });
+
       await processPostUrls(posts, req.user, ownerUser, adminView);
+
+      // Log post details for debugging
+      logger.info(`Fetched ${posts.length} posts for user ${ownerUser.username}`, {
+        postTypes: posts.map(p => p.type),
+        textPosts: posts.filter(p => p.type === 'text').map(p => ({
+          id: p._id,
+          contentUrl: p.contentUrl,
+          writeUp: p.writeUp,
+          createdAt: p.createdAt ? p.createdAt.toISOString() : null
+        })),
+        createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null)
+      });
     }
 
     const user = {
@@ -2074,6 +2114,7 @@ router.get('/:username', async (req, res) => {
       subscriberCount: ownerUser.subscriberCount || 0,
     };
 
+    res.set('Cache-Control', 'no-store');
     res.render('profile', {
       user,
       currentUser: req.user || null,
@@ -2082,27 +2123,33 @@ router.get('/:username', async (req, res) => {
       bundles,
       adminView,
       env: process.env.NODE_ENV || 'development',
-      messages: res.locals.messages, 
+      flashMessages: req.flash(),
     });
   } catch (err) {
-    logger.error(`Error loading profile by username: ${err.message}`);
-    req.flash('error', 'Error loading profile'); // Use flash for errors
-    res.status(500).send('Error loading profile');
+    logger.error(`Error loading profile by username: ${err.message}, Stack: ${err.stack}`);
+    req.flash('error_msg', 'Error loading profile');
+    res.status(500).redirect('/profile');
   }
 });
-
 // View another user's profile
 router.get('/view/:id', authCheck, async (req, res) => {
   try {
     const ownerUser = await User.findById(req.params.id);
     if (!ownerUser) {
       logger.warn('User not found in view/:id');
-      return res.status(404).send('User not found');
+      req.flash('error_msg', 'User not found');
+      return res.status(404).redirect('/profile');
     }
 
     await ownerUser.updateSubscriberCount();
 
     const currentUser = await User.findById(req.user._id);
+    if (!currentUser) {
+      logger.error('Current user not found in view/:id');
+      req.flash('error_msg', 'User not found');
+      return res.status(404).redirect('/profile');
+    }
+
     await currentUser.checkExpiredSubscriptions();
     const now = new Date();
     const isSubscribed = currentUser.subscriptions.some(
@@ -2111,11 +2158,12 @@ router.get('/view/:id', authCheck, async (req, res) => {
         sub.status === 'active' &&
         sub.subscriptionExpiry > now
     );
+    const adminView = req.query.adminView && req.user.role === 'admin';
+
     const bundles = await SubscriptionBundle.find({ creatorId: req.params.id }).sort({
       isFree: -1,
       durationWeight: 1,
     });
-    const adminView = req.query.adminView && req.user.role === 'admin';
 
     let posts = [];
     if (isSubscribed || adminView) {
@@ -2126,14 +2174,25 @@ router.get('/view/:id', authCheck, async (req, res) => {
       for (const post of posts) {
         post.comments = post.comments.filter((comment) => {
           if (comment.user === null) {
-            logger.warn('Removing invalid comment on post in view/:id');
-            return false;
+            logger.warn(`Removing invalid comment on post ${post._id}`);
           }
           return true;
         });
       }
 
       await processPostUrls(posts, currentUser, ownerUser, adminView);
+
+      // Log post details for debugging
+      logger.info(`Fetched ${posts.length} posts for user ${ownerUser.username}`, {
+        postTypes: posts.map(p => p.type),
+        textPosts: posts.filter(p => p.type === 'text').map(p => ({
+          id: p._id,
+          contentUrl: p.contentUrl,
+          writeUp: p.writeUp,
+          createdAt: p.createdAt ? p.createdAt.toISOString() : null
+        })),
+        createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null)
+      });
     }
 
     const stats = await Post.aggregate([
@@ -2153,6 +2212,7 @@ router.get('/view/:id', authCheck, async (req, res) => {
     const totalLikes = stats[0]?.totalLikes || 0;
     const subscriberCount = ownerUser.subscriberCount;
 
+    res.set('Cache-Control', 'no-store');
     res.render('profile', {
       user: {
         ...ownerUser.toObject(),
@@ -2167,12 +2227,12 @@ router.get('/view/:id', authCheck, async (req, res) => {
       bundles,
       adminView,
       env: process.env.NODE_ENV || 'development',
-     
+      flashMessages: req.flash(),
     });
   } catch (err) {
-    logger.error(`Error loading user profile: ${err.message}`);
-    
-    res.status(500).send('Error loading profile');
+    logger.error(`Error loading user profile: ${err.message}, Stack: ${err.stack}`);
+    req.flash('error_msg', 'Error loading profile');
+    res.status(500).redirect('/profile');
   }
 });
 module.exports = router;

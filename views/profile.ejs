@@ -1,13 +1,14 @@
 <div class="profile-container"
     data-is-creator-viewing="<%= currentUser && currentUser._id.toString() === user._id.toString() %>"
     data-is-subscribed="<%= isSubscribed %>"
-    data-current-user="<%= currentUser ? 'true' : 'false' %>">
-    data-env="<%= env %>">  <div class="profile-header">
+    data-current-user="<%= currentUser ? 'true' : 'false' %>"
+    data-env="<%= env %>">
+    <div class="profile-header">
     <div class="cover-photo-container">
       <% if (user.coverPhoto) { %>
         <img class="cover-photo" src="<%= user.coverPhoto %>" alt="Cover Photo">
       <% } else { %>
-        <img class="cover-photo" src="/uploads/default-cover.jpg" alt="Default Cover Photo">
+        <img class="cover-photo" src="https://storage.googleapis.com/my-public-profile-pictures/coverPhotos/cover%20E.png" alt="Default Cover Photo">
       <% } %>
   <div class="cover-stats">
     <div class="stat-item">
@@ -67,7 +68,7 @@
     <div class="profile-details">
      
 
-  <img class="profile-picture" src="<%= user.profilePicture ? user.profilePicture : '/uploads/default-profile-picture.jpg' %>" alt="Profile Picture">
+      <img class="profile-picture" src="<%= user.profilePicture ? user.profilePicture : 'https://storage.googleapis.com/my-public-profile-pictures/profilePictures/profile%20E.png' %>" alt="Profile Picture">
   <div class="profile-names">
     <h1 class="profile-name">
       <%= user.profileName %>
@@ -204,124 +205,75 @@
   <div class="profile-tabs">
     <button class="tab-button active" data-tab="posts">Posts <span class="tab-count"><%= posts.length %></span></button>
     <button class="tab-button" data-tab="media">Media <span class="tab-count"><%= (user.imagesCount || 0) + (user.videosCount || 0) %></span></button>
-  </div>  <!-- Posts Tab -->
-  <div class="tab-content" id="posts-tab">
-    <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-      <!-- Creator View -->
-      <% if (posts && posts.length > 0) { %>
-        <div class="posts-list">
-          <% posts.forEach(post => { %>
-            <div class="post-card" id="post-<%= post._id %>">
-              <div class="post-content">
-                <% if (post.type === 'image') { %>
-                  <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
-                <% } else if (post.type === 'video') { %>
-                  <video controls class="post-video">
-                    <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
-                    Your browser does not support the video tag.
-                  </video>
-                <% } else if (post.type === 'text') { %>
-                  <p class="post-text"><%= post.writeUp %></p>
-                <% } %>
-                <% if (post.writeUp && post.type !== 'text') { %>
-                  <p class="post-writeUp"><%= post.writeUp %></p>
-                <% } %>
-              </div>
-              <% if (post.special) { %>
-                <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
-              <% } %>
-              <div class="post-actions">
-                <button class="like-button" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
-                  <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
-                </button>
-                <button class="comment-icon" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-comment"></i>
-                  <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-                </button>
-                <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
-                  <i class="fa-solid fa-gift"></i>
-                  Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
-                </button>
-                <button class="bookmark-button" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
-                </button>
-              </div>
-              <div class="comments">
-                <% if (post.comments && post.comments.length > 0) { %>
-                  <% post.comments.slice(0, 2).forEach(comment => { %>
-                    <div class="comment">
-                      <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
-                    </div>
-                  <% }); %>
-                  <% if (post.comments.length > 2) { %>
-                    <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
-                  <% } %>
-                <% } %>
-              </div>
-              <div class="comment-form-container hidden">
-                <form class="comment-form" data-post-id="<%= post._id %>">
-                  <input type="text" name="comment" placeholder="Write a comment...">
-                  <button type="submit">Post</button>
-                </form>
-              </div>
-              <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
-                <button type="submit" class="delete-post-btn">Delete Post</button>
-              </form>
-             
-    </div>
-  <% }); %>
-</div>
-
-  <% } else { %>
-    <p class="no-posts-message">You have not uploaded any posts yet.</p>
+  </div>  
+  <!-- Posts Tab -->
+<div class="tab-content" id="posts-tab">
+  <!-- Flash Messages -->
+  <% if (flashMessages && flashMessages.success_msg) { %>
+    <div class="alert alert-success"><%= flashMessages.success_msg %></div>
   <% } %>
-<% } else { %>
-  <!-- Visitor View -->
-  <% if (isSubscribed) { %>
+  <% if (flashMessages && flashMessages.error_msg) { %>
+    <div class="alert alert-error"><%= flashMessages.error_msg %></div>
+  <% } %>
+
+  <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+    <!-- Creator View -->
     <% if (posts && posts.length > 0) { %>
       <div class="posts-list">
         <% posts.forEach(post => { %>
           <div class="post-card" id="post-<%= post._id %>">
-            <% 
-            const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-            const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-              currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
-            const showLocked = post.special && !isAdminView && !hasPurchased;
-          %>
-          <% if (showLocked) { %>
-            <div class="locked-content-container">
-              <% if (post.type === 'image' || post.type === 'video') { %>
-                <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-              <% } %>
-              <% if (post.writeUp) { %>
-                <p class="post-writeUp preview-text"><%= post.writeUp.substring(0, 100) %><% if (post.writeUp.length > 100) { %>...<% } %></p>
-              <% } %>
-              <div class="unlock-overlay">
-                <i class="fa fa-lock"></i>
-                <div>Unlock for ₦<%= post.unlockPrice %></div>
-                <% if (!isAdminView) { %>
-                  <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock Post</button>
+            <div class="post-content">
+              <% console.log('Rendering post:', { id: post._id, type: post.type, contentUrl: post.contentUrl, writeUp: post.writeUp }); %>
+              <% if (post.type === 'text') { %>
+                <p class="post-text"><%= post.writeUp %></p>
+              <% } else { %>
+                <!-- Multiple Media Display -->
+                <% 
+                  // Build media array from either mediaItems or contentUrl
+                  const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
+                    post.mediaItems : 
+                    (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
+                %>
+                <% if (mediaItems.length > 0) { %>
+                  <div class="media-carousel-container">
+                    <div class="media-carousel">
+                      <% mediaItems.forEach((media, index) => { %>
+                        <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
+                          <% if (media.type === 'image') { %>
+                            <img src="<%= media.url %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= media.url %>">
+                          <% } else if (media.type === 'video') { %>
+                            <video controls class="post-video">
+                              <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                              Your browser does not support the video tag.
+                            </video>
+                          <% } %>
+                        </div>
+                      <% }); %>
+                    </div>
+                    <% if (mediaItems.length > 1) { %>
+                      <div class="carousel-nav">
+                        <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                        <div class="carousel-indicators">
+                          <% mediaItems.forEach((_, index) => { %>
+                            <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
+                          <% }); %>
+                        </div>
+                        <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
+                      </div>
+                    <% } %>
+                  </div>
                 <% } %>
-              </div>
-            </div>
-          <% } else { %>
-              <div class="post-content">
-                <% if (post.type === 'image') { %>
-                  <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
-                <% } else if (post.type === 'video') { %>
-                  <video controls class="post-video">
-                    <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
-                    Your browser does not support the video tag.
-                  </video>
-                <% } else if (post.type === 'text') { %>
-                  <p class="post-text"><%= post.writeUp %></p>
-                <% } %>
-                <% if (post.writeUp && post.type !== 'text') { %>
+                <% if (post.writeUp) { %>
                   <p class="post-writeUp"><%= post.writeUp %></p>
                 <% } %>
-              </div>
+              <% } %>
+            </div>
+            <% if (post.special) { %>
+              <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
             <% } %>
+            <span class="post-timestamp">
+              <%= post.createdAt ? formatRelativeTime(post.createdAt) : 'Unknown time' %>
+            </span>
             <div class="post-actions">
               <button class="like-button" data-post-id="<%= post._id %>">
                 <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
@@ -357,317 +309,559 @@
                 <button type="submit">Post</button>
               </form>
             </div>
-            <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
-              <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
-                <label for="reason-<%= post._id %>">Reason for deletion:</label>
-                <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
-                <button type="submit" class="delete-post-btn">Delete Post</button>
-              </form>
-            <% } %>
+            <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+              <button type="submit" class="delete-post-btn">Delete Post</button>
+            </form>
           </div>
         <% }); %>
       </div>
     <% } else { %>
-      <p class="no-posts-message">This creator hasn't posted anything yet.</p>
+      <p class="no-posts-message">You have not uploaded any posts yet.</p>
     <% } %>
   <% } else { %>
-    <p class="subscribe-prompt">Subscribe to see posts from <%= user.username %>.</p>
+    <!-- Visitor View -->
+    <% if (isSubscribed) { %>
+      <% if (posts && posts.length > 0) { %>
+        <div class="posts-list">
+          <% posts.forEach(post => { %>
+            <div class="post-card" id="post-<%= post._id %>">
+              <% 
+              const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+              const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+                currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
+              const showLocked = post.special && !isAdminView && !hasPurchased;
+              %>
+              <% if (showLocked) { %>
+                <div class="locked-content-container">
+                  <% if (post.type === 'text') { %>
+                    <p class="post-text preview-text"><%= post.writeUp.substring(0, 100) %><% if (post.writeUp.length > 100) { %>...<% } %></p>
+                  <% } else { %>
+                    <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+                    <% if (post.writeUp) { %>
+                      <p class="post-writeUp preview-text"><%= post.writeUp.substring(0, 100) %><% if (post.writeUp.length > 100) { %>...<% } %></p>
+                    <% } %>
+                  <% } %>
+                  <div class="unlock-overlay">
+                    <i class="fa fa-lock"></i>
+                    <div>Unlock for ₦<%= post.unlockPrice %></div>
+                    <% if (!isAdminView) { %>
+                      <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock Post</button>
+                    <% } %>
+                  </div>
+                </div>
+              <% } else { %>
+                <div class="post-content">
+                  <% console.log('Rendering post:', { id: post._id, type: post.type, contentUrl: post.contentUrl, writeUp: post.writeUp }); %>
+                  <% if (post.type === 'text') { %>
+                    <p class="post-text"><%= post.writeUp %></p>
+                  <% } else { %>
+                    <!-- Multiple Media Display -->
+                    <% 
+                      // Build media array from either mediaItems or contentUrl
+                      const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
+                        post.mediaItems : 
+                        (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
+                    %>
+                    <% if (mediaItems.length > 0) { %>
+                      <div class="media-carousel-container">
+                        <div class="media-carousel">
+                          <% mediaItems.forEach((media, index) => { %>
+                            <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
+                              <% if (media.type === 'image') { %>
+                                <img src="<%= media.url %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= media.url %>">
+                              <% } else if (media.type === 'video') { %>
+                                <video controls class="post-video">
+                                  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                                  Your browser does not support the video tag.
+                                </video>
+                              <% } %>
+                            </div>
+                          <% }); %>
+                        </div>
+                        <% if (mediaItems.length > 1) { %>
+                          <div class="carousel-nav">
+                            <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                            <div class="carousel-indicators">
+                              <% mediaItems.forEach((_, index) => { %>
+                                <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
+                              <% }); %>
+                            </div>
+                            <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
+                          </div>
+                        <% } %>
+                      </div>
+                    <% } %>
+                    <% if (post.writeUp) { %>
+                      <p class="post-writeUp"><%= post.writeUp %></p>
+                    <% } %>
+                  <% } %>
+                </div>
+              <% } %>
+              <span class="post-timestamp">
+                <%= post.createdAt ? formatRelativeTime(post.createdAt) : 'Unknown time' %>
+              </span>
+              <div class="post-actions">
+                <button class="like-button" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
+                  <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
+                </button>
+                <button class="comment-icon" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-comment"></i>
+                  <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+                </button>
+                <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
+                  <i class="fa-solid fa-gift"></i>
+                  Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+                </button>
+                <button class="bookmark-button" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
+                </button>
+              </div>
+              <div class="comments">
+                <% if (post.comments && post.comments.length > 0) { %>
+                  <% post.comments.slice(0, 2).forEach(comment => { %>
+                    <div class="comment">
+                      <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
+                    </div>
+                  <% }); %>
+                  <% if (post.comments.length > 2) { %>
+                    <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
+                  <% } %>
+                <% } %>
+              </div>
+              <div class="comment-form-container hidden">
+                <form class="comment-form" data-post-id="<%= post._id %>">
+                  <input type="text" name="comment" placeholder="Write a comment...">
+                  <button type="submit">Post</button>
+                </form>
+              </div>
+              <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
+                <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                  <label for="reason-<%= post._id %>">Reason for deletion:</label>
+                  <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
+                  <button type="submit" class="delete-post-btn">Delete Post</button>
+                </form>
+              <% } %>
+            </div>
+          <% }); %>
+        </div>
+      <% } else { %>
+        <p class="no-posts-message">This creator hasn't posted anything yet.</p>
+      <% } %>
+    <% } else { %>
+      <p class="subscribe-prompt">Subscribe to see posts from <%= user.username %>.</p>
+    <% } %>
   <% } %>
-<% } %>  </div>
+</div>
 
   <!-- Media Tab -->
-  <div class="tab-content hidden" id="media-tab">
-    <div class="media-subtabs">
-      <button class="subtab-button active" data-subtab="all">All <span class="tab-count"><%= (user.imagesCount || 0) + (user.videosCount || 0) %></span></button>
-      <button class="subtab-button" data-subtab="pics">Pics <span class="tab-count"><%= user.imagesCount || 0 %></span></button>
-      <button class="subtab-button" data-subtab="videos">Videos <span class="tab-count"><%= user.videosCount || 0 %></span></button>
-      <button class="view-toggle-button" title="Toggle Compact View"><i class="fa fa-th"></i></button>
-    </div>
-<!-- All Media -->
-<div class="media-view active" id="media-all">
-  <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
-    <% if (posts && posts.some(post => post.type === 'image' || post.type === 'video')) { %>
-      <div class="media-content posts-list">
-        <% posts.filter(post => post.type === 'image' || post.type === 'video').forEach(post => { %>
-          <div class="media-item" id="media-post-<%= post._id %>">
-            <% 
-            const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-            const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-              currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
-            const showLocked = post.special && !isAdminView && !hasPurchased;
-          %>
-          <% if (showLocked) { %>
-            <div class="locked-content-container">
-              <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-              <div class="unlock-overlay">
-                <i class="fa fa-lock"></i>
-                <div>Unlock for ₦<%= post.unlockPrice %></div>
-                <% if (!isAdminView) { %>
-                  <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+<div class="tab-content hidden" id="media-tab">
+  <div class="media-subtabs">
+    <button class="subtab-button active" data-subtab="all">All <span class="tab-count"><%= (user.imagesCount || 0) + (user.videosCount || 0) %></span></button>
+    <button class="subtab-button" data-subtab="pics">Pics <span class="tab-count"><%= user.imagesCount || 0 %></span></button>
+    <button class="subtab-button" data-subtab="videos">Videos <span class="tab-count"><%= user.videosCount || 0 %></span></button>
+    <button class="view-toggle-button" title="Toggle Compact View"><i class="fa fa-th"></i></button>
+  </div>
+
+  <!-- All Media -->
+  <div class="media-view active" id="media-all">
+    <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
+      <% 
+        // Filter posts with media (exclude text-only)
+        const mediaPosts = posts.filter(post => post.type !== 'text' && (post.mediaItems.length > 0 || post.contentUrl));
+      %>
+      <% if (mediaPosts.length > 0) { %>
+        <div class="media-content posts-list">
+          <% mediaPosts.forEach(post => { %>
+            <div class="media-item" id="media-post-<%= post._id %>">
+              <% 
+                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+                  currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
+                const showLocked = post.special && !isAdminView && !hasPurchased;
+                // Build media array from mediaItems or contentUrl
+                const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
+                  post.mediaItems : 
+                  (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
+              %>
+              <% if (showLocked) { %>
+                <div class="locked-content-container">
+                  <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+                  <div class="unlock-overlay">
+                    <i class="fa fa-lock"></i>
+                    <div>Unlock for ₦<%= post.unlockPrice %></div>
+                    <% if (!isAdminView) { %>
+                      <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                    <% } %>
+                  </div>
+                </div>
+              <% } else { %>
+                <!-- Multiple Media Display -->
+                <% if (mediaItems.length > 0) { %>
+                  <div class="media-carousel-container">
+                    <div class="media-carousel">
+                      <% mediaItems.forEach((media, index) => { %>
+                        <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
+                          <% if (media.type === 'image') { %>
+                            <img src="<%= media.url %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= media.url %>">
+                          <% } else if (media.type === 'video') { %>
+                            <video controls class="post-video">
+                              <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                              Your browser does not support the video tag.
+                            </video>
+                          <% } %>
+                        </div>
+                      <% }); %>
+                    </div>
+                    <% if (mediaItems.length > 1) { %>
+                      <div class="carousel-nav">
+                        <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                        <div class="carousel-indicators">
+                          <% mediaItems.forEach((_, index) => { %>
+                            <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
+                          <% }); %>
+                        </div>
+                        <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
+                      </div>
+                    <% } %>
+                  </div>
+                <% } %>
+              <% } %>
+              <!-- Normal View Content -->
+              <div class="normal-view-content">
+                <% if (!showLocked && post.writeUp) { %>
+                  <p class="post-writeUp"><%= post.writeUp %></p>
+                <% } %>
+                <% if (post.special) { %>
+                  <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
+                <% } %>
+                <span class="post-timestamp">
+                  <%= post.createdAt ? formatRelativeTime(post.createdAt) : 'Unknown time' %>
+                </span>
+                <div class="post-actions">
+                  <button class="like-button" data-post-id="<%= post._id %>">
+                    <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
+                    <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
+                  </button>
+                  <button class="comment-icon" data-post-id="<%= post._id %>">
+                    <i class="fa-solid fa-comment"></i>
+                    <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+                  </button>
+                  <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
+                    <i class="fa-solid fa-gift"></i>
+                    Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+                  </button>
+                  <button class="bookmark-button" data-post-id="<%= post._id %>">
+                    <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
+                  </button>
+                </div>
+                <div class="comments">
+                  <% if (post.comments && post.comments.length > 0) { %>
+                    <% post.comments.slice(0, 2).forEach(comment => { %>
+                      <div class="comment">
+                        <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
+                      </div>
+                    <% }); %>
+                    <% if (post.comments.length > 2) { %>
+                      <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
+                    <% } %>
+                  <% } %>
+                </div>
+                <div class="comment-form-container hidden">
+                  <form class="comment-form" data-post-id="<%= post._id %>">
+                    <input type="text" name="comment" placeholder="Write a comment...">
+                    <button type="submit">Post</button>
+                  </form>
+                </div>
+                <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+                  <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                    <button type="submit" class="delete-post-btn">Delete Post</button>
+                  </form>
+                <% } %>
+                <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
+                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                    <label for="reason-<%= post._id %>">Reason for deletion:</label>
+                    <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
+                    <button type="submit" class="delete-post-btn">Delete Post</button>
+                  </form>
                 <% } %>
               </div>
             </div>
-          <% } else { %>
-              <% if (post.type === 'image') { %>
-                <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
-              <% } else if (post.type === 'video') { %>
-                <video controls class="post-video">
-                  <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
-                  Your browser does not support the video tag.
-                </video>
-              <% } %>
-            <% } %>
-            <!-- Normal View Content -->
-            <div class="normal-view-content">
-              <% if (!showLocked && post.writeUp) { %>
-                <p class="post-writeUp"><%= post.writeUp %></p>
-              <% } %>
-              <% if (post.special) { %>
-                <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
-              <% } %>
-              <div class="post-actions">
-                <button class="like-button" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
-                  <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
-                </button>
-                <button class="comment-icon" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-comment"></i>
-                  <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-                </button>
-                <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
-                  <i class="fa-solid fa-gift"></i>
-                  Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
-                </button>
-                <button class="bookmark-button" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
-                </button>
-              </div>
-              <div class="comments">
-                <% if (post.comments && post.comments.length > 0) { %>
-                  <% post.comments.slice(0, 2).forEach(comment => { %>
-                    <div class="comment">
-                      <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
-                    </div>
-                  <% }); %>
-                  <% if (post.comments.length > 2) { %>
-                    <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
-                  <% } %>
-                <% } %>
-              </div>
-              <div class="comment-form-container hidden">
-                <form class="comment-form" data-post-id="<%= post._id %>">
-                  <input type="text" name="comment" placeholder="Write a comment...">
-                  <button type="submit">Post</button>
-                </form>
-              </div>
-              <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-                <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
-                  <button type="submit" class="delete-post-btn">Delete Post</button>
-                </form>
-               
-
-          <% } %>
-          <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
-            <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
-              <label for="reason-<%= post._id %>">Reason for deletion:</label>
-              <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
-              <button type="submit" class="delete-post-btn">Delete Post</button>
-            </form>
-          <% } %>
+          <% }); %>
         </div>
-      </div>
-    <% }); %>
+      <% } else { %>
+        <p class="no-media-message">No media available yet.</p>
+      <% } %>
+    <% } else { %>
+      <p class="subscribe-prompt">Subscribe to see media from <%= user.username %>.</p>
+    <% } %>
   </div>
-<% } else { %>
-  <p class="no-media-message">No media available yet.</p>
-<% } %>
 
-  <% } else { %>
-    <p class="subscribe-prompt">Subscribe to see media from <%= user.username %>.</p>
-  <% } %></div>
-
-<!-- Pictures -->
-<div class="media-view" id="media-pics">
-  <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
-    <% if (posts && posts.some(post => post.type === 'image')) { %>
-      <div class="media-content posts-list">
-        <% posts.filter(post => post.type === 'image').forEach(post => { %>
-          <div class="media-item" id="media-post-<%= post._id %>">
-            <% 
-            const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-            const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-              currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
-            const showLocked = post.special && !isAdminView && !hasPurchased;
-          %>
-          <% if (showLocked) { %>
-            <div class="locked-content-container">
-              <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-              <div class="unlock-overlay">
-                <i class="fa fa-lock"></i>
-                <div>Unlock for ₦<%= post.unlockPrice %></div>
-                <% if (!isAdminView) { %>
-                  <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+  <!-- Pictures -->
+  <div class="media-view" id="media-pics">
+    <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
+      <% 
+        // Filter posts with at least one image
+        const imagePosts = posts.filter(post => 
+          post.type !== 'text' && 
+          (post.mediaItems.some(media => media.type === 'image') || (post.contentUrl && post.type === 'image'))
+        );
+      %>
+      <% if (imagePosts.length > 0) { %>
+        <div class="media-content posts-list">
+          <% imagePosts.forEach(post => { %>
+            <div class="media-item" id="media-post-<%= post._id %>">
+              <% 
+                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+                  currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
+                const showLocked = post.special && !isAdminView && !hasPurchased;
+                // Build media array, filter for images only
+                const mediaItems = (post.mediaItems && post.mediaItems.length > 0 ? 
+                  post.mediaItems.filter(media => media.type === 'image') : 
+                  (post.contentUrl && post.type === 'image' ? [{ type: 'image', url: post.contentUrl, contentType: post.contentType }] : [])
+                );
+              %>
+              <% if (showLocked) { %>
+                <div class="locked-content-container">
+                  <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+                  <div class="unlock-overlay">
+                    <i class="fa fa-lock"></i>
+                    <div>Unlock for ₦<%= post.unlockPrice %></div>
+                    <% if (!isAdminView) { %>
+                      <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                    <% } %>
+                  </div>
+                </div>
+              <% } else { %>
+                <!-- Multiple Media Display (Images Only) -->
+                <% if (mediaItems.length > 0) { %>
+                  <div class="media-carousel-container">
+                    <div class="media-carousel">
+                      <% mediaItems.forEach((media, index) => { %>
+                        <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
+                          <img src="<%= media.url %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= media.url %>">
+                        </div>
+                      <% }); %>
+                    </div>
+                    <% if (mediaItems.length > 1) { %>
+                      <div class="carousel-nav">
+                        <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                        <div class="carousel-indicators">
+                          <% mediaItems.forEach((_, index) => { %>
+                            <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
+                          <% }); %>
+                        </div>
+                        <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
+                      </div>
+                    <% } %>
+                  </div>
+                <% } %>
+              <% } %>
+              <!-- Normal View Content -->
+              <div class="normal-view-content">
+                <% if (!showLocked && post.writeUp) { %>
+                  <p class="post-writeUp"><%= post.writeUp %></p>
+                <% } %>
+                <% if (post.special) { %>
+                  <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
+                <% } %>
+                <span class="post-timestamp">
+                  <%= post.createdAt ? formatRelativeTime(post.createdAt) : 'Unknown time' %>
+                </span>
+                <div class="post-actions">
+                  <button class="like-button" data-post-id="<%= post._id %>">
+                    <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
+                    <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
+                  </button>
+                  <button class="comment-icon" data-post-id="<%= post._id %>">
+                    <i class="fa-solid fa-comment"></i>
+                    <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+                  </button>
+                  <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
+                    <i class="fa-solid fa-gift"></i>
+                    Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+                  </button>
+                  <button class="bookmark-button" data-post-id="<%= post._id %>">
+                    <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
+                  </button>
+                </div>
+                <div class="comments">
+                  <% if (post.comments && post.comments.length > 0) { %>
+                    <% post.comments.slice(0, 2).forEach(comment => { %>
+                      <div class="comment">
+                        <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
+                      </div>
+                    <% }); %>
+                    <% if (post.comments.length > 2) { %>
+                      <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
+                    <% } %>
+                  <% } %>
+                </div>
+                <div class="comment-form-container hidden">
+                  <form class="comment-form" data-post-id="<%= post._id %>">
+                    <input type="text" name="comment" placeholder="Write a comment...">
+                    <button type="submit">Post</button>
+                  </form>
+                </div>
+                <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+                  <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                    <button type="submit" class="delete-post-btn">Delete Post</button>
+                  </form>
+                <% } %>
+                <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
+                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                    <label for="reason-<%= post._id %>">Reason for deletion:</label>
+                    <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
+                    <button type="submit" class="delete-post-btn">Delete Post</button>
+                  </form>
                 <% } %>
               </div>
             </div>
-          <% } else { %>
-              <img src="<%= post.contentUrl %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= post.contentUrl %>">
-            <% } %>
-            <!-- Normal View Content -->
-            <div class="normal-view-content">
-              <% if (!showLocked && post.writeUp) { %>
-                <p class="post-writeUp"><%= post.writeUp %></p>
-              <% } %>
-              <% if (post.special) { %>
-                <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
-              <% } %>
-              <div class="post-actions">
-                <button class="like-button" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
-                  <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
-                </button>
-                <button class="comment-icon" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-comment"></i>
-                  <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-                </button>
-                <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
-                  <i class="fa-solid fa-gift"></i>
-                  Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
-                </button>
-                <button class="bookmark-button" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
-                </button>
-              </div>
-              <div class="comments">
-                <% if (post.comments && post.comments.length > 0) { %>
-                  <% post.comments.slice(0, 2).forEach(comment => { %>
-                    <div class="comment">
-                      <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
-                    </div>
-                  <% }); %>
-                  <% if (post.comments.length > 2) { %>
-                    <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
-                  <% } %>
-                <% } %>
-              </div>
-              <div class="comment-form-container hidden">
-                <form class="comment-form" data-post-id="<%= post._id %>">
-                  <input type="text" name="comment" placeholder="Write a comment...">
-                  <button type="submit">Post</button>
-                </form>
-              </div>
-              <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-                <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
-                  <button type="submit" class="delete-post-btn">Delete Post</button>
-                </form>
-                
-
-          <% } %>
+          <% }); %>
         </div>
-      </div>
-    <% }); %>
+      <% } else { %>
+        <p class="no-media-message">No pictures available yet.</p>
+      <% } %>
+    <% } else { %>
+      <p class="subscribe-prompt">Subscribe to see pictures from <%= user.username %>.</p>
+    <% } %>
   </div>
-<% } else { %>
-  <p class="no-media-message">No pictures available yet.</p>
-<% } %>
 
-  <% } else { %>
-    <p class="subscribe-prompt">Subscribe to see pictures from <%= user.username %>.</p>
-  <% } %></div>
-
-<!-- Videos -->
-<div class="media-view" id="media-videos">
-  <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
-    <% if (posts && posts.some(post => post.type === 'video')) { %>
-      <div class="media-content posts-list">
-        <% posts.filter(post => post.type === 'video').forEach(post => { %>
-          <div class="media-item" id="media-post-<%= post._id %>">
-            <% 
-            const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-            const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-              currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
-            const showLocked = post.special && !isAdminView && !hasPurchased;
-          %>
-          <% if (showLocked) { %>
-            <div class="locked-content-container">
-              <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-              <div class="unlock-overlay">
-                <i class="fa fa-lock"></i>
-                <div>Unlock for ₦<%= post.unlockPrice %></div>
-                <% if (!isAdminView) { %>
-                  <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+  <!-- Videos -->
+  <div class="media-view" id="media-videos">
+    <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
+      <% 
+        // Filter posts with at least one video
+        const videoPosts = posts.filter(post => 
+          post.type !== 'text' && 
+          (post.mediaItems.some(media => media.type === 'video') || (post.contentUrl && post.type === 'video'))
+        );
+      %>
+      <% if (videoPosts.length > 0) { %>
+        <div class="media-content posts-list">
+          <% videoPosts.forEach(post => { %>
+            <div class="media-item" id="media-post-<%= post._id %>">
+              <% 
+                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+                  currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
+                const showLocked = post.special && !isAdminView && !hasPurchased;
+                // Build media array, filter for videos only
+                const mediaItems = (post.mediaItems && post.mediaItems.length > 0 ? 
+                  post.mediaItems.filter(media => media.type === 'video') : 
+                  (post.contentUrl && post.type === 'video' ? [{ type: 'video', url: post.contentUrl, contentType: post.contentType }] : [])
+                );
+              %>
+              <% if (showLocked) { %>
+                <div class="locked-content-container">
+                  <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+                  <div class="unlock-overlay">
+                    <i class="fa fa-lock"></i>
+                    <div>Unlock for ₦<%= post.unlockPrice %></div>
+                    <% if (!isAdminView) { %>
+                      <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                    <% } %>
+                  </div>
+                </div>
+              <% } else { %>
+                <!-- Multiple Media Display (Videos Only) -->
+                <% if (mediaItems.length > 0) { %>
+                  <div class="media-carousel-container">
+                    <div class="media-carousel">
+                      <% mediaItems.forEach((media, index) => { %>
+                        <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
+                          <video controls class="post-video">
+                            <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                            Your browser does not support the video tag.
+                          </video>
+                        </div>
+                      <% }); %>
+                    </div>
+                    <% if (mediaItems.length > 1) { %>
+                      <div class="carousel-nav">
+                        <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                        <div class="carousel-indicators">
+                          <% mediaItems.forEach((_, index) => { %>
+                            <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
+                          <% }); %>
+                        </div>
+                        <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
+                      </div>
+                    <% } %>
+                  </div>
+                <% } %>
+              <% } %>
+              <!-- Normal View Content -->
+              <div class="normal-view-content">
+                <% if (!showLocked && post.writeUp) { %>
+                  <p class="post-writeUp"><%= post.writeUp %></p>
+                <% } %>
+                <% if (post.special) { %>
+                  <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
+                <% } %>
+                <span class="post-timestamp">
+                  <%= post.createdAt ? formatRelativeTime(post.createdAt) : 'Unknown time' %>
+                </span>
+                <div class="post-actions">
+                  <button class="like-button" data-post-id="<%= post._id %>">
+                    <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
+                    <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
+                  </button>
+                  <button class="comment-icon" data-post-id="<%= post._id %>">
+                    <i class="fa-solid fa-comment"></i>
+                    <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+                  </button>
+                  <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
+                    <i class="fa-solid fa-gift"></i>
+                    Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+                  </button>
+                  <button class="bookmark-button" data-post-id="<%= post._id %>">
+                    <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
+                  </button>
+                </div>
+                <div class="comments">
+                  <% if (post.comments && post.comments.length > 0) { %>
+                    <% post.comments.slice(0, 2).forEach(comment => { %>
+                      <div class="comment">
+                        <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
+                      </div>
+                    <% }); %>
+                    <% if (post.comments.length > 2) { %>
+                      <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
+                    <% } %>
+                  <% } %>
+                </div>
+                <div class="comment-form-container hidden">
+                  <form class="comment-form" data-post-id="<%= post._id %>">
+                    <input type="text" name="comment" placeholder="Write a comment...">
+                    <button type="submit">Post</button>
+                  </form>
+                </div>
+                <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+                  <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                    <button type="submit" class="delete-post-btn">Delete Post</button>
+                  </form>
+                <% } %>
+                <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
+                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                    <label for="reason-<%= post._id %>">Reason for deletion:</label>
+                    <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
+                    <button type="submit" class="delete-post-btn">Delete Post</button>
+                  </form>
                 <% } %>
               </div>
             </div>
-          <% } else { %>
-              <video controls class="post-video">
-                <source src="<%= post.contentUrl %>" type="<%= post.contentType || 'video/mp4' %>">
-                Your browser does not support the video tag.
-              </video>
-            <% } %>
-            <!-- Normal View Content -->
-            <div class="normal-view-content">
-              <% if (!showLocked && post.writeUp) { %>
-                <p class="post-writeUp"><%= post.writeUp %></p>
-              <% } %>
-              <% if (post.special) { %>
-                <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
-              <% } %>
-              <div class="post-actions">
-                <button class="like-button" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
-                  <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
-                </button>
-                <button class="comment-icon" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-comment"></i>
-                  <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-                </button>
-                <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
-                  <i class="fa-solid fa-gift"></i>
-                  Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
-                </button>
-                <button class="bookmark-button" data-post-id="<%= post._id %>">
-                  <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
-                </button>
-              </div>
-              <div class="comments">
-                <% if (post.comments && post.comments.length > 0) { %>
-                  <% post.comments.slice(0, 2).forEach(comment => { %>
-                    <div class="comment">
-                      <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
-                    </div>
-                  <% }); %>
-                  <% if (post.comments.length > 2) { %>
-                    <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
-                  <% } %>
-                <% } %>
-              </div>
-              <div class="comment-form-container hidden">
-                <form class="comment-form" data-post-id="<%= post._id %>">
-                  <input type="text" name="comment" placeholder="Write a comment...">
-                  <button type="submit">Post</button>
-                </form>
-              </div>
-              <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-                <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
-                  <button type="submit" class="delete-post-btn">Delete Post</button>
-                </form>
-                
-
-          <% } %>
+          <% }); %>
         </div>
-      </div>
-    <% }); %>
+      <% } else { %>
+        <p class="no-media-message">No videos available yet.</p>
+      <% } %>
+    <% } else { %>
+      <p class="subscribe-prompt">Subscribe to see videos from <%= user.username %>.</p>
+    <% } %>
   </div>
-<% } else { %>
-  <p class="no-media-message">No videos available yet.</p>
-<% } %>
-
-  <% } else { %>
-    <p class="subscribe-prompt">Subscribe to see videos from <%= user.username %>.</p>
-  <% } %></div>
-
-  </div>
+</div>
 
   <!-- Fullscreen Overlay -->
   <div class="fullscreen-overlay" id="fullscreenOverlay">
@@ -729,34 +923,42 @@
     </button>
   </form>
 </div>
-<div class="upload-content-form">
-  <h3>Upload New Content</h3>
-  <form action="/profile/uploadContent" method="POST" enctype="multipart/form-data">
-    <div style="margin-bottom: 10px;">
-      <label for="contentImage">Upload Image:</label><br>
-      <input type="file" name="contentImage" id="contentImage" accept="image/*" class="form-input">
-    </div>
-    <div style="margin-bottom: 10px;">
-      <label for="contentVideo">Upload Video:</label><br>
-      <input type="file" name="contentVideo" id="contentVideo" accept="video/*" class="form-input">
-    </div>
-    <div style="margin-bottom: 10px;">
-      <label for="writeUp">Write-up / Caption:</label><br>
-      <textarea name="writeUp" id="writeUp" class="form-textarea"></textarea>
-    </div>
-    <div style="margin-bottom: 10px;">
-      <label for="specialCheckbox">
-        <input type="checkbox" name="special" value="true" id="specialCheckbox"> Mark as Special Content? (Pay-per-view)
-      </label>
-    </div>
-    <div style="margin-bottom: 10px;" id="unlockPriceContainer" class="hidden">
-      <label for="unlockPrice">Unlock Price (NGN):</label><br>
-      <input type="number" name="unlockPrice" id="unlockPrice" min="0" class="form-input">
-    </div>
-    <button type="submit" class="form-button">Upload</button>
-  </form>
-</div>
-
+<% if (currentUser && currentUser._id.toString() === user._id.toString() && user.role === 'creator') { %>
+  <div class="upload-content-form">
+    <h3>Create a New Post</h3>
+    <form action="/profile/uploadContent" method="POST" enctype="multipart/form-data" id="uploadContentForm">
+      <div class="form-group">
+        <label for="writeUp">Post Content (optional):</label>
+        <textarea name="writeUp" id="writeUp" class="form-textarea" placeholder="Write your post or caption..." rows="5"></textarea>
+      </div>
+      <div class="form-group">
+        <label for="contentImages">Upload Images (up to 10, optional):</label>
+        <input type="file" name="contentImages" id="contentImages" accept="image/*" multiple class="form-input" style="display: none;">
+        <button type="button" id="addImagesButton" class="form-button add-more-button">Add Photos</button>
+        <p class="file-limit-message">Maximum 10 images/videos combined.</p>
+      </div>
+      <div class="form-group">
+        <label for="contentVideos">Upload Videos (up to 10, optional):</label>
+        <input type="file" name="contentVideos" id="contentVideos" accept="video/*" multiple class="form-input" style="display: none;">
+        <button type="button" id="addVideosButton" class="form-button add-more-button">Add Videos</button>
+        <p class="file-limit-message">Maximum 10 images/videos combined.</p>
+      </div>
+      <div class="form-group">
+        <label for="specialCheckbox" class="checkbox-label">
+          <input type="checkbox" name="special" value="true" id="specialCheckbox"> Mark as Special Content (Pay-per-view)
+        </label>
+      </div>
+      <div class="form-group hidden" id="unlockPriceContainer">
+        <label for="unlockPrice">Unlock Price (NGN, minimum 100):</label>
+        <input type="number" name="unlockPrice" id="unlockPrice" min="100" step="1" class="form-input" placeholder="e.g., 500">
+      </div>
+      <div class="form-group">
+        <div id="mediaPreview" class="media-preview"></div>
+      </div>
+      <button type="submit" class="form-button">Post</button>
+    </form>
+  </div>
+<% } %>
   <% } %></div>
 
   <% } else if (isSubscribed) { %>
@@ -844,7 +1046,6 @@
     const isVisitorSubscribed = getDataBoolean(profileContainer, 'isSubscribed');
     const isLoggedIn = getDataBoolean(profileContainer, 'currentUser');
 
-    
    // --- Free Subscription Form ---
 document.querySelectorAll('.subscribe-free-bundle-form').forEach(form => {
   form.addEventListener('submit', async function(e) {
@@ -1616,6 +1817,192 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
       }
     });
 
+    // Upload Form Validation
+    if (isCreatorViewingOwnProfile) {
+  const uploadForm = document.getElementById('uploadContentForm');
+  const specialCheckbox = document.getElementById('specialCheckbox');
+  const unlockPriceContainer = document.getElementById('unlockPriceContainer');
+  const unlockPriceInput = document.getElementById('unlockPrice');
+  const imagesInput = document.getElementById('contentImages');
+  const videosInput = document.getElementById('contentVideos');
+  const addImagesButton = document.getElementById('addImagesButton');
+  const addVideosButton = document.getElementById('addVideosButton');
+  const mediaPreview = document.getElementById('mediaPreview');
+
+  // Store selected files
+  let selectedImages = [];
+  let selectedVideos = [];
+
+  if (uploadForm && specialCheckbox && unlockPriceContainer && unlockPriceInput && imagesInput && videosInput && addImagesButton && addVideosButton && mediaPreview) {
+    // Toggle unlock price visibility
+    const togglePriceVisibility = () => {
+      if (specialCheckbox.checked) {
+        unlockPriceContainer.classList.remove('hidden');
+        unlockPriceInput.required = true;
+      } else {
+        unlockPriceContainer.classList.add('hidden');
+        unlockPriceInput.required = false;
+        unlockPriceInput.value = '';
+      }
+    };
+    specialCheckbox.addEventListener('change', togglePriceVisibility);
+    togglePriceVisibility();
+
+    // Trigger file input clicks
+    addImagesButton.addEventListener('click', () => imagesInput.click());
+    addVideosButton.addEventListener('click', () => videosInput.click());
+
+    // Generate preview for selected files
+    const updatePreview = () => {
+      mediaPreview.innerHTML = ''; // Clear existing previews
+      const totalFiles = selectedImages.length + selectedVideos.length;
+
+      if (totalFiles === 0) {
+        mediaPreview.classList.add('hidden');
+        return;
+      }
+      mediaPreview.classList.remove('hidden');
+
+      // Display images
+      selectedImages.forEach((file, index) => {
+        const previewItem = document.createElement('div');
+        previewItem.className = 'preview-item';
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(file);
+        img.alt = file.name;
+        const removeButton = document.createElement('button');
+        removeButton.className = 'remove-media-button';
+        removeButton.innerHTML = '&times;';
+        removeButton.addEventListener('click', () => {
+          selectedImages.splice(index, 1);
+          updatePreview();
+        });
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'preview-name';
+        nameSpan.textContent = file.name;
+        previewItem.appendChild(img);
+        previewItem.appendChild(removeButton);
+        previewItem.appendChild(nameSpan);
+        mediaPreview.appendChild(previewItem);
+      });
+
+      // Display videos (thumbnail or fallback icon)
+      selectedVideos.forEach((file, index) => {
+        const previewItem = document.createElement('div');
+        previewItem.className = 'preview-item';
+        const video = document.createElement('video');
+        video.src = URL.createObjectURL(file);
+        video.muted = true; // Required for autoplay in some browsers
+        video.addEventListener('loadedmetadata', () => {
+          video.currentTime = 1; // Show a frame at 1 second
+        });
+        const removeButton = document.createElement('button');
+        removeButton.className = 'remove-media-button';
+        removeButton.innerHTML = '&times;';
+        removeButton.addEventListener('click', () => {
+          selectedVideos.splice(index, 1);
+          updatePreview();
+        });
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'preview-name';
+        nameSpan.textContent = file.name;
+        previewItem.appendChild(video);
+        previewItem.appendChild(removeButton);
+        previewItem.appendChild(nameSpan);
+        mediaPreview.appendChild(previewItem);
+      });
+    };
+
+    // Handle image selection
+    imagesInput.addEventListener('change', (e) => {
+      const newFiles = Array.from(e.target.files);
+      if (selectedImages.length + selectedVideos.length + newFiles.length > 10) {
+        alert('You can upload a maximum of 10 media files (images or videos combined).');
+        e.target.value = ''; // Clear input
+        return;
+      }
+      selectedImages = [...selectedImages, ...newFiles];
+      e.target.value = ''; // Clear input for next selection
+      updatePreview();
+    });
+
+    // Handle video selection
+    videosInput.addEventListener('change', (e) => {
+      const newFiles = Array.from(e.target.files);
+      if (selectedImages.length + selectedVideos.length + newFiles.length > 10) {
+        alert('You can upload a maximum of 10 media files (images or videos combined).');
+        e.target.value = ''; // Clear input
+        return;
+      }
+      selectedVideos = [...selectedVideos, ...newFiles];
+      e.target.value = ''; // Clear input for next selection
+      updatePreview();
+    });
+
+    // Form submission: Append files to FormData
+    uploadForm.addEventListener('submit', (e) => {
+      const writeUp = document.getElementById('writeUp').value.trim();
+      const isSpecial = specialCheckbox.checked;
+      const unlockPrice = parseFloat(unlockPriceInput.value);
+      const totalFiles = selectedImages.length + selectedVideos.length;
+
+      if (totalFiles === 0 && !writeUp) {
+        e.preventDefault();
+        alert('Please provide text or upload at least one image or video to create a post.');
+        return;
+      }
+      if (totalFiles > 10) {
+        e.preventDefault();
+        alert('You can upload a maximum of 10 media files (images or videos combined).');
+        return;
+      }
+      if (isSpecial && (!unlockPrice || unlockPrice < 100)) {
+        e.preventDefault();
+        alert('Please provide a valid unlock price (minimum 100 NGN) for special content.');
+        return;
+      }
+
+      // Create a FormData object to append files
+      const formData = new FormData(uploadForm);
+      selectedImages.forEach((file) => {
+        formData.append('contentImages', file);
+      });
+      selectedVideos.forEach((file) => {
+        formData.append('contentVideos', file);
+      });
+
+      // Replace the form's default submission with FormData
+      e.preventDefault();
+      fetch(uploadForm.action, {
+        method: 'POST',
+        body: formData
+      })
+        .then((response) => {
+          if (response.redirected) {
+            window.location.href = response.url;
+          } else {
+            alert('Error uploading content.');
+          }
+        })
+        .catch((error) => {
+          console.error('Form submission error:', error);
+          alert('Error uploading content.');
+        });
+    });
+  } else if (isDevEnv) {
+    console.warn('Upload form elements not found:', {
+      uploadForm: !!uploadForm,
+      specialCheckbox: !!specialCheckbox,
+      unlockPriceContainer: !!unlockPriceContainer,
+      unlockPriceInput: !!unlockPriceInput,
+      imagesInput: !!imagesInput,
+      videosInput: !!videosInput,
+      addImagesButton: !!addImagesButton,
+      addVideosButton: !!addVideosButton,
+      mediaPreview: !!mediaPreview
+    });
+  }
+}
     // --- Share Profile Modal ---
     const initializeShareModal = () => {
       const shareButtons = document.querySelectorAll('.share-icon');
@@ -1707,5 +2094,58 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
     };
 
     initializeShareModal();
+    // --- Carousel Navigation for Posts and Media Tabs ---
+function initializeCarousels() {
+  document.querySelectorAll('.media-carousel-container').forEach(container => {
+    const carousel = container.querySelector('.media-carousel');
+    const items = container.querySelectorAll('.carousel-item');
+    const prevButton = container.querySelector('.carousel-prev');
+    const nextButton = container.querySelector('.carousel-next');
+    const dots = container.querySelectorAll('.carousel-dot');
+    let currentIndex = 0;
+
+    if (!carousel || items.length === 0) return;
+
+    function updateCarousel() {
+      items.forEach((item, index) => {
+        item.classList.toggle('active', index === currentIndex);
+      });
+      if (dots.length > 0) {
+        dots.forEach((dot, index) => {
+          dot.classList.toggle('active', index === currentIndex);
+        });
+      }
+    }
+
+    if (prevButton) {
+      prevButton.addEventListener('click', () => {
+        currentIndex = (currentIndex - 1 + items.length) % items.length;
+        updateCarousel();
+      });
+    }
+
+    if (nextButton) {
+      nextButton.addEventListener('click', () => {
+        currentIndex = (currentIndex + 1) % items.length;
+        updateCarousel();
+      });
+    }
+
+    if (dots.length > 0) {
+      dots.forEach((dot, index) => {
+        dot.addEventListener('click', () => {
+          currentIndex = index;
+          updateCarousel();
+        });
+      });
+    }
+
+    updateCarousel();
   });
+}
+
+// Initialize carousels on page load
+initializeCarousels();
+  });
+  
 </script>
