@@ -14,6 +14,7 @@ const Transaction = require('../models/Transaction');
 const Notification = require('../models/notifications');
 const PendingSubscription = require('../models/pendingSubscription'); 
 const logger = require('../logs/logger'); // Import Winston logger
+const Report = require('../models/Reports');
 
 // Set up multer to store files in memory
 const multerStorage = multer.memoryStorage();
@@ -1134,6 +1135,37 @@ router.post(
     }
   }
 );
+
+
+// Report a post
+router.post('/report-post', authCheck, async (req, res) => {
+  try {
+    const { postId, reason, details } = req.body;
+    const userId = req.user._id;
+
+    // Validate post exists
+    const post = await Post.findById(postId);
+    if (!post) {
+      logger.warn(`Post not found for report: ${postId}`);
+      return res.status(404).json({ status: 'error', message: 'Post not found.' });
+    }
+
+    // Create report
+    const report = new Report({
+      user: userId,
+      post: postId,
+      reason,
+      details
+    });
+
+    await report.save();
+    logger.info(`Post reported: ${postId} by user ${userId}`);
+    res.json({ status: 'success', message: 'Report submitted successfully.' });
+  } catch (err) {
+    logger.error(`Error reporting post: ${err.message}`);
+    res.status(500).json({ status: 'error', message: 'Error submitting report.' });
+  }
+});
 // Delete post route
 router.post('/delete-post/:postId', authCheck, async (req, res) => {
   
@@ -2128,6 +2160,86 @@ router.get('/:username', async (req, res) => {
   } catch (err) {
     logger.error(`Error loading profile by username: ${err.message}, Stack: ${err.stack}`);
     req.flash('error_msg', 'Error loading profile');
+    res.status(500).redirect('/profile');
+  }
+});
+// View a single post
+// View a single post
+router.get('/:username/post/:postId', async (req, res) => {
+  try {
+    const { username, postId } = req.params;
+    const ownerUser = await User.findOne({ username });
+    if (!ownerUser) {
+      logger.warn(`User not found for username: ${username} in /:username/post/:postId`);
+      req.flash('error_msg', 'User not found');
+      return res.status(404).redirect('/profile');
+    }
+
+    const post = await Post.findById(postId).populate('creator', 'username profilePicture _id').populate('comments.user', 'username');
+    if (!post || post.creator._id.toString() !== ownerUser._id.toString()) {
+      logger.warn(`Post not found or does not belong to user: ${username}, postId: ${postId}`);
+      req.flash('error_msg', 'Post not found');
+      return res.status(404).redirect('/profile');
+    }
+
+    await ownerUser.checkExpiredSubscriptions();
+    await ownerUser.updateSubscriberCount();
+
+    const isOwnProfile = req.user ? req.user._id.toString() === ownerUser._id.toString() : false;
+    const adminView = req.user && req.query.adminView === 'true' && req.user.role === 'admin';
+    let isSubscribed = false;
+    if (req.user && !isOwnProfile && ownerUser.role === 'creator') {
+      const now = new Date();
+      isSubscribed = req.user.subscriptions.some(
+        (sub) =>
+          sub.creatorId.toString() === ownerUser._id.toString() &&
+          sub.status === 'active' &&
+          sub.subscriptionExpiry > now
+      );
+    }
+
+    // Restrict access to non-subscribers (except owners or admins)
+    if (!isOwnProfile && !isSubscribed && !adminView) {
+      logger.warn(`Access denied to post: ${postId} for non-subscriber`);
+      req.flash('error_msg', 'You must be subscribed to view this post');
+      return res.redirect(`/profile/${username}`);
+    }
+
+    // Process post URLs
+    const posts = [post];
+    await processPostUrls(posts, req.user || null, ownerUser, adminView);
+
+    // Filter out invalid comments
+    post.comments = post.comments.filter((comment) => {
+      if (comment.user === null) {
+        logger.warn(`Removing invalid comment on post ${post._id}`);
+        return false;
+      }
+      return true;
+    });
+
+    // Log post details for debugging
+    logger.info(`Fetched single post for user ${ownerUser.username}`, {
+      postId: post._id,
+      postType: post.type,
+      createdAt: post.createdAt ? post.createdAt.toISOString() : null
+    });
+
+    res.set('Cache-Control', 'no-store');
+    res.render('single-post', {
+      user: {
+        username: ownerUser.username // Only pass username for share link
+      },
+      currentUser: req.user || null,
+      post,
+      isSubscribed,
+      adminView,
+      env: process.env.NODE_ENV || 'development',
+      flashMessages: req.flash()
+    });
+  } catch (err) {
+    logger.error(`Error loading single post: ${err.message}, Stack: ${err.stack}`);
+    req.flash('error_msg', 'Error loading post');
     res.status(500).redirect('/profile');
   }
 });

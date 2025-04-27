@@ -840,22 +840,391 @@ a {
     right: 10px;
   }
 }
-/********************************************
- * PROFILE PICTURE (Legacy - For other pages)
- ********************************************/
-/*.profile-picture {
-  width: 80px;
-  height: 80px;
-  border MOL-radius: 50%;
-  object-fit: cover;
-  border: 2px solid #f8c8da;
-  margin-bottom: 10px;
-}*/
 
+/* Post Action Modal */
+.post-action-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  overflow: auto;
+}
+
+.post-action-modal:not(.hidden) {
+  display: flex;
+}
+
+.post-action-modal-content {
+  background: #fff;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  padding: 20px;
+  position: relative;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  overflow-y: auto;
+  animation: slideIn 0.2s ease-out;
+}
+
+.post-action-options {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.post-action-options li {
+  margin: 10px 0;
+  display: flex;
+  justify-content: flex-start;
+}
+
+.post-action-button {
+  background: none;
+  border: none;
+  color: #333;
+  font-size: 16px;
+  font-weight: 500;
+  width: 100%;
+  text-align: left;
+  padding: 10px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.post-action-button:hover {
+  background-color: #f0f0f0;
+}
+
+.close-post-action-modal {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 24px;
+  cursor: pointer;
+  color: #333;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* Report Post Modal */
+.report-post-modal {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+  overflow: auto;
+}
+
+.report-post-modal:not(.hidden) {
+  display: flex;
+}
+
+.report-post-modal-content {
+  background: #fff;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  padding: 20px;
+  position: relative;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  overflow-y: auto;
+  animation: slideIn 0.2s ease-out;
+}
+
+.close-report-post-modal {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 24px;
+  cursor: pointer;
+  color: #333;
+}
+
+.close-report-post-modal:hover {
+  color: #000;
+}
+
+#reportPostForm {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+#reportPostForm label {
+  font-size: 1rem;
+  color: #333;
+  font-weight: 500;
+}
+
+#reportPostForm select.form-select,
+#reportPostForm textarea.form-textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 1rem;
+  color: #333;
+}
+
+#reportPostForm select.form-select:focus,
+#reportPostForm textarea.form-textarea:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+#reportPostForm textarea.form-textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.report-submit-button {
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  padding: 10px;
+  border-radius: 5px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.report-submit-button:hover {
+  background-color: #0056b3;
+}
+
+.report-submit-button:disabled {
+  background-color: #cccccc;
+  cursor: not-allowed;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .report-post-modal-content {
+    width: 95%;
+    padding: 15px;
+  }
+
+  #reportPostForm label {
+    font-size: 0.9rem;
+  }
+
+  #reportPostForm select.form-select,
+  #reportPostForm textarea.form-textarea {
+    font-size: 0.9rem;
+    padding: 8px;
+  }
+
+  .report-submit-button {
+    font-size: 0.9rem;
+    padding: 8px;
+  }
+
+  .close-report-post-modal {
+    font-size: 1.3rem;
+    right: 10px;
+    top: 8px;
+  }
+}
+
+/* Animation (if not defined globally) */
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+/* Post Share Modal */
+.post-share-modal {
+  display: none; /* Hidden by default */
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent overlay */
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  overflow: auto;
+}
+
+.post-share-modal.active,
+.post-share-modal:not(.hidden) {
+  display: flex; /* Show when active or not hidden */
+}
+
+.post-share-modal-content {
+  background-color: #fff;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  position: relative;
+  animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateY(-20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.post-share-modal-content h3 {
+  margin: 0 0 15px;
+  font-size: 1.5rem;
+  color: #333;
+  text-align: center;
+}
+
+.close-post-share-modal {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 1.5rem;
+  color: #666;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.close-post-share-modal:hover,
+.close-post-share-modal:focus {
+  color: #000;
+}
+
+.post-share-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.post-share-option-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 15px;
+  background-color: #f5f5f5;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  color: #333;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.post-share-option-button:hover,
+.post-share-option-button:focus {
+  background-color: #e0e0e0;
+  transform: translateY(-2px);
+}
+
+.post-share-option-button:active {
+  transform: translateY(0);
+}
+
+.post-share-option-button i {
+  font-size: 1.2rem;
+  color: #555;
+}
+
+.post-share-option-button.hidden {
+  display: none;
+}
+
+/* Specific styles for social media buttons */
+.post-share-option-button[href*="twitter"] i {
+  color: #1da1f2; /* Twitter/X blue */
+}
+
+.post-share-option-button[href*="whatsapp"] i {
+  color: #25d366; /* WhatsApp green */
+}
+
+.post-share-option-button[href*="telegram"] i {
+  color: #0088cc; /* Telegram blue */
+}
+
+.post-share-option-button[href*="facebook"] i {
+  color: #3b5998; /* Facebook blue */
+}
+
+.post-share-option-button[data-link] i.fa-copy {
+  color: #666; /* Copy link icon */
+}
+
+.post-share-option-button[data-link] i.fa-share {
+  color: #666; /* Native share icon */
+}
+
+/* Disabled state for copy button */
+.post-share-option-button:disabled {
+  background-color: #d0d0d0;
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .post-share-modal-content {
+    width: 95%;
+    padding: 15px;
+  }
+
+  .post-share-modal-content h3 {
+    font-size: 1.3rem;
+  }
+
+  .post-share-option-button {
+    font-size: 0.9rem;
+    padding: 8px 12px;
+  }
+
+  .close-post-share-modal {
+    font-size: 1.3rem;
+    right: 10px;
+    top: 8px;
+  }
+}
 /********************************************
  * POST CARD STYLES
  ********************************************/
-.post-card {
+ .post-card {
   background-color: #fff;
   border: 1px solid #f8c8da;
   border-radius: 8px;
@@ -892,7 +1261,7 @@ a {
 }
 .post-image {
   width: 100%;
-  max-width: 100%; /* Ensure it doesn't exceed container */
+  max-width: 100%;
   height: auto;
   border-radius: 5px;
   object-fit: cover;
@@ -901,9 +1270,9 @@ a {
 .post-video {
   width: 100%;
   height: auto;
-  max-width: 100%; /* Prevent overflow */
-  max-height: 100%; /* Fit within container */
-  object-fit: contain; /* Preserve aspect ratio */
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
   display: block;
   border-radius: 5px;
   margin-bottom: 10px;
@@ -974,11 +1343,6 @@ a {
 }
 
 @media (min-width: 768px) {
-  /*.profile-picture {
-    width: 100px;
-    height: 100px;
-    margin-bottom: 15px;
-  }*/
   .post-card {
     max-width: 700px;
     margin: 20px auto;
@@ -1020,6 +1384,119 @@ a {
 
 .comments {
   margin-top: 1rem;
+}
+
+.profile-post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+  padding: 0 5px;
+}
+
+.profile-creator-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.profile-creator-info a {
+  display: flex;
+  align-items: flex-start;
+  text-decoration: none;
+  max-width: calc(100% - 80px);
+}
+
+.profile-creator-info .creator-profile-pic {
+  width: 40px !important;
+  height: 40px !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+  border: 2px solid #f8c8da;
+  flex-shrink: 0;
+}
+
+.profile-name-container {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+}
+
+.profile-creator-info .profile-creator-name {
+  font-size: 15px;
+  font-weight: bold;
+  color: #a83260;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: initial;
+}
+
+.profile-creator-info .profile-username {
+  font-size: 13px;
+  color: #666;
+  margin-top: 2px;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: initial;
+}
+
+.verified-badge {
+  color: #ff69b4;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.post-menu {
+  display: flex;
+  align-items: flex-start;
+}
+
+.post-menu-button {
+  background: transparent !important;
+  border: none;
+  padding: 5px;
+  cursor: pointer;
+  font-size: 16px;
+  color: #555;
+  transition: color 0.3s;
+}
+
+.post-menu-button:hover {
+  color: #a83260;
+}
+
+/* Ensure profile-post-header is hidden in compact view */
+.media-list .profile-post-header.normal-view-only {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .profile-post-header {
+    margin-bottom: 15px;
+  }
+  .profile-creator-info .creator-profile-pic {
+    width: 50px !important;
+    height: 50px !important;
+  }
+  .profile-creator-info .profile-creator-name {
+    font-size: 16px;
+  }
+  .profile-creator-info .profile-username {
+    font-size: 14px;
+  }
+  .verified-badge {
+    font-size: 16px;
+  }
+  .post-menu-button {
+    font-size: 18px;
+    padding: 8px;
+  }
+  .post-menu-button i {
+    font-size: 20px;
+  }
 }
 
 /********************************************
@@ -1071,6 +1548,449 @@ a {
   }
   .creator-section h3 a {
     font-size: 24px;
+  }
+}
+
+/********************************************
+ * NEW: PROFILE TABS AND MEDIA STYLES
+ ********************************************/
+
+/* Post Timestamp */
+.post-timestamp {
+  display: block;
+  font-size: 0.85rem;
+  color: #666;
+  margin: 8px 0;
+  font-weight: 500;
+}
+
+/* Profile Tabs */
+.profile-tabs {
+  display: flex;
+  justify-content: center;
+  margin: 20px 0;
+  gap: 30px;
+}
+
+.tab-button {
+  background: none;
+  border: none;
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tab-button.active {
+  color: #ff69b4;
+  border-bottom: 2px solid #ff69b4;
+}
+
+/* Tab Content */
+.tab-content {
+  display: block;
+}
+
+.tab-content.hidden {
+  display: none;
+}
+
+.tab-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: #333;
+}
+
+/* Media Subtabs */
+.media-subtabs {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 15px;
+  gap: 10px;
+}
+
+.subtab-button {
+  background: none;
+  border: none;
+  padding: 5px 10px;
+  font-size: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  cursor: pointer;
+  color: #666;
+}
+
+.subtab-button.active {
+  color: #ff69b4;
+  border-bottom: 2px solid #ff69b4;
+}
+
+/* View Toggle Button */
+.view-toggle-button {
+  background: none;
+  border: 1px solid #ddd;
+  padding: 5px 8px;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 4px;
+  color: #666;
+  transition: all 0.3s ease;
+}
+
+.view-toggle-button.active {
+  background-color: #ff69b4;
+  color: #fff;
+  border-color: #ff69b4;
+}
+
+/* Media Views */
+.media-view {
+  display: none;
+}
+
+.media-view.active {
+  display: block;
+}
+
+/* Compact View (Media List) - Base for all screens */
+.media-list {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 3 columns on all screens */
+  gap: 5px;
+  padding: 5px;
+  max-width: 700px; /* Match normal view container */
+  margin: 0 auto; /* Center the grid */
+}
+
+/* Visibility control for normal and compact views */
+.media-list .media-item.normal-view {
+  display: none; /* Hide normal-view items in compact view */
+}
+
+.posts-list .media-item.compact-view {
+  display: none; /* Hide compact-view items in normal view */
+}
+
+/* Compact view media item styles */
+.media-list .media-item.compact-view {
+  position: relative;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.media-list .media-item.compact-view img,
+.media-list .media-item.compact-view video {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  display: block;
+  border-radius: 4px;
+}
+
+/* Locked content in compact view */
+.media-list .media-item.compact-view.locked img {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  filter: blur(5px);
+  border-radius: 4px;
+}
+
+.media-list .media-item.compact-view .unlock-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  color: #fff;
+  text-align: center;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.media-list .media-item.compact-view .unlock-overlay i {
+  font-size: 24px;
+  margin-bottom: 5px;
+}
+
+.media-list .media-item.compact-view .unlock-overlay .unlock-button {
+  background-color: #ff69b4;
+  color: #fff;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 5px;
+  font-size: 12px;
+}
+
+/* Ensure timestamps and other normal view content are hidden in compact view */
+.media-list .normal-view-content {
+  display: none;
+}
+
+/* Messages */
+.no-media-message,
+.subscribe-prompt {
+  text-align: center;
+  color: #666;
+  font-size: 16px;
+  padding: 20px;
+}
+
+/* Ensure consistent image and video sizing across Posts and Media tabs */
+.post-image {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  object-fit: cover;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+/* Video styles (normal and native fullscreen) */
+.post-video {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+/* Ensure consistency in Media tab containers */
+.media-normal .post-video,
+.media-compact .post-video {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Prevent parent containers from interfering */
+.posts-list,
+.post-card,
+.media-item,
+.media-list {
+  overflow: visible;
+  position: relative;
+}
+
+/* Posts tab specific container */
+.posts-list .post-card {
+  width: 100%;
+  max-width: 700px;
+  margin: 20px auto;
+  padding: 15px;
+  background: #fff;
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Media tab normal view specific container */
+.media-content.posts-list .media-item {
+  width: 100%;
+  max-width: 700px;
+  margin: 20px auto;
+  padding: 15px;
+  background: #fff;
+  border-radius: 5px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* Ensure images and videos fit within the container in normal view */
+.media-content.posts-list .media-item img,
+.media-content.posts-list .media-item video {
+  width: 100%;
+  max-width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 5px;
+  margin-bottom: 10px;
+}
+
+/* Responsive Adjustments */
+@media (min-width: 768px) {
+  .tab-button {
+    font-size: 1.1rem;
+    padding: 12px 24px;
+  }
+  .subtab-button, .compact-view-button {
+    font-size: 1rem;
+    padding: 10px 20px;
+  }
+  .media-item {
+    max-width: 700px;
+  }
+  .posts-list .post-card,
+  .media-content.posts-list .media-item {
+    max-width: 700px;
+    margin: 20px auto;
+    padding: 20px;
+  }
+  .post-image,
+  .post-video {
+    max-width: 100%;
+  }
+  .media-list {
+    grid-template-columns: repeat(3, 1fr); /* Maintain 3 columns */
+    gap: 10px;
+    padding: 10px;
+    max-width: 700px; /* Match normal view */
+    margin: 0 auto;
+  }
+  .media-list .media-item.compact-view img,
+  .media-list .media-item.compact-view video,
+  .media-list .media-item.compact-view.locked img {
+    height: 150px;
+  }
+  .media-list .media-item.compact-view .unlock-overlay {
+    font-size: 14px;
+  }
+  .post-timestamp {
+    font-size: 0.9rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .media-list {
+    grid-template-columns: repeat(3, 1fr); /* Maintain 3 columns */
+    max-width: 700px; /* Match normal view */
+    margin: 0 auto;
+  }
+  .media-list .media-item.compact-view img,
+  .media-list .media-item.compact-view video,
+  .media-list .media-item.compact-view.locked img {
+    height: 200px;
+  }
+  .media-list .media-item.compact-view .unlock-overlay {
+    font-size: 16px;
+  }
+  .media-list .media-item.compact-view .unlock-overlay i {
+    font-size: 32px;
+  }
+  .media-list .media-item.compact-view .unlock-overlay .unlock-button {
+    padding: 8px 16px;
+    font-size: 14px;
+  }
+  .post-timestamp {
+    font-size: 0.95rem;
+  }
+}
+
+.comments {
+  margin-top: 10px;
+}
+
+.comment {
+  font-size: 14px;
+  margin: 5px 0;
+}
+
+.view-all-comments {
+  color: #007bff;
+  text-decoration: none;
+}
+/********************************************
+ * CAROUSEL STYLES (Shared for Posts and Media Tabs)
+ ********************************************/
+.media-carousel-container {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.media-carousel {
+  display: flex;
+  transition: transform 0.3s ease;
+  width: 100%;
+}
+
+.carousel-item {
+  flex: 0 0 100%;
+  display: none;
+  width: 100%;
+  max-width: 100%;
+}
+
+.carousel-item.active {
+  display: block;
+}
+
+.carousel-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 5px;
+}
+
+.carousel-prev,
+.carousel-next {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #666;
+  padding: 5px;
+}
+
+.carousel-indicators {
+  display: flex;
+  gap: 5px;
+}
+
+.carousel-dot {
+  width: 8px;
+  height: 8px;
+  background: #ccc;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.carousel-dot.active {
+  background: #ff69b4;
+}
+
+/* Ensure media items in carousel are properly sized */
+.media-carousel .post-image,
+.media-carousel .post-video {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+.media-carousel .post-video {
+  max-height: 400px;
+}
+
+/* Responsive Adjustments for Carousel */
+@media (min-width: 768px) {
+  .media-carousel .post-video {
+    max-height: 500px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .media-carousel .post-video {
+    max-height: 600px;
   }
 }
 /********************************************
@@ -2504,519 +3424,6 @@ html, body {
 
 .remove-media-button:hover {
   background: #c82333;
-}
-
-/********************************************
- * NEW: PROFILE TABS AND MEDIA STYLES
- ********************************************/
-
-/* Post Timestamp */
-.post-timestamp {
-  display: block;
-  font-size: 0.85rem; /* Slightly larger than original for readability, matches .comment */
-  color: #666; /* Consistent with .tab-button and .subtab-button */
-  margin: 8px 0; /* Slightly more margin for spacing */
-  font-weight: 500; /* Medium weight for subtle emphasis */
-}
-
-/* Profile Tabs */
-.profile-tabs {
-  display: flex;
-  justify-content: center;
-  margin: 20px 0;
-  gap: 30px;
-}
-
-.tab-button {
-  background: none;
-  border: none;
-  padding: 10px 0;
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
-  cursor: pointer;
-  color: #666;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.tab-button.active {
-  color: #ff69b4;
-  border-bottom: 2px solid #ff69b4;
-}
-
-/* Tab Content */
-.tab-content {
-  display: block;
-}
-
-.tab-content.hidden {
-  display: none;
-}
-
-.tab-count {
-  font-size: 12px;
-  font-weight: 700;
-  color: #333;
-}
-
-/* Media Subtabs */
-.media-subtabs {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 15px;
-  gap: 10px;
-}
-
-.subtab-button {
-  background: none;
-  border: none;
-  padding: 5px 10px;
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
-  cursor: pointer;
-  color: #666;
-}
-
-.subtab-button.active {
-  color: #ff69b4;
-  border-bottom: 2px solid #ff69b4;
-}
-
-/* View Toggle Button */
-.view-toggle-button {
-  background: none;
-  border: 1px solid #ddd;
-  padding: 5px 8px;
-  font-size: 16px;
-  cursor: pointer;
-  border-radius: 4px;
-  color: #666;
-  transition: all 0.3s ease;
-}
-
-.view-toggle-button.active {
-  background-color: #ff69b4;
-  color: #fff;
-  border-color: #ff69b4;
-}
-
-/* Media Views */
-.media-view {
-  display: none;
-}
-
-.media-view.active {
-  display: block;
-}
-
-/* Compact View (Media List) - Base for phone screens */
-.media-list {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr); /* 3 columns on phones */
-  gap: 5px; /* Tight spacing for phones */
-  padding: 5px; /* Minimal padding */
-}
-
-/* Media item styles only apply in compact view */
-.media-list .media-item {
-  position: relative;
-  overflow: visible; /* Prevent clipping in full-screen */
-}
-
-.media-list .media-item img {
-  width: 100%;
-  height: 120px; /* Adjusted for compact view on phones */
-  object-fit: cover;
-  border-radius: 4px;
-}
-
-.media-list .media-item video {
-  width: 100%;
-  height: auto; /* Unchanged from original for native fullscreen */
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain; /* Consistent with Posts tab */
-  border-radius: 4px;
-  margin-bottom: 10px;
-}
-
-.media-list .media-item.locked img {
-  filter: blur(5px);
-}
-
-.media-list .unlock-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  color: #fff;
-  text-align: center;
-  border-radius: 4px;
-  font-size: 12px; /* Smaller for compact view on phones */
-}
-
-.media-list .unlock-overlay i {
-  font-size: 24px;
-  margin-bottom: 5px;
-}
-
-.media-list .unlock-button {
-  background-color: #ff69b4;
-  color: #fff;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 5px;
-}
-
-/* Ensure timestamps are hidden in compact view */
-.media-list .normal-view-content {
-  display: none; /* Explicitly hide normal view content (including timestamps) */
-}
-
-/* Messages */
-.no-media-message,
-.subscribe-prompt {
-  text-align: center;
-  color: #666;
-  font-size: 16px;
-  padding: 20px;
-}
-
-/* Ensure consistent image and video sizing across Posts and Media tabs */
-.post-image {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  object-fit: cover;
-  border-radius: 5px;
-  margin-bottom: 10px;
-}
-
-/* Video styles (normal and native fullscreen) */
-.post-video {
-  width: 100%;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%; /* Fit within container */
-  object-fit: contain; /* Ensure full video visible */
-  display: block;
-  border-radius: 5px;
-  margin-bottom: 10px;
-}
-
-/* Ensure consistency in Media tab containers */
-.media-normal .post-video,
-.media-compact .post-video {
-  width: 100%;
-  height: auto;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-}
-
-/* Prevent parent containers from interfering */
-.posts-list,
-.post-card,
-.media-item,
-.media-list {
-  overflow: visible; /* Avoid clipping */
-  position: relative; /* Ensure proper stacking */
-}
-
-/* Posts tab specific container */
-.posts-list .post-card {
-  width: 100%;
-  max-width: 700px;
-  margin: 20px auto;
-  padding: 15px;
-  background: #fff; /* Optional: Add background for consistency */
-  border-radius: 5px; /* Optional: Add slight rounding */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Optional: Subtle shadow */
-}
-
-/* Media tab normal view specific container */
-.media-content.posts-list .media-item {
-  width: 100%;
-  max-width: 700px;
-  margin: 20px auto;
-  padding: 15px;
-  background: #fff; /* Match Posts tab */
-  border-radius: 5px; /* Match Posts tab */
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1); /* Match Posts tab */
-}
-
-/* Ensure media-list (compact view) doesn’t interfere with normal view */
-.media-content.media-list .media-item {
-  position: relative;
-  overflow: visible;
-}
-
-/* Ensure images and videos fit within the container in normal view */
-.media-content.posts-list .media-item img,
-.media-content.posts-list .media-item video {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  object-fit: cover; /* or contain, depending on preference */
-  border-radius: 5px;
-  margin-bottom: 10px;
-}
-
-/* Responsive Adjustments */
-@media (min-width: 768px) {
-  .tab-button {
-    font-size: 1.1rem;
-    padding: 12px 24px;
-  }
-  .subtab-button, .compact-view-button {
-    font-size: 1rem;
-    padding: 10px 20px;
-  }
-  .media-item {
-    max-width: 700px;
-  }
-  .posts-list .post-card,
-  .media-content.posts-list .media-item {
-    max-width: 700px;
-    margin: 20px auto;
-    padding: 20px;
-  }
-  .post-image,
-  .post-video {
-    max-width: 100%;
-  }
-  .media-list {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); /* Flexible columns for larger screens */
-    gap: 10px; /* More spacing */
-    padding: 10px; /* Standard padding */
-  }
-  .media-list .media-item img {
-    height: 150px; /* Larger for compact view on tablets/desktops */
-  }
-  .media-list .unlock-overlay {
-    font-size: 14px; /* Larger text for readability */
-  }
-  .post-timestamp {
-    font-size: 0.9rem; /* Slightly larger on tablets/desktops */
-  }
-}
-
-@media (min-width: 1024px) {
-  .media-list.compact {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  }
-  .media-list.compact .media-item {
-    height: 120px;
-  }
-  .media-list {
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); /* Wider columns */
-  }
-  .media-list .media-item img {
-    height: 200px; /* Taller for desktops */
-  }
-  .post-timestamp {
-    font-size: 0.95rem; /* Larger for desktops */
-  }
-}
-
-.comments {
-  margin-top: 10px;
-}
-
-.comment {
-  font-size: 14px;
-  margin: 5px 0;
-}
-
-.view-all-comments {
-  color: #007bff;
-  text-decoration: none;
-}
-
-/********************************************
- * CAROUSEL STYLES (Shared for Posts and Media Tabs)
- ********************************************/
-.media-carousel-container {
-  position: relative;
-  width: 100%;
-  max-width: 100%;
-  overflow: hidden;
-  margin-bottom: 10px;
-}
-
-.media-carousel {
-  display: flex;
-  transition: transform 0.3s ease;
-  width: 100%;
-}
-
-.carousel-item {
-  flex: 0 0 100%;
-  display: none;
-  width: 100%;
-  max-width: 100%;
-}
-
-.carousel-item.active {
-  display: block;
-}
-
-.carousel-nav {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-top: 5px;
-}
-
-.carousel-prev,
-.carousel-next {
-  background: none;
-  border: none;
-  font-size: 16px;
-  cursor: pointer;
-  color: #666;
-  padding: 5px;
-}
-
-.carousel-indicators {
-  display: flex;
-  gap: 5px;
-}
-
-.carousel-dot {
-  width: 8px;
-  height: 8px;
-  background: #ccc;
-  border-radius: 50%;
-  cursor: pointer;
-  transition: background 0.3s;
-}
-
-.carousel-dot.active {
-  background: #ff69b4;
-}
-
-/* Ensure media items in carousel are properly sized */
-.media-carousel .post-image,
-.media-carousel .post-video {
-  width: 100%;
-  max-width: 100%;
-  height: auto;
-  object-fit: cover; /* or contain, depending on preference */
-  border-radius: 5px;
-}
-
-.media-carousel .post-video {
-  max-height: 400px; /* Limit video height in carousel */
-}
-
-/* Compact View Adjustments for Media Tab */
-.media-list .media-item {
-  position: relative;
-  overflow: visible;
-}
-
-.media-list .media-carousel-container {
-  width: 100%;
-  height: 120px; /* Match compact view image height */
-}
-
-.media-list .media-carousel .post-image {
-  width: 100%;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 4px;
-}
-
-.media-list .media-carousel .post-video {
-  width: 100%;
-  height: 120px;
-  object-fit: cover;
-  border-radius: 4px;
-}
-
-.media-list .media-item.locked .media-carousel .post-image,
-.media-list .media-item.locked .media-carousel .post-video {
-  filter: blur(5px);
-}
-
-.media-list .unlock-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  color: #fff;
-  text-align: center;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.media-list .unlock-overlay i {
-  font-size: 24px;
-  margin-bottom: 5px;
-}
-
-.media-list .unlock-overlay .unlock-button {
-  background-color: #ff69b4;
-  color: #fff;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 5px;
-  font-size: 12px;
-}
-
-/* Responsive Adjustments */
-@media (min-width: 768px) {
-  .media-list .media-carousel-container {
-    height: 150px; /* Larger for tablets/desktops */
-  }
-
-  .media-list .media-carousel .post-image,
-  .media-list .media-carousel .post-video {
-    height: 150px;
-  }
-
-  .media-list .unlock-overlay {
-    font-size: 14px;
-  }
-
-  .media-carousel .post-video {
-    max-height: 500px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .media-list .media-carousel-container {
-    height: 200px; /* Taller for desktops */
-  }
-
-  .media-list .media-carousel .post-image,
-  .media-list .media-carousel .post-video {
-    height: 200px;
-  }
-
-  .media-carousel .post-video {
-    max-height: 600px;
-  }
 }
 
 /* --- Trending Creators Container --- */

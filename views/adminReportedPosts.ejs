@@ -1,0 +1,31 @@
+<!-- views/adminReportedPosts.ejs -->
+<div class="admin-reported-posts">
+  <h1>Reported Posts</h1>
+
+  <% if (reports && reports.length > 0) { %>
+    <ul>
+      <% reports.forEach(report => { %>
+        <li style="margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
+          <strong>Post:</strong> 
+          <% if (report.post && report.post.creator && report.post.creator.username) { %>
+            <a href="/profile/<%= report.post.creator.username %>#post-<%= report.post._id %>">
+              <%= report.post.writeUp ? report.post.writeUp.substring(0, 50) + (report.post.writeUp.length > 50 ? '...' : '') : 'Post ID: ' + report.post._id %>
+            </a>
+          <% } else { %>
+            Post ID: <%= report.post._id %> (Creator unavailable)
+          <% } %>
+          (<%= report.post.type %>)<br>
+          <strong>Creator:</strong> <%= report.post.creator && report.post.creator.username ? report.post.creator.username : 'Deleted User' %><br>
+          <strong>Reported by:</strong> <%= report.user ? report.user.username : 'Deleted User' %> (<%= report.user ? report.user.email : 'N/A' %>)<br>
+          <strong>Reason:</strong> <%= report.reason %><br>
+          <strong>Details:</strong> <%= report.details || 'None provided' %><br>
+          <strong>Reported on:</strong> <%= new Date(report.createdAt).toLocaleString() %>
+        </li>
+      <% }) %>
+    </ul>
+  <% } else { %>
+    <p>No reported posts at the moment.</p>
+  <% } %>
+
+  <a href="/admin/creator-requests">Back to Admin Dashboard</a>
+</div>

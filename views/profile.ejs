@@ -1,8 +1,9 @@
 <div class="profile-container"
-    data-is-creator-viewing="<%= currentUser && currentUser._id.toString() === user._id.toString() %>"
-    data-is-subscribed="<%= isSubscribed %>"
-    data-current-user="<%= currentUser ? 'true' : 'false' %>"
-    data-env="<%= env %>">
+data-is-creator-viewing="<%= currentUser && currentUser._id.toString() === user._id.toString() %>"
+data-is-subscribed="<%= isSubscribed %>"
+data-current-user="<%= currentUser ? 'true' : 'false' %>"
+data-env="<%= env %>"
+data-username="<%= user.username %>">
     <div class="profile-header">
     <div class="cover-photo-container">
       <% if (user.coverPhoto) { %>
@@ -222,7 +223,28 @@
       <div class="posts-list">
         <% posts.forEach(post => { %>
           <div class="post-card" id="post-<%= post._id %>">
-            <div class="post-content">
+            <div class="profile-post-header">
+              <div class="profile-creator-info">
+                <a href="/profile/<%= user.username %>">
+                  <img src="<%= user.profilePicture || '/images/default-profile.png' %>" alt="<%= user.username %>'s profile picture" class="creator-profile-pic">
+                  <div class="profile-name-container">
+                    <span class="profile-creator-name">
+                      <%= user.profileName || user.username %>
+                      <% if (user.role === 'creator') { %>
+                        <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
+                      <% } %>
+                    </span>
+                    <span class="profile-username">@<%= user.username %></span>
+                  </div>
+                </a>
+              </div>
+              <div class="post-menu">
+                <button class="post-menu-button" data-post-id="<%= post._id %>" aria-label="Post options">
+                  <i class="fa-solid fa-ellipsis"></i>
+                </button>
+              </div>
+            </div>
+      <div class="post-content">
               <% console.log('Rendering post:', { id: post._id, type: post.type, contentUrl: post.contentUrl, writeUp: post.writeUp }); %>
               <% if (post.type === 'text') { %>
                 <p class="post-text"><%= post.writeUp %></p>
@@ -350,6 +372,27 @@
                   </div>
                 </div>
               <% } else { %>
+                <div class="profile-post-header">
+                  <div class="profile-creator-info">
+                    <a href="/profile/<%= user.username %>">
+                      <img src="<%= user.profilePicture || '/images/default-profile.png' %>" alt="<%= user.username %>'s profile picture" class="creator-profile-pic">
+                      <div class="profile-name-container">
+                        <span class="profile-creator-name">
+                          <%= user.profileName || user.username %>
+                          <% if (user.role === 'creator') { %>
+                            <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
+                          <% } %>
+                        </span>
+                        <span class="profile-username">@<%= user.username %></span>
+                      </div>
+                    </a>
+                  </div>
+                  <div class="post-menu">
+                    <button class="post-menu-button" data-post-id="<%= post._id %>" aria-label="Post options">
+                      <i class="fa-solid fa-ellipsis"></i>
+                    </button>
+                  </div>
+                </div>
                 <div class="post-content">
                   <% console.log('Rendering post:', { id: post._id, type: post.type, contentUrl: post.contentUrl, writeUp: post.writeUp }); %>
                   <% if (post.type === 'text') { %>
@@ -454,7 +497,7 @@
   <% } %>
 </div>
 
-  <!-- Media Tab -->
+ <!-- Media Tab -->
 <div class="tab-content hidden" id="media-tab">
   <div class="media-subtabs">
     <button class="subtab-button active" data-subtab="all">All <span class="tab-count"><%= (user.imagesCount || 0) + (user.videosCount || 0) %></span></button>
@@ -473,17 +516,39 @@
       <% if (mediaPosts.length > 0) { %>
         <div class="media-content posts-list">
           <% mediaPosts.forEach(post => { %>
-            <div class="media-item" id="media-post-<%= post._id %>">
-              <% 
-                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-                  currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
-                const showLocked = post.special && !isAdminView && !hasPurchased;
-                // Build media array from mediaItems or contentUrl
-                const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
-                  post.mediaItems : 
-                  (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
-              %>
+            <% 
+              const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+              const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+                currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
+              const showLocked = post.special && !isAdminView && !hasPurchased;
+              // Build media array from mediaItems or contentUrl
+              const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
+                post.mediaItems : 
+                (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
+            %>
+            <!-- Normal View: One media-item with carousel -->
+            <div class="media-item normal-view" id="media-post-<%= post._id %>">
+              <div class="profile-post-header normal-view-only">
+                <div class="profile-creator-info">
+                  <a href="/profile/<%= user.username %>">
+                    <img src="<%= user.profilePicture || '/images/default-profile.png' %>" alt="<%= user.username %>'s profile picture" class="creator-profile-pic">
+                    <div class="profile-name-container">
+                      <span class="profile-creator-name">
+                        <%= user.profileName || user.username %>
+                        <% if (user.role === 'creator') { %>
+                          <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
+                        <% } %>
+                      </span>
+                      <span class="profile-username">@<%= user.username %></span>
+                    </div>
+                  </a>
+                </div>
+                <div class="post-menu">
+                  <button class="post-menu-button" data-post-id="<%= post._id %>" aria-label="Post options">
+                    <i class="fa-solid fa-ellipsis"></i>
+                  </button>
+                </div>
+              </div>
               <% if (showLocked) { %>
                 <div class="locked-content-container">
                   <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
@@ -496,7 +561,6 @@
                   </div>
                 </div>
               <% } else { %>
-                <!-- Multiple Media Display -->
                 <% if (mediaItems.length > 0) { %>
                   <div class="media-carousel-container">
                     <div class="media-carousel">
@@ -527,7 +591,6 @@
                   </div>
                 <% } %>
               <% } %>
-              <!-- Normal View Content -->
               <div class="normal-view-content">
                 <% if (!showLocked && post.writeUp) { %>
                   <p class="post-writeUp"><%= post.writeUp %></p>
@@ -587,6 +650,32 @@
                 <% } %>
               </div>
             </div>
+            <!-- Compact View: One media-item per media item -->
+            <% if (!showLocked && mediaItems.length > 0) { %>
+              <% mediaItems.forEach((media, index) => { %>
+                <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
+                  <% if (media.type === 'image') { %>
+                    <img src="<%= media.url %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= media.url %>">
+                  <% } else if (media.type === 'video') { %>
+                    <video controls class="post-video">
+                      <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                      Your browser does not support the video tag.
+                    </video>
+                  <% } %>
+                </div>
+              <% }); %>
+            <% } else if (showLocked) { %>
+              <div class="media-item compact-view locked" id="media-post-<%= post._id %>-locked">
+                <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+                <div class="unlock-overlay">
+                  <i class="fa fa-lock"></i>
+                  <div>Unlock for ₦<%= post.unlockPrice %></div>
+                  <% if (!isAdminView) { %>
+                    <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                  <% } %>
+                </div>
+              </div>
+            <% } %>
           <% }); %>
         </div>
       <% } else { %>
@@ -610,18 +699,40 @@
       <% if (imagePosts.length > 0) { %>
         <div class="media-content posts-list">
           <% imagePosts.forEach(post => { %>
-            <div class="media-item" id="media-post-<%= post._id %>">
-              <% 
-                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-                  currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
-                const showLocked = post.special && !isAdminView && !hasPurchased;
-                // Build media array, filter for images only
-                const mediaItems = (post.mediaItems && post.mediaItems.length > 0 ? 
-                  post.mediaItems.filter(media => media.type === 'image') : 
-                  (post.contentUrl && post.type === 'image' ? [{ type: 'image', url: post.contentUrl, contentType: post.contentType }] : [])
-                );
-              %>
+            <% 
+              const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+              const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+                currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
+              const showLocked = post.special && !isAdminView && !hasPurchased;
+              // Build media array, filter for images only
+              const mediaItems = (post.mediaItems && post.mediaItems.length > 0 ? 
+                post.mediaItems.filter(media => media.type === 'image') : 
+                (post.contentUrl && post.type === 'image' ? [{ type: 'image', url: post.contentUrl, contentType: post.contentType }] : [])
+              );
+            %>
+            <!-- Normal View -->
+            <div class="media-item normal-view" id="media-post-<%= post._id %>">
+              <div class="profile-post-header normal-view-only">
+                <div class="profile-creator-info">
+                  <a href="/profile/<%= user.username %>">
+                    <img src="<%= user.profilePicture || '/images/default-profile.png' %>" alt="<%= user.username %>'s profile picture" class="creator-profile-pic">
+                    <div class="profile-name-container">
+                      <span class="profile-creator-name">
+                        <%= user.profileName || user.username %>
+                        <% if (user.role === 'creator') { %>
+                          <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
+                        <% } %>
+                      </span>
+                      <span class="profile-username">@<%= user.username %></span>
+                    </div>
+                  </a>
+                </div>
+                <div class="post-menu">
+                  <button class="post-menu-button" data-post-id="<%= post._id %>" aria-label="Post options">
+                    <i class="fa-solid fa-ellipsis"></i>
+                  </button>
+                </div>
+              </div>
               <% if (showLocked) { %>
                 <div class="locked-content-container">
                   <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
@@ -634,7 +745,6 @@
                   </div>
                 </div>
               <% } else { %>
-                <!-- Multiple Media Display (Images Only) -->
                 <% if (mediaItems.length > 0) { %>
                   <div class="media-carousel-container">
                     <div class="media-carousel">
@@ -658,7 +768,6 @@
                   </div>
                 <% } %>
               <% } %>
-              <!-- Normal View Content -->
               <div class="normal-view-content">
                 <% if (!showLocked && post.writeUp) { %>
                   <p class="post-writeUp"><%= post.writeUp %></p>
@@ -718,6 +827,25 @@
                 <% } %>
               </div>
             </div>
+            <!-- Compact View -->
+            <% if (!showLocked && mediaItems.length > 0) { %>
+              <% mediaItems.forEach((media, index) => { %>
+                <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
+                  <img src="<%= media.url %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= media.url %>">
+                </div>
+              <% }); %>
+            <% } else if (showLocked) { %>
+              <div class="media-item compact-view locked" id="media-post-<%= post._id %>-locked">
+                <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+                <div class="unlock-overlay">
+                  <i class="fa fa-lock"></i>
+                  <div>Unlock for ₦<%= post.unlockPrice %></div>
+                  <% if (!isAdminView) { %>
+                    <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                  <% } %>
+                </div>
+              </div>
+            <% } %>
           <% }); %>
         </div>
       <% } else { %>
@@ -741,18 +869,40 @@
       <% if (videoPosts.length > 0) { %>
         <div class="media-content posts-list">
           <% videoPosts.forEach(post => { %>
-            <div class="media-item" id="media-post-<%= post._id %>">
-              <% 
-                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-                  currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
-                const showLocked = post.special && !isAdminView && !hasPurchased;
-                // Build media array, filter for videos only
-                const mediaItems = (post.mediaItems && post.mediaItems.length > 0 ? 
-                  post.mediaItems.filter(media => media.type === 'video') : 
-                  (post.contentUrl && post.type === 'video' ? [{ type: 'video', url: post.contentUrl, contentType: post.contentType }] : [])
-                );
-              %>
+            <% 
+              const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+              const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+                currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
+              const showLocked = post.special && !isAdminView && !hasPurchased;
+              // Build media array, filter for videos only
+              const mediaItems = (post.mediaItems && post.mediaItems.length > 0 ? 
+                post.mediaItems.filter(media => media.type === 'video') : 
+                (post.contentUrl && post.type === 'video' ? [{ type: 'video', url: post.contentUrl, contentType: post.contentType }] : [])
+              );
+            %>
+            <!-- Normal View -->
+            <div class="media-item normal-view" id="media-post-<%= post._id %>">
+              <div class="profile-post-header normal-view-only">
+                <div class="profile-creator-info">
+                  <a href="/profile/<%= user.username %>">
+                    <img src="<%= user.profilePicture || '/images/default-profile.png' %>" alt="<%= user.username %>'s profile picture" class="creator-profile-pic">
+                    <div class="profile-name-container">
+                      <span class="profile-creator-name">
+                        <%= user.profileName || user.username %>
+                        <% if (user.role === 'creator') { %>
+                          <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
+                        <% } %>
+                      </span>
+                      <span class="profile-username">@<%= user.username %></span>
+                    </div>
+                  </a>
+                </div>
+                <div class="post-menu">
+                  <button class="post-menu-button" data-post-id="<%= post._id %>" aria-label="Post options">
+                    <i class="fa-solid fa-ellipsis"></i>
+                  </button>
+                </div>
+              </div>
               <% if (showLocked) { %>
                 <div class="locked-content-container">
                   <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
@@ -765,7 +915,6 @@
                   </div>
                 </div>
               <% } else { %>
-                <!-- Multiple Media Display (Videos Only) -->
                 <% if (mediaItems.length > 0) { %>
                   <div class="media-carousel-container">
                     <div class="media-carousel">
@@ -792,7 +941,6 @@
                   </div>
                 <% } %>
               <% } %>
-              <!-- Normal View Content -->
               <div class="normal-view-content">
                 <% if (!showLocked && post.writeUp) { %>
                   <p class="post-writeUp"><%= post.writeUp %></p>
@@ -852,6 +1000,28 @@
                 <% } %>
               </div>
             </div>
+            <!-- Compact View -->
+            <% if (!showLocked && mediaItems.length > 0) { %>
+              <% mediaItems.forEach((media, index) => { %>
+                <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
+                  <video controls class="post-video">
+                    <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                    Your browser does not support the video tag.
+                  </video>
+                </div>
+              <% }); %>
+            <% } else if (showLocked) { %>
+              <div class="media-item compact-view locked" id="media-post-<%= post._id %>-locked">
+                <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
+                <div class="unlock-overlay">
+                  <i class="fa fa-lock"></i>
+                  <div>Unlock for ₦<%= post.unlockPrice %></div>
+                  <% if (!isAdminView) { %>
+                    <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                  <% } %>
+                </div>
+              </div>
+            <% } %>
           <% }); %>
         </div>
       <% } else { %>
@@ -862,7 +1032,6 @@
     <% } %>
   </div>
 </div>
-
   <!-- Fullscreen Overlay -->
   <div class="fullscreen-overlay" id="fullscreenOverlay">
     <img src="" alt="Fullscreen Image" id="fullscreenImage">
@@ -1027,6 +1196,70 @@
         <textarea name="description" id="editBundleDescription" required placeholder="e.g., Access all my content" class="form-textarea"></textarea>
       </div>
       <button type="submit" class="form-button">Update Bundle</button>
+    </form>
+  </div>
+</div>
+<!-- Post Action Modal -->
+<div id="postActionModal" class="post-action-modal hidden">
+  <div class="post-action-modal-content">
+    <span id="closePostActionModal" class="close-post-action-modal">×</span>
+    <ul class="post-action-options">
+      <li>
+        <button id="sharePostButton" class="post-action-button" data-post-id="">Share Post</button>
+      </li>
+      <li>
+        <button id="reportPostButton" class="post-action-button" data-post-id="">Report Post</button>
+      </li>
+    </ul>
+  </div>
+</div>
+
+<!-- Post Share Modal -->
+<div id="postShareModal" class="post-share-modal hidden">
+  <div class="post-share-modal-content">
+    <span id="closePostShareModal" class="close-post-share-modal">×</span>
+    <h3>Share Post</h3>
+    <div class="post-share-options">
+      <button id="copyPostLinkButton" class="post-share-option-button" data-link="">
+        <i class="fa fa-copy"></i> Copy Link
+      </button>
+      <a href="#" id="sharePostTwitter" class="post-share-option-button" target="_blank">
+        <i class="fa fa-twitter"></i> Share on Twitter/X
+      </a>
+      <a href="#" id="sharePostWhatsApp" class="post-share-option-button" target="_blank">
+        <i class="fa fa-whatsapp"></i> Share on WhatsApp
+      </a>
+      <a href="#" id="sharePostTelegram" class="post-share-option-button" target="_blank">
+        <i class="fa fa-telegram"></i> Share on Telegram
+      </a>
+      <a href="#" id="sharePostFacebook" class="post-share-option-button" target="_blank">
+        <i class="fa fa-facebook"></i> Share on Facebook
+      </a>
+      <button id="sharePostNativeButton" class="post-share-option-button hidden">
+        <i class="fa fa-share"></i> Share via...
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- Report Post Modal -->
+<div id="reportPostModal" class="report-post-modal hidden">
+  <div class="report-post-modal-content">
+    <span id="closeReportPostModal" class="close-report-post-modal">×</span>
+    <h3>Report Post</h3>
+    <form id="reportPostForm">
+      <label for="reportReason">Reason for Report:</label>
+      <select id="reportReason" name="reason" required class="form-select">
+        <option value="" disabled selected>Select a reason</option>
+        <option value="Violates Elitefans Terms of Service">Violates Elitefans Terms of Service</option>
+        <option value="Contains Copyrighted Material (DMCA)">Contains Copyrighted Material (DMCA)</option>
+        <option value="Child Sexual Abuse Material (CSAM)">Child Sexual Abuse Material (CSAM)</option>
+        <option value="Report Spam">Report Spam</option>
+        <option value="Report Abuse">Report Abuse</option>
+      </select>
+      <label for="reportDetails">Additional Details (optional):</label>
+      <textarea id="reportDetails" name="details" placeholder="Provide more details..." class="form-textarea"></textarea>
+      <button type="submit" class="report-submit-button">Submit Report</button>
     </form>
   </div>
 </div>
@@ -1770,28 +2003,29 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
     });
 
     // --- Compact View Toggle ---
-    const viewToggle = document.querySelector('.view-toggle-button');
-    const mediaContents = document.querySelectorAll('.media-content');
-    if (viewToggle) {
-      viewToggle.addEventListener('click', () => {
-        mediaContents.forEach(content => {
-          if (content.classList.contains('posts-list')) {
-            content.classList.remove('posts-list');
-            content.classList.add('media-list');
-            content.querySelectorAll('.normal-view-content').forEach(el => el.style.display = 'none');
-          } else {
-            content.classList.remove('media-list');
-            content.classList.add('posts-list');
-            content.querySelectorAll('.normal-view-content').forEach(el => el.style.display = 'block');
-          }
-        });
-        viewToggle.classList.toggle('active');
-        const icon = viewToggle.querySelector('i');
-        icon.classList.toggle('fa-th');
-        icon.classList.toggle('fa-th-large');
-      });
+const viewToggle = document.querySelector('.view-toggle-button');
+const mediaContents = document.querySelectorAll('.media-content');
+if (viewToggle) {
+  viewToggle.addEventListener('click', () => {
+    const isCompact = mediaContents[0].classList.contains('posts-list');
+    mediaContents.forEach(content => {
+      if (isCompact) {
+        content.classList.remove('posts-list');
+        content.classList.add('media-list');
+      } else {
+        content.classList.remove('media-list');
+        content.classList.add('posts-list');
+      }
+    });
+    viewToggle.classList.toggle('active');
+    const icon = viewToggle.querySelector('i');
+    icon.classList.toggle('fa-th');
+    icon.classList.toggle('fa-th-large');
+    if (isDevEnv) {
+      console.log(`Switched to ${isCompact ? 'compact' : 'normal'} view`);
     }
-
+  });
+}
     // --- Fullscreen Image Handling ---
     const fullscreenOverlay = document.getElementById('fullscreenOverlay');
     const fullscreenImage = document.getElementById('fullscreenImage');
@@ -2094,6 +2328,208 @@ document.querySelectorAll('.subscribe-bundle-form').forEach(form => {
     };
 
     initializeShareModal();
+
+ // --- Post Action Modal ---
+const initializePostActionModal = () => {
+  const container = document.querySelector('.profile-container') || document.querySelector('.home-container');
+  const isDevEnv = container && container.dataset.env === 'development';
+  const username = container ? container.dataset.username : null;
+
+  const postMenuButtons = document.querySelectorAll('.post-menu-button');
+  const postActionModal = document.getElementById('postActionModal');
+  const closePostActionModal = document.getElementById('closePostActionModal');
+  const sharePostButton = document.getElementById('sharePostButton');
+  const reportPostButton = document.getElementById('reportPostButton');
+  const postShareModal = document.getElementById('postShareModal');
+  const closePostShareModal = document.getElementById('closePostShareModal');
+  const copyPostLinkButton = document.getElementById('copyPostLinkButton');
+  const sharePostTwitter = document.getElementById('sharePostTwitter');
+  const sharePostWhatsApp = document.getElementById('sharePostWhatsApp');
+  const sharePostTelegram = document.getElementById('sharePostTelegram');
+  const sharePostFacebook = document.getElementById('sharePostFacebook');
+  const sharePostNativeButton = document.getElementById('sharePostNativeButton');
+  const reportPostModal = document.getElementById('reportPostModal');
+  const closeReportPostModal = document.getElementById('closeReportPostModal');
+  const reportForm = document.getElementById('reportPostForm');
+
+  if (!postActionModal || postMenuButtons.length === 0) {
+    if (isDevEnv) console.warn('Post action modal or menu buttons not found');
+    return;
+  }
+
+  if (!reportPostModal || !reportForm || !closeReportPostModal) {
+    if (isDevEnv) console.warn('Report modal, form, or close button not found');
+    return;
+  }
+
+  postMenuButtons.forEach(button => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      const postId = button.dataset.postId;
+      if (!postId) {
+        if (isDevEnv) console.warn('Post ID not found on menu button');
+        return;
+      }
+      sharePostButton.dataset.postId = postId;
+      reportPostButton.dataset.postId = postId;
+      postActionModal.classList.remove('hidden');
+      if (isDevEnv) console.log(`Opening post action modal for post ID: ${postId}`);
+    });
+  });
+
+  closePostActionModal.addEventListener('click', () => {
+    postActionModal.classList.add('hidden');
+  });
+
+  postActionModal.addEventListener('click', (e) => {
+    if (e.target === postActionModal) {
+      postActionModal.classList.add('hidden');
+    }
+  });
+
+  // Share Post Button
+  sharePostButton.addEventListener('click', () => {
+    const postId = sharePostButton.dataset.postId;
+    const effectiveUsername = username || document.querySelector('.share-icon')?.dataset.username || 'unknown';
+    const postLink = `${window.location.origin}/profile/${encodeURIComponent(effectiveUsername)}/post/${postId}`;
+    const encodedLink = encodeURIComponent(postLink);
+    const shareText = encodeURIComponent(`Check out this post by @${effectiveUsername}!`);
+
+    copyPostLinkButton.dataset.link = postLink;
+    sharePostTwitter.href = `https://twitter.com/intent/tweet?url=${encodedLink}&text=${shareText}`;
+    sharePostWhatsApp.href = `https://api.whatsapp.com/send?text=${shareText}%20${encodedLink}`;
+    sharePostTelegram.href = `https://t.me/share/url?url=${encodedLink}&text=${shareText}`;
+    sharePostFacebook.href = `https://www.facebook.com/sharer/sharer.php?u=${encodedLink}`;
+    sharePostNativeButton.dataset.link = postLink;
+
+    if (navigator.share) {
+      sharePostNativeButton.classList.remove('hidden');
+    } else {
+      sharePostNativeButton.classList.add('hidden');
+    }
+
+    postShareModal.classList.remove('hidden');
+    postActionModal.classList.add('hidden');
+    if (isDevEnv) console.log(`Opening share modal for post ID: ${postId}, link: ${postLink}`);
+  });
+
+  // Copy Link
+  copyPostLinkButton.addEventListener('click', async () => {
+    const link = copyPostLinkButton.dataset.link;
+    try {
+      await navigator.clipboard.writeText(link);
+      copyPostLinkButton.textContent = 'Link Copied!';
+      copyPostLinkButton.disabled = true;
+      setTimeout(() => {
+        copyPostLinkButton.textContent = 'Copy Link';
+        copyPostLinkButton.disabled = false;
+      }, 2000);
+      if (isDevEnv) console.log(`Copied post link: ${link}`);
+    } catch (err) {
+      if (isDevEnv) console.error('Error copying post link:', err.message);
+      alert('Failed to copy link.');
+    }
+  });
+
+  // Native Share
+  sharePostNativeButton.addEventListener('click', async () => {
+    const link = sharePostNativeButton.dataset.link;
+    const effectiveUsername = username || document.querySelector('.share-icon')?.dataset.username || 'unknown';
+    try {
+      await navigator.share({
+        title: `Post by @${effectiveUsername}`,
+        text: `Check out this post by @${effectiveUsername}!`,
+        url: link
+      });
+      postShareModal.classList.add('hidden');
+      if (isDevEnv) console.log(`Shared post via native share: ${link}`);
+    } catch (err) {
+      if (isDevEnv) console.error('Error sharing post:', err.message);
+      alert('Error sharing post.');
+    }
+  });
+
+  // Close Share Modal
+  closePostShareModal.addEventListener('click', () => {
+    postShareModal.classList.add('hidden');
+  });
+
+  postShareModal.addEventListener('click', (e) => {
+    if (e.target === postShareModal) {
+      postShareModal.classList.add('hidden');
+    }
+  });
+
+  // Report Post Button
+  reportPostButton.addEventListener('click', () => {
+    const postId = reportPostButton.dataset.postId;
+    reportForm.dataset.postId = postId;
+    reportPostModal.classList.remove('hidden');
+    postActionModal.classList.add('hidden');
+    if (isDevEnv) console.log(`Opening report modal for post ID: ${postId}`);
+  });
+
+  // Close Report Modal
+  closeReportPostModal.addEventListener('click', () => {
+    reportPostModal.classList.add('hidden');
+    reportForm.reset();
+  });
+
+  reportPostModal.addEventListener('click', (e) => {
+    if (e.target === reportPostModal) {
+      reportPostModal.classList.add('hidden');
+      reportForm.reset();
+    }
+  });
+
+  // Handle Report Form Submission
+  reportForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const postId = reportForm.dataset.postId;
+    const reason = reportForm.querySelector('#reportReason').value;
+    const details = reportForm.querySelector('#reportDetails').value.trim();
+    const submitButton = reportForm.querySelector('.report-submit-button');
+    const originalText = submitButton.textContent;
+
+    if (!postId || !reason) {
+      if (isDevEnv) console.warn('Missing postId or reason:', { postId, reason });
+      alert('Please select a reason for reporting.');
+      return;
+    }
+
+    submitButton.textContent = 'Submitting...';
+    submitButton.disabled = true;
+
+    try {
+      const response = await fetch('/profile/report-post', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId, reason, details })
+      });
+
+      const result = await response.json();
+      if (response.ok && result.status === 'success') {
+        alert(result.message || 'Report submitted successfully.');
+        reportPostModal.classList.add('hidden');
+        reportForm.reset();
+      } else {
+        if (isDevEnv) console.error('Report submission error:', result);
+        alert(result.message || 'Error submitting report.');
+      }
+    } catch (err) {
+      if (isDevEnv) console.error('Error submitting report:', err.message);
+      alert('Error submitting report.');
+    } finally {
+      submitButton.textContent = originalText;
+      submitButton.disabled = false;
+    }
+  });
+};
+
+// Call the function once to initialize the post action modal
+initializePostActionModal();
+// Call the function once to initialize the post action modal
+initializePostActionModal();
     // --- Carousel Navigation for Posts and Media Tabs ---
 function initializeCarousels() {
   document.querySelectorAll('.media-carousel-container').forEach(container => {

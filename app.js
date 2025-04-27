@@ -37,7 +37,7 @@ const chatBroadcastRoutes = require('./routes/chatBroadcast');
 const chatRoutes = require('./routes/chat');
 const chatListRoutes = require('./routes/chatList');
 const notificationsRoute = require('./routes/notifications');
-const postsRoute = require('./routes/posts');
+
 const dashboardRoutes = require('./routes/dashboard');
 const bookmarksRoutes = require('./routes/bookmarks');
 const referralsRoutes = require('./routes/referrals');
@@ -239,7 +239,7 @@ app.use('/chat/broadcast', chatBroadcastRoutes);
 app.use('/chat', chatRoutes);
 app.use('/chats', chatListRoutes);
 app.use('/notifications', notificationsRoute);
-app.use('/posts', postsRoute);
+
 app.use('/dashboard', dashboardRoutes);
 app.use('/bookmarks', bookmarksRoutes);
 app.use('/referrals', referralsRoutes);

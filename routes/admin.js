@@ -5,7 +5,7 @@ const CreatorRequest = require('../models/CreatorRequest');
 const User = require('../models/users');
 const { generateSignedUrlForCreatorRequest } = require('../utilis/cloudStorage');
 const logger = require('../logs/logger'); // Import Winston logger at top
-
+const Report = require('../models/Reports');
 const adminCheck = (req, res, next) => {
   if (!req.user || req.user.role !== 'admin') {
     logger.warn('Unauthorized access attempt to admin page');
@@ -138,5 +138,33 @@ router.get('/delete-logs', adminCheck, async (req, res) => {
     res.redirect('/admin/creator-requests');
   }
 });
+// Route to fetch reported posts
+router.get('/reported-posts', adminCheck, async (req, res) => {
+  try {
+    const reports = await Report
+      .find()
+      .populate('user', 'username email')
+      .populate({
+        path: 'post',
+        select: 'writeUp type creator',
+        populate: {
+          path: 'creator',
+          select: 'username'
+        }
+      })
+      .sort({ createdAt: -1 });
+    
+    reports.forEach(report => {
+      if (!report.post || !report.post.creator) {
+        logger.warn(`Report ${report._id} has missing post or creator: Post=${report.post?._id}, Creator=${report.post?.creator?._id}`);
+      }
+    });
 
+    res.render('adminReportedPosts', { reports });
+  } catch (err) {
+    logger.error(`Error fetching reported posts: ${err.message}`);
+    req.flash('error_msg', 'Error fetching reported posts.');
+    res.redirect('/admin/creator-requests');
+  }
+});
 module.exports = router;
