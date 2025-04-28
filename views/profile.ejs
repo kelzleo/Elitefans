@@ -209,6 +209,13 @@ data-username="<%= user.username %>">
   </div>  
   <!-- Posts Tab -->
 <div class="tab-content" id="posts-tab">
+   <!-- Sort Button for Posts Tab -->
+   <div class="sort-container" style="text-align: right; margin-bottom: 10px;">
+    <button class="sort-button" title="Sort Posts">
+      <i class="fas fa-sort"></i>
+    </button>
+  </div>
+
   <!-- Flash Messages -->
   <% if (flashMessages && flashMessages.success_msg) { %>
     <div class="alert alert-success"><%= flashMessages.success_msg %></div>
@@ -1263,8 +1270,47 @@ data-username="<%= user.username %>">
     </form>
   </div>
 </div>
-
-
+   <!-- Sort Modal -->
+   <div class="sort-modal" style="display: none;">
+    <div class="sort-modal-content">
+      <h3>Sort Posts</h3>
+      <form id="sort-form">
+        <div class="sort-option">
+          <label>
+            <input type="radio" name="sortBy" value="createdAt" checked>
+            Latest Posts
+          </label>
+        </div>
+        <div class="sort-option">
+          <label>
+            <input type="radio" name="sortBy" value="totalTips">
+            Highest Tips
+          </label>
+        </div>
+        <div class="sort-option">
+          <label>
+            <input type="radio" name="sortBy" value="likes">
+            Highest Likes
+          </label>
+        </div>
+        <div class="sort-order">
+          <label>
+            <input type="radio" name="order" value="desc" checked>
+            Descending
+          </label>
+          <label>
+            <input type="radio" name="order" value="asc">
+            Ascending
+          </label>
+        </div>
+        <div class="sort-buttons">
+          <button type="submit" class="apply-sort">Apply</button>
+          <button type="button" class="cancel-sort">Cancel</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
 <script>
   // Helper function to safely get data attribute boolean
@@ -2582,6 +2628,46 @@ function initializeCarousels() {
 
 // Initialize carousels on page load
 initializeCarousels();
+const sortButton = document.querySelector('.sort-button');
+  const sortModal = document.querySelector('.sort-modal');
+  const sortForm = document.querySelector('#sort-form');
+  const cancelSortButton = document.querySelector('.cancel-sort');
+
+  // Show modal when sort button is clicked
+  if (sortButton) {
+    sortButton.addEventListener('click', () => {
+      sortModal.style.display = 'flex';
+    });
+  }
+
+  // Hide modal when cancel is clicked
+  if (cancelSortButton) {
+    cancelSortButton.addEventListener('click', () => {
+      sortModal.style.display = 'none';
+    });
+  }
+
+  // Handle form submission
+  if (sortForm) {
+    sortForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const sortBy = sortForm.querySelector('input[name="sortBy"]:checked').value;
+      const order = sortForm.querySelector('input[name="order"]:checked').value;
+
+      // Update URL with query parameters
+      const url = new URL(window.location.href);
+      url.searchParams.set('sortBy', sortBy);
+      url.searchParams.set('order', order);
+      window.location.href = url.toString();
+    });
+  }
+
+  // Close modal when clicking outside
+  sortModal.addEventListener('click', (e) => {
+    if (e.target === sortModal) {
+      sortModal.style.display = 'none';
+    }
+  });
   });
   
 </script>

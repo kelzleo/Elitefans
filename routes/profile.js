@@ -189,7 +189,6 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
   }
 });
 
-// Owner's profile route
 // View own profile
 router.get('/', authCheck, async (req, res) => {
   try {
@@ -202,9 +201,55 @@ router.get('/', authCheck, async (req, res) => {
     await user.checkExpiredSubscriptions();
     await user.updateSubscriberCount();
 
-    const posts = await Post.find({ creator: req.user._id })
-      .populate('comments.user', 'username')
-      .sort({ createdAt: -1 });
+    // Get sorting parameters
+    const { sortBy = 'createdAt', order = 'desc' } = req.query;
+    const validSortFields = ['createdAt', 'totalTips', 'likes'];
+    const validOrders = ['asc', 'desc'];
+
+    // Validate sortBy and order
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+    const sortOrder = validOrders.includes(order) ? order : 'desc';
+
+    // Build sort object
+    let sortCriteria = {};
+    if (sortField === 'likes') {
+      sortCriteria = { likesCount: sortOrder === 'desc' ? -1 : 1 };
+    } else {
+      sortCriteria[sortField] = sortOrder === 'desc' ? -1 : 1;
+    }
+
+    // Fetch posts with sorting
+    let posts = [];
+    let postsQuery = Post.find({ creator: req.user._id }).populate('comments.user', 'username');
+    if (sortField === 'likes') {
+      const postsAgg = await Post.aggregate([
+        { $match: { creator: new mongoose.Types.ObjectId(req.user._id) } },
+        {
+          $addFields: {
+            likesCount: { $size: { $ifNull: ['$likes', []] } },
+          },
+        },
+        { $sort: sortCriteria },
+        {
+          $project: {
+            _id: 1, // Only need _id to maintain order
+          },
+        },
+      ]);
+      const postIds = postsAgg.map((p) => p._id);
+      // Fetch posts in the same order as aggregated
+      posts = await Post.find({ _id: { $in: postIds } })
+        .populate('comments.user', 'username')
+        .setOptions({ sort: { _id: 1 } }) // Preserve order of postIds
+        .exec();
+      // Reorder posts to match postIds exactly
+      posts = postIds
+        .map((id) => posts.find((p) => p._id.toString() === id.toString()))
+        .filter((p) => p); // Remove any null entries
+    } else {
+      postsQuery = postsQuery.sort(sortCriteria);
+      posts = await postsQuery;
+    }
 
     // Filter out invalid comments
     for (const post of posts) {
@@ -222,14 +267,16 @@ router.get('/', authCheck, async (req, res) => {
 
     // Log post details for debugging
     logger.info(`Fetched ${posts.length} posts for user ${user.username}`, {
-      postTypes: posts.map(p => p.type),
-      textPosts: posts.filter(p => p.type === 'text').map(p => ({
+      postTypes: posts.map((p) => p.type),
+      textPosts: posts.filter((p) => p.type === 'text').map((p) => ({
         id: p._id,
         contentUrl: p.contentUrl,
         writeUp: p.writeUp,
-        createdAt: p.createdAt ? p.createdAt.toISOString() : null
+        createdAt: p.createdAt ? p.createdAt.toISOString() : null,
       })),
-      createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null)
+      createdAt: posts.map((p) => p.createdAt ? p.createdAt.toISOString() : null),
+      sortBy: sortField,
+      order: sortOrder,
     });
 
     const bundles =
@@ -257,7 +304,7 @@ router.get('/', authCheck, async (req, res) => {
     const totalLikes = stats[0]?.totalLikes || 0;
     const subscriberCount = user.subscriberCount;
 
-    res.set('Cache-Control', 'no-store'); // Prevent caching
+    res.set('Cache-Control', 'no-store');
     res.render('profile', {
       user: {
         ...user.toObject(),
@@ -272,7 +319,7 @@ router.get('/', authCheck, async (req, res) => {
       bundles,
       adminView: false,
       env: process.env.NODE_ENV || 'development',
-      flashMessages: req.flash(), // Pass flash messages
+      flashMessages: req.flash(),
     });
   } catch (err) {
     logger.error(`Error loading profile: ${err.message}, Stack: ${err.stack}`);
@@ -2111,22 +2158,69 @@ router.get('/:username', async (req, res) => {
 
     let posts = [];
     if (req.user && (isOwnProfile || isSubscribed || adminView)) {
-      posts = await Post.find({ creator: ownerUser._id })
-        .populate('comments.user', 'username')
-        .sort({ createdAt: -1 });
+      // Get sorting parameters
+      const { sortBy = 'createdAt', order = 'desc' } = req.query;
+      const validSortFields = ['createdAt', 'totalTips', 'likes'];
+      const validOrders = ['asc', 'desc'];
+
+      // Validate sortBy and order
+      const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+      const sortOrder = validOrders.includes(order) ? order : 'desc';
+
+      // Build sort object
+      let sortCriteria = {};
+      if (sortField === 'likes') {
+        sortCriteria = { likesCount: sortOrder === 'desc' ? -1 : 1 };
+      } else {
+        sortCriteria[sortField] = sortOrder === 'desc' ? -1 : 1;
+      }
+
+      // Fetch posts with sorting
+      let postsQuery = Post.find({ creator: ownerUser._id }).populate('comments.user', 'username');
+      if (sortField === 'likes') {
+        const postsAgg = await Post.aggregate([
+          { $match: { creator: new mongoose.Types.ObjectId(ownerUser._id) } },
+          {
+            $addFields: {
+              likesCount: { $size: { $ifNull: ['$likes', []] } },
+            },
+          },
+          { $sort: sortCriteria },
+          {
+            $project: {
+              _id: 1, // Only need _id to maintain order
+            },
+          },
+        ]);
+        const postIds = postsAgg.map((p) => p._id);
+        // Fetch posts in the same order as aggregated
+        posts = await Post.find({ _id: { $in: postIds } })
+          .populate('comments.user', 'username')
+          .setOptions({ sort: { _id: 1 } }) // Preserve order of postIds
+          .exec();
+        // Reorder posts to match postIds exactly
+        posts = postIds
+          .map((id) => posts.find((p) => p._id.toString() === id.toString()))
+          .filter((p) => p); // Remove any null entries
+      } else {
+        postsQuery = postsQuery.sort(sortCriteria);
+        posts = await postsQuery;
+      }
 
       await processPostUrls(posts, req.user, ownerUser, adminView);
 
       // Log post details for debugging
       logger.info(`Fetched ${posts.length} posts for user ${ownerUser.username}`, {
-        postTypes: posts.map(p => p.type),
-        textPosts: posts.filter(p => p.type === 'text').map(p => ({
+        postTypes: posts.map((p) => p.type),
+        textPosts: posts.filter((p) => p.type === 'text').map((p) => ({
           id: p._id,
           contentUrl: p.contentUrl,
           writeUp: p.writeUp,
-          createdAt: p.createdAt ? p.createdAt.toISOString() : null
+          createdAt: p.createdAt ? p.createdAt.toISOString() : null,
         })),
-        createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null)
+        createdAt: posts.map((p) => p.createdAt ? p.createdAt.toISOString() : null),
+        sortBy: sortField,
+        order: sortOrder,
       });
     }
 
@@ -2279,9 +2373,54 @@ router.get('/view/:id', authCheck, async (req, res) => {
 
     let posts = [];
     if (isSubscribed || adminView) {
-      posts = await Post.find({ creator: ownerUser._id })
-        .populate('comments.user', 'username')
-        .sort({ createdAt: -1 });
+      // Get sorting parameters
+      const { sortBy = 'createdAt', order = 'desc' } = req.query;
+      const validSortFields = ['createdAt', 'totalTips', 'likes'];
+      const validOrders = ['asc', 'desc'];
+
+      // Validate sortBy and order
+      const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
+      const sortOrder = validOrders.includes(order) ? order : 'desc';
+
+      // Build sort object
+      let sortCriteria = {};
+      if (sortField === 'likes') {
+        sortCriteria = { likesCount: sortOrder === 'desc' ? -1 : 1 };
+      } else {
+        sortCriteria[sortField] = sortOrder === 'desc' ? -1 : 1;
+      }
+
+      // Fetch posts with sorting
+      let postsQuery = Post.find({ creator: ownerUser._id }).populate('comments.user', 'username');
+      if (sortField === 'likes') {
+        const postsAgg = await Post.aggregate([
+          { $match: { creator: new mongoose.Types.ObjectId(ownerUser._id) } },
+          {
+            $addFields: {
+              likesCount: { $size: { $ifNull: ['$likes', []] } },
+            },
+          },
+          { $sort: sortCriteria },
+          {
+            $project: {
+              _id: 1, // Only need _id to maintain order
+            },
+          },
+        ]);
+        const postIds = postsAgg.map((p) => p._id);
+        // Fetch posts in the same order as aggregated
+        posts = await Post.find({ _id: { $in: postIds } })
+          .populate('comments.user', 'username')
+          .setOptions({ sort: { _id: 1 } }) // Preserve order of postIds
+          .exec();
+        // Reorder posts to match postIds exactly
+        posts = postIds
+          .map((id) => posts.find((p) => p._id.toString() === id.toString()))
+          .filter((p) => p); // Remove any null entries
+      } else {
+        postsQuery = postsQuery.sort(sortCriteria);
+        posts = await postsQuery;
+      }
 
       for (const post of posts) {
         post.comments = post.comments.filter((comment) => {
@@ -2296,14 +2435,16 @@ router.get('/view/:id', authCheck, async (req, res) => {
 
       // Log post details for debugging
       logger.info(`Fetched ${posts.length} posts for user ${ownerUser.username}`, {
-        postTypes: posts.map(p => p.type),
-        textPosts: posts.filter(p => p.type === 'text').map(p => ({
+        postTypes: posts.map((p) => p.type),
+        textPosts: posts.filter((p) => p.type === 'text').map((p) => ({
           id: p._id,
           contentUrl: p.contentUrl,
           writeUp: p.writeUp,
-          createdAt: p.createdAt ? p.createdAt.toISOString() : null
+          createdAt: p.createdAt ? p.createdAt.toISOString() : null,
         })),
-        createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null)
+        createdAt: posts.map((p) => p.createdAt ? p.createdAt.toISOString() : null),
+        sortBy: sortField,
+        order: sortOrder,
       });
     }
 
