@@ -31,6 +31,30 @@ const authCheck = (req, res, next) => {
   }
   next();
 };
+
+
+// Helper function to parse @username tags and convert to HTML links
+const renderTaggedWriteUp = (writeUp, taggedUsers) => {
+  if (!writeUp) return writeUp || '';
+
+  // Create a map of usernames from taggedUsers for quick lookup
+  const userMap = taggedUsers.reduce((map, user) => {
+    if (user && user.username) {
+      map[user.username.toLowerCase()] = user.username;
+    }
+    return map;
+  }, {});
+
+  // Replace @username with links for valid users, plain text for invalid
+  return writeUp.replace(/@(\w+)/g, (match, username) => {
+    const lowerUsername = username.toLowerCase();
+    if (userMap[lowerUsername]) {
+      const actualUsername = userMap[lowerUsername]; // Preserve case
+      return `<a href="/profile/${encodeURIComponent(actualUsername)}" class="tagged-user">@${actualUsername}</a>`;
+    }
+    return match; // Return original @username as plain text
+  });
+};
 /**
  * Helper to process post URLs:
  * For special posts, only generate the signed URL if:
@@ -40,13 +64,17 @@ const authCheck = (req, res, next) => {
  * Otherwise, set a locked placeholder.
  * Preserves createdAt for frontend relative time formatting.
  */
+
+// Process post URLs and render writeUp with tagged users
 const processPostUrls = async (posts, currentUser, ownerUser, adminView = false) => {
+  await Post.populate(posts, { path: 'taggedUsers', select: 'username' });
+
   for (const post of posts) {
     const isOwner = currentUser && currentUser._id.toString() === ownerUser._id.toString();
-    const hasPurchased = currentUser && currentUser.purchasedContent && 
+    const hasPurchased = currentUser && currentUser.purchasedContent &&
       currentUser.purchasedContent.some((p) => p.contentId.toString() === post._id.toString());
     const canViewSpecialContent = adminView || isOwner || hasPurchased;
-    
+
     // Handle old-style posts (single media)
     if (post.contentUrl && !post.contentUrl.startsWith('http')) {
       try {
@@ -60,7 +88,7 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
         post.contentUrl = '/Uploads/placeholder.png';
       }
     }
-    
+
     // Handle new-style posts (multiple media)
     if (post.mediaItems && post.mediaItems.length > 0) {
       for (const mediaItem of post.mediaItems) {
@@ -78,14 +106,21 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
         }
       }
     }
+
+    // Render writeUp with tagged user links
+    if (post.writeUp && post.taggedUsers) {
+      post.renderedWriteUp = await renderTaggedWriteUp(post.writeUp, post.taggedUsers);
+    } else {
+      post.renderedWriteUp = post.writeUp;
+    }
   }
-  
-  // Log createdAt timestamps for debugging
+
   logger.debug('Processed posts with createdAt timestamps:', {
     postIds: posts.map(p => p._id.toString()),
     createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null)
   });
 };
+
 router.get('/edit', authCheck, (req, res) => {
   res.render('edit-profile', { user: req.user, currentUser: req.user });
 });
@@ -191,26 +226,33 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
 
 // View own profile
 router.get('/', authCheck, async (req, res) => {
+  logger.info(`Request URL: ${req.originalUrl}, Route: /, User: ${req.user._id}, Referer: ${req.get('Referer') || 'none'}`);
   try {
     const user = await User.findById(req.user._id);
     if (!user) {
-      logger.error('User not found in /profile');
+      logger.error(`User not found for ID: ${req.user._id}`);
+      if (req.is('json')) {
+        return res.status(404).json({ status: 'error', message: 'User not found' });
+      }
       return res.status(404).send('User not found');
     }
+    logger.info(`Found user: ${user._id}, username: ${user.username}`);
 
     await user.checkExpiredSubscriptions();
     await user.updateSubscriberCount();
 
-    // Get sorting parameters
-    const { sortBy = 'createdAt', order = 'desc' } = req.query;
+    const sortBy = req.query.sortBy || 'createdAt';
+    const order = req.query.order || 'desc';
+    const subtab = req.query.subtab || 'all';
+
+    logger.debug(`req.query: ${JSON.stringify(req.query)}`);
+
     const validSortFields = ['createdAt', 'totalTips', 'likes'];
     const validOrders = ['asc', 'desc'];
 
-    // Validate sortBy and order
     const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
     const sortOrder = validOrders.includes(order) ? order : 'desc';
 
-    // Build sort object
     let sortCriteria = {};
     if (sortField === 'likes') {
       sortCriteria = { likesCount: sortOrder === 'desc' ? -1 : 1 };
@@ -218,12 +260,23 @@ router.get('/', authCheck, async (req, res) => {
       sortCriteria[sortField] = sortOrder === 'desc' ? -1 : 1;
     }
 
-    // Fetch posts with sorting
     let posts = [];
-    let postsQuery = Post.find({ creator: req.user._id }).populate('comments.user', 'username');
+    let postsQuery = Post.find({ creator: req.user._id })
+      .populate('comments.user', 'username')
+      .populate('taggedUsers', 'username');
+
+    if (subtab !== 'all') {
+      postsQuery = postsQuery.where('category').equals(subtab);
+    }
+
     if (sortField === 'likes') {
       const postsAgg = await Post.aggregate([
-        { $match: { creator: new mongoose.Types.ObjectId(req.user._id) } },
+        {
+          $match: {
+            creator: new mongoose.Types.ObjectId(req.user._id),
+            ...(subtab !== 'all' ? { category: subtab } : {}),
+          },
+        },
         {
           $addFields: {
             likesCount: { $size: { $ifNull: ['$likes', []] } },
@@ -232,26 +285,24 @@ router.get('/', authCheck, async (req, res) => {
         { $sort: sortCriteria },
         {
           $project: {
-            _id: 1, // Only need _id to maintain order
+            _id: 1,
           },
         },
       ]);
       const postIds = postsAgg.map((p) => p._id);
-      // Fetch posts in the same order as aggregated
       posts = await Post.find({ _id: { $in: postIds } })
         .populate('comments.user', 'username')
-        .setOptions({ sort: { _id: 1 } }) // Preserve order of postIds
+        .populate('taggedUsers', 'username')
+        .setOptions({ sort: { _id: 1 } })
         .exec();
-      // Reorder posts to match postIds exactly
       posts = postIds
         .map((id) => posts.find((p) => p._id.toString() === id.toString()))
-        .filter((p) => p); // Remove any null entries
+        .filter((p) => p);
     } else {
       postsQuery = postsQuery.sort(sortCriteria);
       posts = await postsQuery;
     }
 
-    // Filter out invalid comments
     for (const post of posts) {
       post.comments = post.comments.filter((comment) => {
         if (comment.user === null) {
@@ -262,21 +313,20 @@ router.get('/', authCheck, async (req, res) => {
       });
     }
 
-    // Generate signed URLs for posts
-    await processPostUrls(posts, req.user, user);
+    try {
+      await processPostUrls(posts, req.user, user);
+    } catch (err) {
+      logger.error(`Error in processPostUrls: ${err.message}, Stack: ${err.stack}`);
+      throw err;
+    }
 
-    // Log post details for debugging
     logger.info(`Fetched ${posts.length} posts for user ${user.username}`, {
       postTypes: posts.map((p) => p.type),
-      textPosts: posts.filter((p) => p.type === 'text').map((p) => ({
-        id: p._id,
-        contentUrl: p.contentUrl,
-        writeUp: p.writeUp,
-        createdAt: p.createdAt ? p.createdAt.toISOString() : null,
-      })),
+      categories: posts.map((p) => p.category || 'null'),
       createdAt: posts.map((p) => p.createdAt ? p.createdAt.toISOString() : null),
       sortBy: sortField,
       order: sortOrder,
+      subtab,
     });
 
     const bundles =
@@ -304,6 +354,7 @@ router.get('/', authCheck, async (req, res) => {
     const totalLikes = stats[0]?.totalLikes || 0;
     const subscriberCount = user.subscriberCount;
 
+    logger.debug(`Rendering own profile with subtab: ${subtab || 'all'}`);
     res.set('Cache-Control', 'no-store');
     res.render('profile', {
       user: {
@@ -312,19 +363,27 @@ router.get('/', authCheck, async (req, res) => {
         videosCount,
         totalLikes,
         subscriberCount,
+        postCategories: user.postCategories || [],
       },
       currentUser: req.user,
       isSubscribed: true,
       posts,
       bundles,
-      adminView: false,
+      adminView: req.user.role === 'admin',
       env: process.env.NODE_ENV || 'development',
       flashMessages: req.flash(),
+      activeTab: 'posts',
+      activeSubtab: subtab || 'all',
     });
   } catch (err) {
-    logger.error(`Error loading profile: ${err.message}, Stack: ${err.stack}`);
-    req.flash('error_msg', 'Error loading profile');
-    res.status(500).redirect('/profile');
+    logger.error(`Error loading own profile: ${err.message}, Stack: ${err.stack}, User: ${req.user._id}, req.query: ${JSON.stringify(req.query)}`);
+    if (process.env.NODE_ENV === 'development') {
+      return res.status(500).send(`Error: ${err.message}\nStack: ${err.stack}`);
+    }
+    if (req.is('json')) {
+      return res.status(500).json({ status: 'error', message: 'Error loading profile' });
+    }
+    return res.status(500).send('Error loading profile');
   }
 });
 // Unlock special content route (using the Post model)
@@ -1035,12 +1094,13 @@ router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
   }
 });
 
+// Upload content
 router.post(
   '/uploadContent',
   authCheck,
   upload.fields([
-    { name: 'contentImages', maxCount: 10 }, // Updated to match frontend form
-    { name: 'contentVideos', maxCount: 10 }  // Updated to match frontend form
+    { name: 'contentImages', maxCount: 10 },
+    { name: 'contentVideos', maxCount: 10 },
   ]),
   async (req, res) => {
     if (req.user.role !== 'creator') {
@@ -1051,6 +1111,7 @@ router.post(
       const writeUp = req.body.writeUp || '';
       const isSpecial = req.body.special === 'true';
       const unlockPrice = req.body.unlockPrice ? Number(req.body.unlockPrice) : undefined;
+      const category = req.body.category || null; // Get category from form
 
       // Check if we have any content
       const hasImages = req.files.contentImages && req.files.contentImages.length > 0;
@@ -1069,13 +1130,32 @@ router.post(
       }
 
       // Check total media files
-      const totalMediaFiles = (hasImages ? req.files.contentImages.length : 0) +
-                             (hasVideos ? req.files.contentVideos.length : 0);
+      const totalMediaFiles =
+        (hasImages ? req.files.contentImages.length : 0) +
+        (hasVideos ? req.files.contentVideos.length : 0);
       if (totalMediaFiles > 10) {
         logger.warn(`Upload exceeds maximum limit: ${totalMediaFiles} files`);
         req.flash('error_msg', 'You can upload a maximum of 10 media files per post.');
         return res.status(400).redirect('/profile');
       }
+
+      // Validate category
+      const user = await User.findById(req.user._id);
+      if (category && !user.postCategories.includes(category)) {
+        logger.warn(`Invalid category: ${category}`);
+        req.flash('error_msg', 'Invalid category selected.');
+        return res.status(400).redirect('/profile');
+      }
+
+      // Parse @username tags from writeUp
+      const tagRegex = /@(\w+)/g;
+      const matches = writeUp.match(tagRegex) || [];
+      const usernames = matches.map((tag) => tag.slice(1));
+      const uniqueUsernames = [...new Set(usernames)];
+
+      const users = await User.find({ username: { $in: uniqueUsernames } }).select('_id username');
+      const taggedUsers = users.map((user) => user._id);
+      const taggedUsersWithDetails = users;
 
       // Helper function to upload files to cloud storage
       const uploadToCloud = async (data, type, filename) => {
@@ -1097,34 +1177,35 @@ router.post(
       };
 
       // Prepare post data
-      let postType = 'text'; // Default
+      let postType = 'text';
       const mediaItems = [];
 
-      // Handle images
       if (hasImages) {
         for (const file of req.files.contentImages) {
           const blobName = await uploadToCloud(file.buffer, 'image', path.basename(file.originalname));
           mediaItems.push({
             url: blobName,
             type: 'image',
-            contentType: file.mimetype
+            contentType: file.mimetype,
           });
         }
         postType = 'image';
       }
 
-      // Handle videos
       if (hasVideos) {
         for (const file of req.files.contentVideos) {
           const blobName = await uploadToCloud(file.buffer, 'video', path.basename(file.originalname));
           mediaItems.push({
             url: blobName,
             type: 'video',
-            contentType: file.mimetype
+            contentType: file.mimetype,
           });
         }
         postType = hasImages ? 'mixed' : 'video';
       }
+
+      // Render writeUp with tagged users
+      const renderedWriteUp = renderTaggedWriteUp(writeUp, taggedUsersWithDetails);
 
       // Create post
       const post = new Post({
@@ -1134,22 +1215,25 @@ router.post(
         writeUp,
         special: isSpecial,
         unlockPrice: isSpecial ? unlockPrice : undefined,
-        contentUrl: mediaItems.length > 0 ? mediaItems[0].url : null // For backward compatibility
+        contentUrl: mediaItems.length > 0 ? mediaItems[0].url : null,
+        taggedUsers,
+        renderedWriteUp,
+        category, // Assign category
       });
 
       await post.save();
-      logger.info(`Saved post: ${post._id}, type: ${post.type}, media count: ${mediaItems.length}`);
+      logger.info(`Saved post: ${post._id}, type: ${post.type}, media count: ${mediaItems.length}, taggedUsers: ${taggedUsers.length}, category: ${category}`);
 
       // Update user counts
-      const imageCount = mediaItems.filter(item => item.type === 'image').length;
-      const videoCount = mediaItems.filter(item => item.type === 'video').length;
+      const imageCount = mediaItems.filter((item) => item.type === 'image').length;
+      const videoCount = mediaItems.filter((item) => item.type === 'video').length;
 
       if (imageCount > 0 || videoCount > 0) {
         await User.findByIdAndUpdate(req.user._id, {
           $inc: {
             imagesCount: imageCount,
-            videosCount: videoCount
-          }
+            videosCount: videoCount,
+          },
         });
       }
 
@@ -1158,7 +1242,7 @@ router.post(
       const creator = await User.findById(creatorId);
       const subscribers = await User.find({
         'subscriptions.creatorId': creatorId,
-        'subscriptions.status': 'active'
+        'subscriptions.status': 'active',
       });
 
       for (const subscriber of subscribers) {
@@ -1169,7 +1253,19 @@ router.post(
           type: 'new_post',
           postId: post._id,
           creatorId: creator._id,
-          creatorName: creator.username
+          creatorName: creator.username,
+        });
+      }
+
+      // Notify tagged users
+      for (const taggedUserId of taggedUsers) {
+        await Notification.create({
+          user: taggedUserId,
+          message: `You were tagged in a post by ${creator.username}!`,
+          type: 'tag',
+          postId: post._id,
+          creatorId: creator._id,
+          creatorName: creator.username,
         });
       }
 
@@ -1182,8 +1278,77 @@ router.post(
     }
   }
 );
+// Route to manage post categories (add, edit, delete)
+router.post('/manage-categories', authCheck, async (req, res) => {
+  if (req.user.role !== 'creator') {
+    logger.warn('Unauthorized category management attempt by non-creator');
+    return res.status(403).json({ status: 'error', message: 'Only creators can manage categories.' });
+  }
 
+  try {
+    const { action, category, newCategory } = req.body;
+    const user = await User.findById(req.user._id);
 
+    if (action === 'add') {
+      if (!category || typeof category !== 'string' || category.trim() === '') {
+        return res.status(400).json({ status: 'error', message: 'Category name is required.' });
+      }
+      const trimmedCategory = category.trim();
+      if (user.postCategories.includes(trimmedCategory)) {
+        return res.status(400).json({ status: 'error', message: 'Category already exists.' });
+      }
+      if (user.postCategories.length >= 10) { // Limit to 10 categories
+        return res.status(400).json({ status: 'error', message: 'Maximum of 10 categories allowed.' });
+      }
+      user.postCategories.push(trimmedCategory);
+      await user.save();
+      return res.json({ status: 'success', message: 'Category added successfully.' });
+    }
+
+    if (action === 'edit') {
+      if (!category || !newCategory || typeof newCategory !== 'string' || newCategory.trim() === '') {
+        return res.status(400).json({ status: 'error', message: 'Current and new category names are required.' });
+      }
+      const trimmedNewCategory = newCategory.trim();
+      const index = user.postCategories.indexOf(category);
+      if (index === -1) {
+        return res.status(404).json({ status: 'error', message: 'Category not found.' });
+      }
+      if (user.postCategories.includes(trimmedNewCategory)) {
+        return res.status(400).json({ status: 'error', message: 'New category name already exists.' });
+      }
+      user.postCategories[index] = trimmedNewCategory;
+      await Post.updateMany(
+        { creator: user._id, category },
+        { $set: { category: trimmedNewCategory } }
+      );
+      await user.save();
+      return res.json({ status: 'success', message: 'Category updated successfully.' });
+    }
+
+    if (action === 'delete') {
+      if (!category) {
+        return res.status(400).json({ status: 'error', message: 'Category name is required.' });
+      }
+      const index = user.postCategories.indexOf(category);
+      if (index === -1) {
+        return res.status(404).json({ status: 'error', message: 'Category not found.' });
+      }
+      user.postCategories.splice(index, 1);
+      await Post.updateMany(
+        { creator: user._id, category },
+        { $set: { category: null } }
+      );
+      await user.save();
+      return res.json({ status: 'success', message: 'Category deleted successfully.' });
+    }
+
+    return res.status(400).json({ status: 'error', message: 'Invalid action.' });
+  } catch (err) {
+    logger.error(`Error managing categories: ${err.message}`);
+    return res.status(500).json({ status: 'error', message: 'Error managing categories.' });
+  }
+});
 // Report a post
 router.post('/report-post', authCheck, async (req, res) => {
   try {
@@ -2120,22 +2285,64 @@ router.post('/webhook', async (req, res) => {
     res.status(500).send('Error processing webhook');
   }
 });
+// GET creator suggestions based on query
+router.get('/creator-suggestions', async (req, res) => {
+  try {
+    const query = req.query.q || '';
+    if (!query) {
+      return res.json([]);
+    }
 
+    // Search for creators by username or profileName, case-insensitive
+    const creators = await User.find({
+      role: 'creator',
+      $or: [
+        { username: { $regex: query, $options: 'i' } },
+        { profileName: { $regex: query, $options: 'i' } },
+      ],
+    })
+      .select('username profileName profilePicture _id')
+      .limit(5); // Limit to 5 suggestions
+
+    res.json(
+      creators.map((creator) => ({
+        id: creator._id,
+        username: creator.username,
+        profileName: creator.profileName,
+        profilePicture: creator.profilePicture,
+      }))
+    );
+  } catch (error) {
+    logger.error(`Error fetching creator suggestions: ${error.message}`);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+// View another user's profile by username
 router.get('/:username', async (req, res) => {
+  logger.info(`Request URL: ${req.originalUrl}, Route: /:username, Referer: ${req.get('Referer') || 'none'}`);
   try {
     const username = req.params.username;
-    const ownerUser = await User.findOne({ username });
+    logger.info(`Attempting to view profile for username: ${username}`);
+    const ownerUser = await User.findOne({ username: { $regex: `^${username}$`, $options: 'i' } });
     if (!ownerUser) {
       logger.warn(`User not found for username: ${username}`);
-      req.flash('error_msg', 'User not found');
-      return res.status(404).redirect('/profile');
+      if (req.is('json')) {
+        return res.status(404).json({ status: 'error', message: 'User not found' });
+      }
+      return res.status(404).send('User not found');
     }
+    logger.info(`Found user: ${ownerUser._id}, username: ${ownerUser.username}`);
 
     await ownerUser.checkExpiredSubscriptions();
     await ownerUser.updateSubscriberCount();
 
     const isOwnProfile = req.user ? req.user._id.toString() === ownerUser._id.toString() : false;
     const adminView = req.user && req.query.adminView === 'true' && req.user.role === 'admin';
+
+    // Define and validate subtab
+    const validSubtabs = ['all', 'images', 'videos', ...(ownerUser.postCategories || [])];
+    const subtab = validSubtabs.includes(req.query.subtab) ? req.query.subtab : 'all';
+    logger.debug(`Defined subtab: ${subtab}, req.query: ${JSON.stringify(req.query)}`);
 
     let isSubscribed = false;
     if (req.user && !isOwnProfile && ownerUser.role === 'creator') {
@@ -2158,16 +2365,17 @@ router.get('/:username', async (req, res) => {
 
     let posts = [];
     if (req.user && (isOwnProfile || isSubscribed || adminView)) {
-      // Get sorting parameters
-      const { sortBy = 'createdAt', order = 'desc' } = req.query;
+      const sortBy = req.query.sortBy || 'createdAt';
+      const order = req.query.order || 'desc';
+
+      logger.debug(`req.query: ${JSON.stringify(req.query)}`);
+
       const validSortFields = ['createdAt', 'totalTips', 'likes'];
       const validOrders = ['asc', 'desc'];
 
-      // Validate sortBy and order
       const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
       const sortOrder = validOrders.includes(order) ? order : 'desc';
 
-      // Build sort object
       let sortCriteria = {};
       if (sortField === 'likes') {
         sortCriteria = { likesCount: sortOrder === 'desc' ? -1 : 1 };
@@ -2175,11 +2383,34 @@ router.get('/:username', async (req, res) => {
         sortCriteria[sortField] = sortOrder === 'desc' ? -1 : 1;
       }
 
-      // Fetch posts with sorting
-      let postsQuery = Post.find({ creator: ownerUser._id }).populate('comments.user', 'username');
+      let postsQuery = Post.find({ creator: ownerUser._id })
+        .populate('comments.user', 'username')
+        .populate('taggedUsers', 'username');
+
+      if (subtab !== 'all') {
+        if (subtab === 'images') {
+          postsQuery = postsQuery.where('type').equals('image');
+        } else if (subtab === 'videos') {
+          postsQuery = postsQuery.where('type').equals('video');
+        } else {
+          postsQuery = postsQuery.where('category').equals(subtab);
+        }
+      }
+
       if (sortField === 'likes') {
         const postsAgg = await Post.aggregate([
-          { $match: { creator: new mongoose.Types.ObjectId(ownerUser._id) } },
+          {
+            $match: {
+              creator: new mongoose.Types.ObjectId(ownerUser._id),
+              ...(subtab !== 'all'
+                ? subtab === 'images'
+                  ? { type: 'image' }
+                  : subtab === 'videos'
+                  ? { type: 'video' }
+                  : { category: subtab }
+                : {}),
+            },
+          },
           {
             $addFields: {
               likesCount: { $size: { $ifNull: ['$likes', []] } },
@@ -2188,39 +2419,38 @@ router.get('/:username', async (req, res) => {
           { $sort: sortCriteria },
           {
             $project: {
-              _id: 1, // Only need _id to maintain order
+              _id: 1,
             },
           },
         ]);
         const postIds = postsAgg.map((p) => p._id);
-        // Fetch posts in the same order as aggregated
         posts = await Post.find({ _id: { $in: postIds } })
           .populate('comments.user', 'username')
-          .setOptions({ sort: { _id: 1 } }) // Preserve order of postIds
+          .populate('taggedUsers', 'username')
+          .setOptions({ sort: { _id: 1 } })
           .exec();
-        // Reorder posts to match postIds exactly
         posts = postIds
           .map((id) => posts.find((p) => p._id.toString() === id.toString()))
-          .filter((p) => p); // Remove any null entries
+          .filter((p) => p);
       } else {
         postsQuery = postsQuery.sort(sortCriteria);
         posts = await postsQuery;
       }
 
-      await processPostUrls(posts, req.user, ownerUser, adminView);
+      try {
+        await processPostUrls(posts, req.user, ownerUser, adminView);
+      } catch (err) {
+        logger.error(`Error in processPostUrls: ${err.message}, Stack: ${err.stack}`);
+        throw err;
+      }
 
-      // Log post details for debugging
       logger.info(`Fetched ${posts.length} posts for user ${ownerUser.username}`, {
         postTypes: posts.map((p) => p.type),
-        textPosts: posts.filter((p) => p.type === 'text').map((p) => ({
-          id: p._id,
-          contentUrl: p.contentUrl,
-          writeUp: p.writeUp,
-          createdAt: p.createdAt ? p.createdAt.toISOString() : null,
-        })),
+        categories: posts.map((p) => p.category || 'null'),
         createdAt: posts.map((p) => p.createdAt ? p.createdAt.toISOString() : null),
         sortBy: sortField,
         order: sortOrder,
+        subtab,
       });
     }
 
@@ -2238,8 +2468,10 @@ router.get('/:username', async (req, res) => {
       videosCount: ownerUser.videosCount || 0,
       totalLikes: ownerUser.totalLikes || 0,
       subscriberCount: ownerUser.subscriberCount || 0,
+      postCategories: ownerUser.postCategories || [],
     };
 
+    logger.debug(`Rendering profile with subtab: ${subtab}`);
     res.set('Cache-Control', 'no-store');
     res.render('profile', {
       user,
@@ -2250,14 +2482,20 @@ router.get('/:username', async (req, res) => {
       adminView,
       env: process.env.NODE_ENV || 'development',
       flashMessages: req.flash(),
+      activeTab: 'posts',
+      activeSubtab: subtab,
     });
   } catch (err) {
-    logger.error(`Error loading profile by username: ${err.message}, Stack: ${err.stack}`);
-    req.flash('error_msg', 'Error loading profile');
-    res.status(500).redirect('/profile');
+    logger.error(`Error loading profile by username: ${err.message}, Stack: ${err.stack}, Username: ${req.params.username}, req.query: ${JSON.stringify(req.query)}`);
+    if (process.env.NODE_ENV === 'development') {
+      return res.status(500).send(`Error: ${err.message}\nStack: ${err.stack}`);
+    }
+    if (req.is('json')) {
+      return res.status(500).json({ status: 'error', message: 'Error loading profile' });
+    }
+    return res.status(500).send('Error loading profile');
   }
 });
-// View a single post
 // View a single post
 router.get('/:username/post/:postId', async (req, res) => {
   try {
@@ -2269,7 +2507,10 @@ router.get('/:username/post/:postId', async (req, res) => {
       return res.status(404).redirect('/profile');
     }
 
-    const post = await Post.findById(postId).populate('creator', 'username profilePicture _id').populate('comments.user', 'username');
+    const post = await Post.findById(postId)
+      .populate('creator', 'username profilePicture _id')
+      .populate('comments.user', 'username')
+      .populate('taggedUsers', 'username'); // Populate taggedUsers
     if (!post || post.creator._id.toString() !== ownerUser._id.toString()) {
       logger.warn(`Post not found or does not belong to user: ${username}, postId: ${postId}`);
       req.flash('error_msg', 'Post not found');
@@ -2299,7 +2540,7 @@ router.get('/:username/post/:postId', async (req, res) => {
       return res.redirect(`/profile/${username}`);
     }
 
-    // Process post URLs
+    // Process post URLs and render tagged writeUp
     const posts = [post];
     await processPostUrls(posts, req.user || null, ownerUser, adminView);
 
@@ -2316,13 +2557,14 @@ router.get('/:username/post/:postId', async (req, res) => {
     logger.info(`Fetched single post for user ${ownerUser.username}`, {
       postId: post._id,
       postType: post.type,
+      writeUp: post.renderedWriteUp, // Log rendered writeUp
       createdAt: post.createdAt ? post.createdAt.toISOString() : null
     });
 
     res.set('Cache-Control', 'no-store');
     res.render('single-post', {
       user: {
-        username: ownerUser.username // Only pass username for share link
+        username: ownerUser.username
       },
       currentUser: req.user || null,
       post,
@@ -2337,23 +2579,29 @@ router.get('/:username/post/:postId', async (req, res) => {
     res.status(500).redirect('/profile');
   }
 });
-// View another user's profile
+// View another user's profile by ID
 router.get('/view/:id', authCheck, async (req, res) => {
+  logger.info(`Request URL: ${req.originalUrl}, Route: /view/:id, Referer: ${req.get('Referer') || 'none'}`);
   try {
     const ownerUser = await User.findById(req.params.id);
     if (!ownerUser) {
-      logger.warn('User not found in view/:id');
-      req.flash('error_msg', 'User not found');
-      return res.status(404).redirect('/profile');
+      logger.warn(`User not found for ID: ${req.params.id}`);
+      if (req.is('json')) {
+        return res.status(404).json({ status: 'error', message: 'User not found' });
+      }
+      return res.status(404).send('User not found');
     }
+    logger.info(`Found user: ${ownerUser._id}, username: ${ownerUser.username}`);
 
     await ownerUser.updateSubscriberCount();
 
     const currentUser = await User.findById(req.user._id);
     if (!currentUser) {
-      logger.error('Current user not found in view/:id');
-      req.flash('error_msg', 'User not found');
-      return res.status(404).redirect('/profile');
+      logger.error(`Current user not found for ID: ${req.user._id}`);
+      if (req.is('json')) {
+        return res.status(404).json({ status: 'error', message: 'Current user not found' });
+      }
+      return res.status(404).send('Current user not found');
     }
 
     await currentUser.checkExpiredSubscriptions();
@@ -2366,6 +2614,11 @@ router.get('/view/:id', authCheck, async (req, res) => {
     );
     const adminView = req.query.adminView && req.user.role === 'admin';
 
+    // Define and validate subtab
+    const validSubtabs = ['all', 'images', 'videos', ...(ownerUser.postCategories || [])];
+    const subtab = validSubtabs.includes(req.query.subtab) ? req.query.subtab : 'all';
+    logger.debug(`Defined subtab: ${subtab}, req.query: ${JSON.stringify(req.query)}`);
+
     const bundles = await SubscriptionBundle.find({ creatorId: req.params.id }).sort({
       isFree: -1,
       durationWeight: 1,
@@ -2373,16 +2626,17 @@ router.get('/view/:id', authCheck, async (req, res) => {
 
     let posts = [];
     if (isSubscribed || adminView) {
-      // Get sorting parameters
-      const { sortBy = 'createdAt', order = 'desc' } = req.query;
+      const sortBy = req.query.sortBy || 'createdAt';
+      const order = req.query.order || 'desc';
+
+      logger.debug(`req.query: ${JSON.stringify(req.query)}`);
+
       const validSortFields = ['createdAt', 'totalTips', 'likes'];
       const validOrders = ['asc', 'desc'];
 
-      // Validate sortBy and order
       const sortField = validSortFields.includes(sortBy) ? sortBy : 'createdAt';
       const sortOrder = validOrders.includes(order) ? order : 'desc';
 
-      // Build sort object
       let sortCriteria = {};
       if (sortField === 'likes') {
         sortCriteria = { likesCount: sortOrder === 'desc' ? -1 : 1 };
@@ -2390,11 +2644,34 @@ router.get('/view/:id', authCheck, async (req, res) => {
         sortCriteria[sortField] = sortOrder === 'desc' ? -1 : 1;
       }
 
-      // Fetch posts with sorting
-      let postsQuery = Post.find({ creator: ownerUser._id }).populate('comments.user', 'username');
+      let postsQuery = Post.find({ creator: ownerUser._id })
+        .populate('comments.user', 'username')
+        .populate('taggedUsers', 'username');
+
+      if (subtab !== 'all') {
+        if (subtab === 'images') {
+          postsQuery = postsQuery.where('type').equals('image');
+        } else if (subtab === 'videos') {
+          postsQuery = postsQuery.where('type').equals('video');
+        } else {
+          postsQuery = postsQuery.where('category').equals(subtab);
+        }
+      }
+
       if (sortField === 'likes') {
         const postsAgg = await Post.aggregate([
-          { $match: { creator: new mongoose.Types.ObjectId(ownerUser._id) } },
+          {
+            $match: {
+              creator: new mongoose.Types.ObjectId(ownerUser._id),
+              ...(subtab !== 'all'
+                ? subtab === 'images'
+                  ? { type: 'image' }
+                  : subtab === 'videos'
+                  ? { type: 'video' }
+                  : { category: subtab }
+                : {}),
+            },
+          },
           {
             $addFields: {
               likesCount: { $size: { $ifNull: ['$likes', []] } },
@@ -2403,20 +2680,19 @@ router.get('/view/:id', authCheck, async (req, res) => {
           { $sort: sortCriteria },
           {
             $project: {
-              _id: 1, // Only need _id to maintain order
+              _id: 1,
             },
           },
         ]);
         const postIds = postsAgg.map((p) => p._id);
-        // Fetch posts in the same order as aggregated
         posts = await Post.find({ _id: { $in: postIds } })
           .populate('comments.user', 'username')
-          .setOptions({ sort: { _id: 1 } }) // Preserve order of postIds
+          .populate('taggedUsers', 'username')
+          .setOptions({ sort: { _id: 1 } })
           .exec();
-        // Reorder posts to match postIds exactly
         posts = postIds
           .map((id) => posts.find((p) => p._id.toString() === id.toString()))
-          .filter((p) => p); // Remove any null entries
+          .filter((p) => p);
       } else {
         postsQuery = postsQuery.sort(sortCriteria);
         posts = await postsQuery;
@@ -2426,25 +2702,26 @@ router.get('/view/:id', authCheck, async (req, res) => {
         post.comments = post.comments.filter((comment) => {
           if (comment.user === null) {
             logger.warn(`Removing invalid comment on post ${post._id}`);
+            return false;
           }
           return true;
         });
       }
 
-      await processPostUrls(posts, currentUser, ownerUser, adminView);
+      try {
+        await processPostUrls(posts, currentUser, ownerUser, adminView);
+      } catch (err) {
+        logger.error(`Error in processPostUrls: ${err.message}, Stack: ${err.stack}`);
+        throw err;
+      }
 
-      // Log post details for debugging
       logger.info(`Fetched ${posts.length} posts for user ${ownerUser.username}`, {
         postTypes: posts.map((p) => p.type),
-        textPosts: posts.filter((p) => p.type === 'text').map((p) => ({
-          id: p._id,
-          contentUrl: p.contentUrl,
-          writeUp: p.writeUp,
-          createdAt: p.createdAt ? p.createdAt.toISOString() : null,
-        })),
+        categories: posts.map((p) => p.category || 'null'),
         createdAt: posts.map((p) => p.createdAt ? p.createdAt.toISOString() : null),
         sortBy: sortField,
         order: sortOrder,
+        subtab,
       });
     }
 
@@ -2465,6 +2742,7 @@ router.get('/view/:id', authCheck, async (req, res) => {
     const totalLikes = stats[0]?.totalLikes || 0;
     const subscriberCount = ownerUser.subscriberCount;
 
+    logger.debug(`Rendering profile with subtab: ${subtab}`);
     res.set('Cache-Control', 'no-store');
     res.render('profile', {
       user: {
@@ -2473,6 +2751,7 @@ router.get('/view/:id', authCheck, async (req, res) => {
         videosCount,
         totalLikes,
         subscriberCount,
+        postCategories: ownerUser.postCategories || [],
       },
       currentUser,
       isSubscribed: isSubscribed || adminView,
@@ -2481,11 +2760,18 @@ router.get('/view/:id', authCheck, async (req, res) => {
       adminView,
       env: process.env.NODE_ENV || 'development',
       flashMessages: req.flash(),
+      activeTab: 'posts',
+      activeSubtab: subtab,
     });
   } catch (err) {
-    logger.error(`Error loading user profile: ${err.message}, Stack: ${err.stack}`);
-    req.flash('error_msg', 'Error loading profile');
-    res.status(500).redirect('/profile');
+    logger.error(`Error loading profile by ID: ${err.message}, Stack: ${err.stack}, ID: ${req.params.id}, req.query: ${JSON.stringify(req.query)}`);
+    if (process.env.NODE_ENV === 'development') {
+      return res.status(500).send(`Error: ${err.message}\nStack: ${err.stack}`);
+    }
+    if (req.is('json')) {
+      return res.status(500).json({ status: 'error', message: 'Error loading profile' });
+    }
+    return res.status(500).send('Error loading profile');
   }
 });
 module.exports = router;

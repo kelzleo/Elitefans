@@ -104,6 +104,7 @@ const userSchema = new mongoose.Schema({
   lastSeen: { type: Date, default: Date.now },
   isOnline: { type: Boolean, default: false },
   freeSubscriptionEnabled: { type: Boolean, default: false },
+  postCategories: [{ type: String }],
 });
 
 userSchema.pre('save', async function (next) {

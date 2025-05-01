@@ -1,4 +1,3 @@
-// models/Post.js
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
@@ -16,11 +15,8 @@ const mediaItemSchema = new Schema({
 
 const postSchema = new Schema({
   creator: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  // For backward compatibility, keep contentUrl but make it optional
   contentUrl: { type: String },
-  // New field for multiple media items
   mediaItems: [mediaItemSchema],
-  // Post type becomes more about the primary content type
   type: { type: String, enum: ['image', 'video', 'text', 'mixed'], required: true },
   writeUp: { type: String },
   special: { type: Boolean, default: false },
@@ -29,6 +25,8 @@ const postSchema = new Schema({
   comments: [commentSchema],
   totalTips: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
+  taggedUsers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
+  category: { type: String, default: null }, // New field for custom category
 });
 
 module.exports = mongoose.model('Post', postSchema);
