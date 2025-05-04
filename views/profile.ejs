@@ -199,11 +199,7 @@ data-username="<%= user.username %>">
   <% } %></div>
 
   </div>
-
-  <% if (currentUser && currentUser.role === 'admin') { %>
-    <a class="admin-dashboard-link" href="/admin">Admin Dashboard</a>
-  <% } %> 
-  <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+<% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
     <div class="creator-actions">
       <div class="edit-profile-container">
         <a href="/profile/edit" class="edit-profile-btn">Edit Profile</a>
@@ -258,6 +254,11 @@ data-username="<%= user.username %>">
 </div>
 
   <% } %></div>
+ 
+
+
+  
+  <% } %>  
   <% if (currentUser && currentUser._id.toString() === user._id.toString() && user.role === 'creator') { %>
     <div class="upload-content-form">
       <h3>Create a New Post</h3>
@@ -304,6 +305,10 @@ data-username="<%= user.username %>">
       </form>
     </div>
   <% } %>
+  <% if (currentUser && currentUser.role === 'admin') { %>
+    <a class="admin-dashboard-link" href="/admin">Admin Dashboard</a>
+  <% } %> 
+ 
   <!-- Tabbed Content -->
   <div class="profile-tabs">
     <button class="tab-button active" data-tab="posts">Posts <span class="tab-count"><%= posts.length %></span></button>
@@ -397,12 +402,22 @@ data-username="<%= user.username %>">
                         <% mediaItems.forEach((media, index) => { %>
                           <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                             <% if (media.type === 'image') { %>
-                              <img src="<%= media.url %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= media.url %>">
+                              <img src="<%= media.url %>" 
+     alt="Post Image" 
+     class="post-image fullscreenable" 
+     data-fullscreen-src="<%= media.url %>" 
+     draggable="false" 
+     oncontextmenu="return false;">
                             <% } else if (media.type === 'video') { %>
-                              <video controls class="post-video">
-                                <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                                Your browser does not support the video tag.
-                              </video>
+                              <video controls 
+       class="post-video" 
+       controlsList="nodownload" 
+       disablePictureInPicture 
+       oncontextmenu="return false;" 
+       draggable="false">
+  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+  Your browser does not support the video tag.
+</video>
                             <% } %>
                           </div>
                         <% }); %>
@@ -547,12 +562,22 @@ data-username="<%= user.username %>">
                             <% mediaItems.forEach((media, index) => { %>
                               <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                                 <% if (media.type === 'image') { %>
-                                  <img src="<%= media.url %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= media.url %>">
+                                  <img src="<%= media.url %>" 
+     alt="Post Image" 
+     class="post-image fullscreenable" 
+     data-fullscreen-src="<%= media.url %>" 
+     draggable="false" 
+     oncontextmenu="return false;">
                                 <% } else if (media.type === 'video') { %>
-                                  <video controls class="post-video">
-                                    <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                                    Your browser does not support the video tag.
-                                  </video>
+                                  <video controls 
+                                  class="post-video" 
+                                  controlsList="nodownload" 
+                                  disablePictureInPicture 
+                                  oncontextmenu="return false;" 
+                                  draggable="false">
+                             <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                             Your browser does not support the video tag.
+                           </video>
                                 <% } %>
                               </div>
                             <% }); %>
@@ -703,12 +728,22 @@ data-username="<%= user.username %>">
                       <% mediaItems.forEach((media, index) => { %>
                         <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                           <% if (media.type === 'image') { %>
-                            <img src="<%= media.url %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= media.url %>">
+                            <img src="<%= media.url %>" 
+                            alt="Post Image" 
+                            class="post-image fullscreenable" 
+                            data-fullscreen-src="<%= media.url %>" 
+                            draggable="false" 
+                            oncontextmenu="return false;">
                           <% } else if (media.type === 'video') { %>
-                            <video controls class="post-video">
-                              <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                              Your browser does not support the video tag.
-                            </video>
+                            <video controls 
+       class="post-video" 
+       controlsList="nodownload" 
+       disablePictureInPicture 
+       oncontextmenu="return false;" 
+       draggable="false">
+  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+  Your browser does not support the video tag.
+</video>
                           <% } %>
                         </div>
                       <% }); %>
@@ -791,12 +826,22 @@ data-username="<%= user.username %>">
               <% mediaItems.forEach((media, index) => { %>
                 <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
                   <% if (media.type === 'image') { %>
-                    <img src="<%= media.url %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= media.url %>">
+                    <img src="<%= media.url %>" 
+     alt="Post Image" 
+     class="post-image fullscreenable" 
+     data-fullscreen-src="<%= media.url %>" 
+     draggable="false" 
+     oncontextmenu="return false;">
                   <% } else if (media.type === 'video') { %>
-                    <video controls class="post-video">
-                      <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                      Your browser does not support the video tag.
-                    </video>
+                    <video controls 
+       class="post-video" 
+       controlsList="nodownload" 
+       disablePictureInPicture 
+       oncontextmenu="return false;" 
+       draggable="false">
+  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+  Your browser does not support the video tag.
+</video>
                   <% } %>
                 </div>
               <% }); %>
@@ -886,7 +931,12 @@ data-username="<%= user.username %>">
                     <div class="media-carousel">
                       <% mediaItems.forEach((media, index) => { %>
                         <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                          <img src="<%= media.url %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= media.url %>">
+                          <img src="<%= media.url %>" 
+     alt="Post Image" 
+     class="post-image fullscreenable" 
+     data-fullscreen-src="<%= media.url %>" 
+     draggable="false" 
+     oncontextmenu="return false;">
                         </div>
                       <% }); %>
                     </div>
@@ -967,7 +1017,12 @@ data-username="<%= user.username %>">
             <% if (!showLocked && mediaItems.length > 0) { %>
               <% mediaItems.forEach((media, index) => { %>
                 <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
-                  <img src="<%= media.url %>" alt="Post Image" class="post-image fullscreenable" data-fullscreen-src="<%= media.url %>">
+                  <img src="<%= media.url %>" 
+                  alt="Post Image" 
+                  class="post-image fullscreenable" 
+                  data-fullscreen-src="<%= media.url %>" 
+                  draggable="false" 
+                  oncontextmenu="return false;">
                 </div>
               <% }); %>
             <% } else if (showLocked) { %>
@@ -1056,10 +1111,15 @@ data-username="<%= user.username %>">
                     <div class="media-carousel">
                       <% mediaItems.forEach((media, index) => { %>
                         <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                          <video controls class="post-video">
-                            <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                            Your browser does not support the video tag.
-                          </video>
+                          <video controls 
+       class="post-video" 
+       controlsList="nodownload" 
+       disablePictureInPicture 
+       oncontextmenu="return false;" 
+       draggable="false">
+  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+  Your browser does not support the video tag.
+</video>
                         </div>
                       <% }); %>
                     </div>
@@ -1140,10 +1200,15 @@ data-username="<%= user.username %>">
             <% if (!showLocked && mediaItems.length > 0) { %>
               <% mediaItems.forEach((media, index) => { %>
                 <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
-                  <video controls class="post-video">
-                    <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                    Your browser does not support the video tag.
-                  </video>
+                  <video controls 
+                  class="post-video" 
+                  controlsList="nodownload" 
+                  disablePictureInPicture 
+                  oncontextmenu="return false;" 
+                  draggable="false">
+             <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+             Your browser does not support the video tag.
+           </video>
                 </div>
               <% }); %>
             <% } else if (showLocked) { %>
@@ -1177,13 +1242,7 @@ data-username="<%= user.username %>">
   <!-- Creator Actions -->
 
 
-  <% } else if (isSubscribed) { %>
-    <div class="chat-link-container">
-      <a class="chat-link" href="/chat?creatorId=<%= user._id %>">
-        Chat with <%= user.username %>
-      </a>
-    </div>
-  <% } %>  <a class="pro-logout-link" href="/logout">Log out</a></div><!-- Tip Modal for Creator-Level Tip -->
+  <!-- Tip Modal for Creator-Level Tip -->
 <div id="tipModal" class="tip-modal hidden">
   <div class="tip-modal-content">
     <span id="closeTipModal" class="close-tip-modal">×</span>
@@ -2906,6 +2965,7 @@ const sortButton = document.querySelector('.sort-button');
       suggestionsContainer.classList.add('hidden');
     }
   });
+ 
   });
   
 </script>

@@ -5,9 +5,15 @@
     <div class="chat-header-info">
       <div class="chat-header-title">
         <h2>
-          <%= creator ? creator.username : 'Group Chat' %>
-          <% if (creator && creator.role === 'creator') { %>
-            <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
+          <% if (creator) { %>
+            <a href="/profile/view/<%= creator._id %>" class="username-link">
+              <%= creator.username %>
+              <% if (creator.role === 'creator') { %>
+                <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
+              <% } %>
+            </a>
+          <% } else { %>
+            Group Chat
           <% } %>
         </h2>
         <% if (creator) { %>

@@ -4,7 +4,7 @@ const router = express.Router();
 const User = require('../models/users');
 const Post = require('../models/Post');
 const { generateSignedUrl } = require('../utilis/cloudStorage');
-const logger = require('../logs/logger'); // Import Winston logger
+const logger = require('../logs/logger');
 
 // Authentication middleware
 const authCheck = (req, res, next) => {
@@ -15,31 +15,43 @@ const authCheck = (req, res, next) => {
   next();
 };
 
-/**
- * For special posts:
- *   - If purchased, generate signed URLs for mediaItems or contentUrl.
- *   - Otherwise, set placeholder paths & mark locked.
- * For normal posts:
- *   - Generate signed URLs for mediaItems or contentUrl.
- */
+// Helper function to parse @username tags and convert to HTML links
+const renderTaggedWriteUp = (writeUp, taggedUsers) => {
+  if (!writeUp) return writeUp || '';
+
+  const userMap = taggedUsers.reduce((map, user) => {
+    if (user && user.username) {
+      map[user.username.toLowerCase()] = user.username;
+    }
+    return map;
+  }, {});
+
+  return writeUp.replace(/@(\w+)/g, (match, username) => {
+    const lowerUsername = username.toLowerCase();
+    if (userMap[lowerUsername]) {
+      const actualUsername = userMap[lowerUsername];
+      return `<a href="/profile/${encodeURIComponent(actualUsername)}" class="tagged-user">@${actualUsername}</a>`;
+    }
+    return match;
+  });
+};
+
+// Process post URLs and tagged users for feed
 const processPostUrlForFeed = async (post, currentUser) => {
   const hasPurchased = post.special && currentUser.purchasedContent?.some(
     (p) => p.contentId.toString() === post._id.toString()
   );
 
   if (post.special && !hasPurchased) {
-    // Locked special post
     post.mediaItems = post.mediaItems?.map(item => ({
       ...item,
-      url: `/uploads/locked-placeholder-${item.type}.png`
+      url: `/Uploads/locked-placeholder-${item.type}.png`
     })) || [];
-    post.contentUrl = post.contentUrl ? '/uploads/locked-placeholder.png' : null;
+    post.contentUrl = post.contentUrl ? '/Uploads/locked-placeholder.png' : null;
     post.locked = true;
   } else {
-    // Unlocked post (purchased special or normal)
     post.locked = false;
 
-    // Process mediaItems (new schema)
     if (post.mediaItems?.length > 0) {
       for (const item of post.mediaItems) {
         if (item.url && !item.url.startsWith('http')) {
@@ -53,33 +65,38 @@ const processPostUrlForFeed = async (post, currentUser) => {
       }
     }
 
-    // Process contentUrl (legacy schema)
     if (post.contentUrl && !post.contentUrl.startsWith('http')) {
       try {
         post.contentUrl = await generateSignedUrl(post.contentUrl);
       } catch (err) {
         logger.error(`Failed to generate signed URL for post: ${err.message}`);
-        post.contentUrl = '/uploads/placeholder.png';
+        post.contentUrl = '/Uploads/placeholder.png';
       }
     }
   }
+
+  // Render tagged users
+  if (post.writeUp && post.taggedUsers) {
+    post.renderedWriteUp = renderTaggedWriteUp(post.writeUp, post.taggedUsers);
+  } else {
+    post.renderedWriteUp = post.writeUp || '';
+  }
 };
+
 router.get('/', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id).populate('bookmarks');
     const query = req.query.query;
 
     if (query && query.trim() !== '') {
-      // Search mode
       const matchingCreators = await User.find({
         role: 'creator',
         $or: [
           { username: { $regex: query, $options: 'i' } },
           { profileName: { $regex: query, $options: 'i' } }
         ]
-      }); // Removed .lean() to work with Mongoose documents
+      });
 
-      // Update subscriberCount for each creator
       for (const creator of matchingCreators) {
         await creator.updateSubscriberCount();
       }
@@ -94,7 +111,6 @@ router.get('/', authCheck, async (req, res) => {
         env: process.env.NODE_ENV || 'development'
       });
     } else {
-      // Feed mode
       const now = new Date();
       const subscribedCreatorIds = currentUser.subscriptions
         .filter(sub => {
@@ -107,6 +123,7 @@ router.get('/', authCheck, async (req, res) => {
       const posts = await Post.find({ creator: { $in: subscribedCreatorIds } })
         .populate('creator', 'username profilePicture')
         .populate('comments.user', 'username')
+        .populate('taggedUsers', 'username') // Add taggedUsers population
         .sort({ createdAt: -1 });
 
       const validPosts = posts.filter(post => post.creator !== null);
@@ -161,7 +178,7 @@ router.get('/', authCheck, async (req, res) => {
   }
 });
 
-// Search suggestions route for autocomplete
+// Search suggestions and search-creators routes remain unchanged
 router.get('/search-suggestions', authCheck, async (req, res) => {
   try {
     const query = req.query.query;
@@ -179,7 +196,6 @@ router.get('/search-suggestions', authCheck, async (req, res) => {
       .select('username profileName profilePicture subscriberCount')
       .limit(5);
 
-    // Update subscriberCount for each creator
     for (const creator of matchingCreators) {
       await creator.updateSubscriberCount();
     }
@@ -191,7 +207,6 @@ router.get('/search-suggestions', authCheck, async (req, res) => {
   }
 });
 
-// Search creators route for dynamic results
 router.get('/search-creators', authCheck, async (req, res) => {
   try {
     const query = req.query.query;
@@ -209,7 +224,6 @@ router.get('/search-creators', authCheck, async (req, res) => {
       .select('username profileName profilePicture subscriberCount')
       .limit(5);
 
-    // Update subscriberCount for each creator
     for (const creator of matchingCreators) {
       await creator.updateSubscriberCount();
     }
