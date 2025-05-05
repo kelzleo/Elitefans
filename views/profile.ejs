@@ -1248,11 +1248,11 @@ data-username="<%= user.username %>">
     <% } %>
   </div>
 </div>
-  <!-- Fullscreen Overlay -->
-  <div class="fullscreen-overlay" id="fullscreenOverlay">
-    <div id="fullscreenMediaContainer"></div>
-    <button class="close-fullscreen" id="closeFullscreen">×</button>
-  </div>
+<!-- Fullscreen Overlay with improved mobile support -->
+<div class="fullscreen-overlay" id="fullscreenOverlay">
+  <div id="fullscreenMediaContainer"></div>
+  <button class="close-fullscreen" id="closeFullscreen">×</button>
+</div>
   <!-- Creator Actions -->
 
 
@@ -2282,12 +2282,18 @@ if (viewToggle) {
     }
   });
 }
-// fullscreen.js
+// improved-fullscreen.js
 const overlay = document.getElementById('fullscreenOverlay');
 const container = document.getElementById('fullscreenMediaContainer');
 const closeBtn = document.getElementById('closeFullscreen');
 const fsButtons = document.querySelectorAll('.custom-fullscreen-btn');
 
+// Check if device is iOS
+const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+// Check if device is mobile
+const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+// Helper function to handle fullscreen API
 function enterFullscreen(el) {
   try {
     if (el.requestFullscreen) return el.requestFullscreen();
@@ -2317,6 +2323,7 @@ function exitFullscreen() {
   }
 }
 
+// Open fullscreen function with better mobile handling
 const openFs = async (mediaEl) => {
   try {
     if (!mediaEl) {
@@ -2324,77 +2331,116 @@ const openFs = async (mediaEl) => {
       return;
     }
 
+    // Clone the media element
     const clone = mediaEl.cloneNode(true);
     clone.removeAttribute('class');
     clone.removeAttribute('style');
+    
+    // For videos, add controls optimized for mobile
     if (clone.tagName === 'VIDEO') {
       clone.controls = true;
-      clone.controlsList = 'nofullscreen nodownload nopictureinpicture';
-      clone.disablePictureInPicture = true;
-      clone.play().catch((e) => console.warn('Auto-play failed:', e));
+      clone.playsInline = true; // Important for iOS
+      clone.controlsList = 'nodownload'; // Allow fullscreen button in native controls
+      
+      // Ensure video will play on mobile
+      if (isMobile) {
+        clone.muted = true; // Helps with autoplay on mobile
+      }
+      
+      // Try to play the video
+      clone.play().catch((e) => {
+        console.warn('Auto-play failed:', e);
+        // For iOS, we need user interaction
+        if (isIOS) {
+          const playPrompt = document.createElement('div');
+          playPrompt.className = 'tap-to-play';
+          playPrompt.innerHTML = '<span>Tap to play</span>';
+          playPrompt.style.position = 'absolute';
+          playPrompt.style.top = '50%';
+          playPrompt.style.left = '50%';
+          playPrompt.style.transform = 'translate(-50%, -50%)';
+          playPrompt.style.background = 'rgba(0,0,0,0.7)';
+          playPrompt.style.color = 'white';
+          playPrompt.style.padding = '15px 25px';
+          playPrompt.style.borderRadius = '5px';
+          playPrompt.style.fontSize = '18px';
+          playPrompt.style.zIndex = '1002';
+          
+          container.appendChild(playPrompt);
+          
+          playPrompt.addEventListener('click', () => {
+            clone.play().catch(console.error);
+            playPrompt.remove();
+          });
+        }
+      });
     }
 
+    // Clear container and add the cloned media
     container.innerHTML = '';
     container.appendChild(clone);
     overlay.classList.add('active');
+    
+    // Set body overflow to hidden to prevent scrolling
+    document.body.style.overflow = 'hidden';
 
     // Function to adjust media size
     const adjustMediaSize = () => {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
-      const isMobile = viewportWidth <= 768;
       const isVideo = clone.tagName === 'VIDEO';
+      
+      // Get original dimensions
       let naturalWidth = isVideo ? clone.videoWidth : clone.naturalWidth;
       let naturalHeight = isVideo ? clone.videoHeight : clone.naturalHeight;
 
       // Check for valid metadata
       if (!naturalWidth || !naturalHeight) {
-        console.error('Invalid video metadata:', naturalWidth, naturalHeight);
-        return; // Skip sizing, no fallback
+        console.warn('Invalid media metadata, using fallback dimensions');
+        naturalWidth = viewportWidth;
+        naturalHeight = viewportHeight;
       }
 
       // Calculate aspect ratio
-      const videoAspectRatio = naturalWidth / naturalHeight;
-
-      // Set dimensions
-      let videoWidth, videoHeight;
+      const mediaAspectRatio = naturalWidth / naturalHeight;
+      
+      // Set dimensions based on OnlyFans-style approach
       if (isMobile) {
-        // Mobile: Force fixed height, calculate width
-        videoHeight = 600; // Fixed height in pixels
-        videoWidth = Math.round(videoHeight * videoAspectRatio);
-      } else {
-        // Non-mobile: Fill viewport based on aspect ratio
-        if (videoAspectRatio > viewportWidth / viewportHeight) {
-          videoWidth = viewportWidth;
-          videoHeight = Math.round(viewportWidth / videoAspectRatio);
+        if (window.innerWidth < window.innerHeight) {
+          // Portrait mode - fill width
+          clone.style.width = '100%';
+          clone.style.height = 'auto';
+          clone.style.maxHeight = '100vh';
         } else {
-          videoHeight = viewportHeight;
-          videoWidth = Math.round(viewportHeight * videoAspectRatio);
+          // Landscape mode - fill height with aspect ratio preserved
+          clone.style.width = 'auto';
+          clone.style.height = '100vh';
+          clone.style.maxWidth = '100vw';
+        }
+      } else {
+        // Desktop - fill available space while maintaining aspect ratio
+        if (mediaAspectRatio > viewportWidth / viewportHeight) {
+          clone.style.width = '100vw';
+          clone.style.height = 'auto';
+        } else {
+          clone.style.height = '100vh';
+          clone.style.width = 'auto';
         }
       }
-
-      // Apply pixel-based styles
-      clone.style.width = `${videoWidth}px`;
-      clone.style.height = `${videoHeight}px`;
+      
+      // Common styles
       clone.style.objectFit = 'contain';
       clone.style.margin = '0 auto';
       clone.style.padding = '0';
       clone.style.position = 'relative';
       clone.style.display = 'block';
-
-      // Debugging logs
+      
+      // Debug info
       console.log('Viewport (px):', viewportWidth, viewportHeight);
-      console.log('Container (px):', container.offsetWidth, container.offsetHeight);
-      console.log('Calculated video (px):', videoWidth, videoHeight);
-      console.log('Clone styles:', clone.style.cssText);
-      console.log(
-        'Media dimensions:',
-        naturalWidth,
-        naturalHeight,
-        'Aspect ratio:',
-        videoAspectRatio
-      );
+      console.log('Media dimensions:', naturalWidth, naturalHeight);
+      console.log('Aspect ratio:', mediaAspectRatio);
       console.log('Is mobile:', isMobile);
+      console.log('Applied styles:', clone.style.cssText);
     };
 
     // Initial adjustment
@@ -2403,31 +2449,49 @@ const openFs = async (mediaEl) => {
         adjustMediaSize();
       } else {
         clone.addEventListener('loadedmetadata', adjustMediaSize, { once: true });
-        // No timeout or fallback
+        // Add a fallback timeout just in case
+        setTimeout(() => {
+          if (!clone.videoWidth || !clone.videoHeight) {
+            console.warn('Video metadata not loaded after timeout, using fallback');
+            adjustMediaSize();
+          }
+        }, 1000);
       }
     } else {
-      adjustMediaSize();
+      // For images
+      if (clone.complete) {
+        adjustMediaSize();
+      } else {
+        clone.addEventListener('load', adjustMediaSize, { once: true });
+      }
     }
 
     // Handle resize and orientation
     const resizeHandler = () => {
       adjustMediaSize();
-      if (overlay.classList.contains('active') && !document.fullscreenElement) {
-        enterFullscreen(container);
-      }
     };
+    
     window.addEventListener('resize', resizeHandler);
     window.addEventListener('orientationchange', resizeHandler);
 
-    // Clean up
+    // Clean up event listeners
     const cleanup = () => {
       window.removeEventListener('resize', resizeHandler);
       window.removeEventListener('orientationchange', resizeHandler);
+      document.body.style.overflow = ''; // Restore scrolling
     };
+    
     overlay.addEventListener('click', cleanup, { once: true });
     closeBtn.addEventListener('click', cleanup, { once: true });
 
-    await enterFullscreen(container);
+    // Try to enter fullscreen if not on iOS (iOS has restrictions)
+    if (!isIOS) {
+      try {
+        await enterFullscreen(container);
+      } catch (err) {
+        console.warn('Could not enter fullscreen mode:', err);
+      }
+    }
   } catch (error) {
     console.error('Error in openFs:', error);
     closeFs();
@@ -2438,22 +2502,32 @@ const closeFs = () => {
   try {
     overlay.classList.remove('active');
     container.innerHTML = '';
+    document.body.style.overflow = ''; // Restore scrolling
     exitFullscreen();
   } catch (error) {
     console.error('Error closing fullscreen:', error);
   }
 };
 
+// Event listeners
 fsButtons.forEach((btn) =>
   btn.addEventListener('click', (e) => {
     try {
-      const media = e.currentTarget
-        .closest('.video-wrapper')
-        .querySelector('img, video');
+      e.preventDefault(); // Prevent any default action
+      e.stopPropagation(); // Stop event bubbling
+      
+      const wrapper = e.currentTarget.closest('.video-wrapper');
+      if (!wrapper) {
+        console.error('No video-wrapper found');
+        return;
+      }
+      
+      const media = wrapper.querySelector('img, video');
       if (!media) {
         console.error('No media found in video-wrapper');
         return;
       }
+      
       console.log('Fullscreen button clicked, media:', media);
       openFs(media);
     } catch (error) {
@@ -2462,7 +2536,11 @@ fsButtons.forEach((btn) =>
   })
 );
 
-closeBtn.addEventListener('click', closeFs);
+closeBtn.addEventListener('click', (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  closeFs();
+});
 
 document.addEventListener('fullscreenchange', () => {
   if (!document.fullscreenElement && overlay.classList.contains('active')) {
@@ -2478,6 +2556,25 @@ overlay.addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && overlay.classList.contains('active')) closeFs();
 });
+
+// Add swipe down to close on mobile
+if (isMobile) {
+  let touchStartY = 0;
+  let touchEndY = 0;
+  
+  overlay.addEventListener('touchstart', (e) => {
+    touchStartY = e.changedTouches[0].screenY;
+  }, {passive: true});
+  
+  overlay.addEventListener('touchend', (e) => {
+    touchEndY = e.changedTouches[0].screenY;
+    
+    // If swiped down more than 100px, close the overlay
+    if (touchEndY - touchStartY > 100) {
+      closeFs();
+    }
+  }, {passive: true});
+}
     // Upload Form Validation
 if (isCreatorViewingOwnProfile) {
   const uploadForm = document.getElementById('uploadContentForm');
