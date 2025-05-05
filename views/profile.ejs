@@ -409,15 +409,22 @@ data-username="<%= user.username %>">
      draggable="false" 
      oncontextmenu="return false;">
                             <% } else if (media.type === 'video') { %>
-                              <video controls 
-       class="post-video" 
-       controlsList="nodownload" 
-       disablePictureInPicture 
-       oncontextmenu="return false;" 
-       draggable="false">
-  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-  Your browser does not support the video tag.
-</video>
+                              <!-- profile.ejs -->
+<div class="video-wrapper" style="position: relative;">
+  <video
+    src="<%= media.url %>"
+    class="fullscreenable"
+    controls
+    controlsList="nofullscreen nodownload"
+    disablePictureInPicture
+    draggable="false"
+    oncontextmenu="return false;"
+  ></video>
+  <button class="custom-fullscreen-btn" aria-label="Fullscreen">⛶</button>
+</div>
+
+                            
+
                             <% } %>
                           </div>
                         <% }); %>
@@ -569,15 +576,23 @@ data-username="<%= user.username %>">
      draggable="false" 
      oncontextmenu="return false;">
                                 <% } else if (media.type === 'video') { %>
-                                  <video controls 
-                                  class="post-video" 
-                                  controlsList="nodownload" 
-                                  disablePictureInPicture 
-                                  oncontextmenu="return false;" 
-                                  draggable="false">
-                             <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                             Your browser does not support the video tag.
-                           </video>
+                                  <!-- profile.ejs -->
+<div class="video-wrapper" style="position: relative;">
+  <video
+    src="<%= media.url %>"
+    class="fullscreenable"
+    controls
+    controlsList="nofullscreen nodownload"
+    disablePictureInPicture
+    draggable="false"
+    oncontextmenu="return false;"
+  ></video>
+  <button class="custom-fullscreen-btn" aria-label="Fullscreen">⛶</button>
+</div>
+
+                                  
+
+
                                 <% } %>
                               </div>
                             <% }); %>
@@ -1235,10 +1250,9 @@ data-username="<%= user.username %>">
 </div>
   <!-- Fullscreen Overlay -->
   <div class="fullscreen-overlay" id="fullscreenOverlay">
-    <img src="" alt="Fullscreen Image" id="fullscreenImage">
+    <div id="fullscreenMediaContainer"></div>
     <button class="close-fullscreen" id="closeFullscreen">×</button>
   </div>
-
   <!-- Creator Actions -->
 
 
@@ -2268,31 +2282,202 @@ if (viewToggle) {
     }
   });
 }
-    // --- Fullscreen Image Handling ---
-    const fullscreenOverlay = document.getElementById('fullscreenOverlay');
-    const fullscreenImage = document.getElementById('fullscreenImage');
-    const closeFullscreen = document.getElementById('closeFullscreen');
+// fullscreen.js
+const overlay = document.getElementById('fullscreenOverlay');
+const container = document.getElementById('fullscreenMediaContainer');
+const closeBtn = document.getElementById('closeFullscreen');
+const fsButtons = document.querySelectorAll('.custom-fullscreen-btn');
 
-    document.querySelectorAll('.post-image.fullscreenable').forEach(image => {
-      image.addEventListener('click', () => {
-        const src = image.dataset.fullscreenSrc;
-        fullscreenImage.src = src;
-        fullscreenOverlay.classList.add('active');
-      });
-    });
+function enterFullscreen(el) {
+  try {
+    if (el.requestFullscreen) return el.requestFullscreen();
+    if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
+    if (el.msRequestFullscreen) return el.msRequestFullscreen();
+    console.warn('Fullscreen API not supported for element:', el);
+  } catch (error) {
+    console.error('Error entering fullscreen:', error);
+  }
+}
 
-    closeFullscreen.addEventListener('click', () => {
-      fullscreenOverlay.classList.remove('active');
-      fullscreenImage.src = '';
-    });
+function exitFullscreen() {
+  try {
+    if (
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      document.msFullscreenElement
+    ) {
+      return (
+        document.exitFullscreen?.() ||
+        document.webkitExitFullscreen?.() ||
+        document.msExitFullscreen?.()
+      );
+    }
+  } catch (error) {
+    console.error('Error exiting fullscreen:', error);
+  }
+}
 
-    fullscreenOverlay.addEventListener('click', (e) => {
-      if (e.target === fullscreenOverlay) {
-        fullscreenOverlay.classList.remove('active');
-        fullscreenImage.src = '';
+const openFs = async (mediaEl) => {
+  try {
+    if (!mediaEl) {
+      console.error('No media element found');
+      return;
+    }
+
+    const clone = mediaEl.cloneNode(true);
+    clone.removeAttribute('class');
+    clone.removeAttribute('style');
+    if (clone.tagName === 'VIDEO') {
+      clone.controls = true;
+      clone.controlsList = 'nofullscreen nodownload nopictureinpicture';
+      clone.disablePictureInPicture = true;
+      clone.play().catch((e) => console.warn('Auto-play failed:', e));
+    }
+
+    container.innerHTML = '';
+    container.appendChild(clone);
+    overlay.classList.add('active');
+
+    // Function to adjust media size
+    const adjustMediaSize = () => {
+      const viewportWidth = window.innerWidth;
+      const viewportHeight = window.innerHeight;
+      const isMobile = viewportWidth <= 768;
+      const isVideo = clone.tagName === 'VIDEO';
+      let naturalWidth = isVideo ? clone.videoWidth : clone.naturalWidth;
+      let naturalHeight = isVideo ? clone.videoHeight : clone.naturalHeight;
+
+      // Check for valid metadata
+      if (!naturalWidth || !naturalHeight) {
+        console.error('Invalid video metadata:', naturalWidth, naturalHeight);
+        return; // Skip sizing, no fallback
       }
-    });
 
+      // Calculate aspect ratio
+      const videoAspectRatio = naturalWidth / naturalHeight;
+
+      // Set dimensions
+      let videoWidth, videoHeight;
+      if (isMobile) {
+        // Mobile: Force fixed height, calculate width
+        videoHeight = 600; // Fixed height in pixels
+        videoWidth = Math.round(videoHeight * videoAspectRatio);
+      } else {
+        // Non-mobile: Fill viewport based on aspect ratio
+        if (videoAspectRatio > viewportWidth / viewportHeight) {
+          videoWidth = viewportWidth;
+          videoHeight = Math.round(viewportWidth / videoAspectRatio);
+        } else {
+          videoHeight = viewportHeight;
+          videoWidth = Math.round(viewportHeight * videoAspectRatio);
+        }
+      }
+
+      // Apply pixel-based styles
+      clone.style.width = `${videoWidth}px`;
+      clone.style.height = `${videoHeight}px`;
+      clone.style.objectFit = 'contain';
+      clone.style.margin = '0 auto';
+      clone.style.padding = '0';
+      clone.style.position = 'relative';
+      clone.style.display = 'block';
+
+      // Debugging logs
+      console.log('Viewport (px):', viewportWidth, viewportHeight);
+      console.log('Container (px):', container.offsetWidth, container.offsetHeight);
+      console.log('Calculated video (px):', videoWidth, videoHeight);
+      console.log('Clone styles:', clone.style.cssText);
+      console.log(
+        'Media dimensions:',
+        naturalWidth,
+        naturalHeight,
+        'Aspect ratio:',
+        videoAspectRatio
+      );
+      console.log('Is mobile:', isMobile);
+    };
+
+    // Initial adjustment
+    if (clone.tagName === 'VIDEO') {
+      if (clone.videoWidth && clone.videoHeight) {
+        adjustMediaSize();
+      } else {
+        clone.addEventListener('loadedmetadata', adjustMediaSize, { once: true });
+        // No timeout or fallback
+      }
+    } else {
+      adjustMediaSize();
+    }
+
+    // Handle resize and orientation
+    const resizeHandler = () => {
+      adjustMediaSize();
+      if (overlay.classList.contains('active') && !document.fullscreenElement) {
+        enterFullscreen(container);
+      }
+    };
+    window.addEventListener('resize', resizeHandler);
+    window.addEventListener('orientationchange', resizeHandler);
+
+    // Clean up
+    const cleanup = () => {
+      window.removeEventListener('resize', resizeHandler);
+      window.removeEventListener('orientationchange', resizeHandler);
+    };
+    overlay.addEventListener('click', cleanup, { once: true });
+    closeBtn.addEventListener('click', cleanup, { once: true });
+
+    await enterFullscreen(container);
+  } catch (error) {
+    console.error('Error in openFs:', error);
+    closeFs();
+  }
+};
+
+const closeFs = () => {
+  try {
+    overlay.classList.remove('active');
+    container.innerHTML = '';
+    exitFullscreen();
+  } catch (error) {
+    console.error('Error closing fullscreen:', error);
+  }
+};
+
+fsButtons.forEach((btn) =>
+  btn.addEventListener('click', (e) => {
+    try {
+      const media = e.currentTarget
+        .closest('.video-wrapper')
+        .querySelector('img, video');
+      if (!media) {
+        console.error('No media found in video-wrapper');
+        return;
+      }
+      console.log('Fullscreen button clicked, media:', media);
+      openFs(media);
+    } catch (error) {
+      console.error('Error handling fullscreen button click:', error);
+    }
+  })
+);
+
+closeBtn.addEventListener('click', closeFs);
+
+document.addEventListener('fullscreenchange', () => {
+  if (!document.fullscreenElement && overlay.classList.contains('active')) {
+    console.log('Fullscreen exited, closing overlay');
+    closeFs();
+  }
+});
+
+overlay.addEventListener('click', (e) => {
+  if (e.target === overlay) closeFs();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && overlay.classList.contains('active')) closeFs();
+});
     // Upload Form Validation
 if (isCreatorViewingOwnProfile) {
   const uploadForm = document.getElementById('uploadContentForm');

@@ -1306,38 +1306,7 @@ video.post-video,
   position: relative;
 }
 
-/* Style for fullscreen image view */
-.fullscreen-view {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.9);
-  z-index: 9999;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
 
-.fullscreen-view img {
-  max-width: 90%;
-  max-height: 90%;
-  object-fit: contain;
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  user-select: none;
-}
-
-.fullscreen-close {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  color: white;
-  font-size: 30px;
-  cursor: pointer;
-}
 
 /* Media query for better spacing on mobile */
 @media (max-width: 767px) {
@@ -3890,61 +3859,120 @@ html, body {
   margin: 0; /* Remove default margin for tight spacing */
   font-size: 14px;
 }
+/* ==== THUMBNAIL STYLES ==== */
+.video-wrapper {
+  position: relative;
+  display: inline-block;
+  overflow: hidden;
+  max-width: 100%;
+}
 
-/* Full-screen overlay for images */
-.fullscreen-overlay {
-  display: none;
+.video-wrapper img,
+.video-wrapper video {
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  object-fit: initial;
+  display: block;
+}
+
+/* ==== CUSTOM FULLSCREEN BUTTON ==== */
+.custom-fullscreen-btn {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  border: none;
+  border-radius: 0.25rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 1.25rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.custom-fullscreen-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* ==== OVERLAY STYLES ==== */
+#fullscreenOverlay {
   position: fixed;
   top: 0;
   left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.95);
-  z-index: 1000;
-  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.9);
+  display: none;
   align-items: center;
+  justify-content: center;
+  z-index: 1000;
   margin: 0;
   padding: 0;
-  overflow: hidden;
+  box-sizing: border-box;
 }
 
-.fullscreen-overlay.active {
+/* Ensure overlay fills viewport */
+#fullscreenOverlay.active {
   display: flex;
 }
 
-.fullscreen-media {
-  width: 100vw;
-  height: 100vh;
-  min-height: 100vh;
-  object-fit: contain;
+/* Container for the cloned media */
+#fullscreenMediaContainer {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0;
   padding: 0;
-  border: none;
-  background: none;
-}
-
-.close-fullscreen {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  color: white;
-  font-size: 30px;
-  cursor: pointer;
-  background: none;
-  border: none;
+  box-sizing: border-box;
   z-index: 1001;
-  text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
 }
 
-.close-fullscreen:hover {
-  color: #ff69b4;
+/* Media styles */
+#fullscreenMediaContainer video,
+#fullscreenMediaContainer img {
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  margin: 0 auto;
+  padding: 0;
+  display: block;
 }
 
-/* Make post images clickable */
-.post-image.fullscreenable {
+/* Mobile-specific adjustments */
+@media screen and (max-width: 768px) {
+  #fullscreenOverlay,
+  #fullscreenMediaContainer {
+    height: 100%;
+    min-height: -webkit-fill-available;
+    min-height: fill-available;
+  }
+
+  #fullscreenMediaContainer video,
+  #fullscreenMediaContainer img {
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    margin: 0 auto;
+  }
+}
+
+/* Close button */
+.close-fullscreen {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  font-size: 2rem;
+  color: #fff;
+  background: transparent;
+  border: none;
   cursor: pointer;
+  z-index: 1010;
 }
-
 /********************************************
  * PROFILE ACTIONS (Chat, Tip, Broadcast Icons)
  ********************************************/
