@@ -402,26 +402,23 @@ data-username="<%= user.username %>">
                         <% mediaItems.forEach((media, index) => { %>
                           <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                             <% if (media.type === 'image') { %>
-                              <img src="<%= media.url %>" 
-     alt="Post Image" 
-     class="post-image fullscreenable" 
-     data-fullscreen-src="<%= media.url %>" 
-     draggable="false" 
-     oncontextmenu="return false;">
+                              <img src="<%= media.url %>"
+                                alt="Post Image"
+                                class="post-image fullscreenable"
+                                data-fullscreen-src="<%= media.url %>"
+                                draggable="false"
+                                oncontextmenu="return false;">
                             <% } else if (media.type === 'video') { %>
-                              <video 
-                              class="post-video fullscreenable" 
-                              data-fullscreen-src="<%= media.url %>" 
-                              disablePictureInPicture 
-                              draggable="false" 
-                              oncontextmenu="return false;">
-                              <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                              Your browser does not support the video tag.
-                            </video>
-                            
-
-                            
-
+                              <video
+                                class="post-video fullscreenable"
+                                controlsList="nodownload"
+                                data-fullscreen-src="<%= media.url %>"
+                                disablePictureInPicture
+                                draggable="false"
+                                oncontextmenu="return false;">
+                                <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                                Your browser does not support the video tag.
+                              </video>
                             <% } %>
                           </div>
                         <% }); %>
@@ -733,22 +730,23 @@ data-username="<%= user.username %>">
                       <% mediaItems.forEach((media, index) => { %>
                         <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                           <% if (media.type === 'image') { %>
-                            <img src="<%= media.url %>" 
-                            alt="Post Image" 
-                            class="post-image fullscreenable" 
-                            data-fullscreen-src="<%= media.url %>" 
-                            draggable="false" 
-                            oncontextmenu="return false;">
+                            <img src="<%= media.url %>"
+                              alt="Post Image"
+                              class="post-image fullscreenable"
+                              data-fullscreen-src="<%= media.url %>"
+                              draggable="false"
+                              oncontextmenu="return false;">
                           <% } else if (media.type === 'video') { %>
-                            <video controls 
-       class="post-video" 
-       controlsList="nodownload" 
-       disablePictureInPicture 
-       oncontextmenu="return false;" 
-       draggable="false">
-  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-  Your browser does not support the video tag.
-</video>
+                            <video
+                              class="post-video fullscreenable"
+                              controlsList="nodownload"
+                              data-fullscreen-src="<%= media.url %>"
+                              disablePictureInPicture
+                              draggable="false"
+                              oncontextmenu="return false;">
+                              <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                              Your browser does not support the video tag.
+                            </video>
                           <% } %>
                         </div>
                       <% }); %>
@@ -830,24 +828,24 @@ data-username="<%= user.username %>">
             <% if (!showLocked && mediaItems.length > 0) { %>
               <% mediaItems.forEach((media, index) => { %>
                 <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
-                  <% if (media.type === 'image') { %>
-                    <img src="<%= media.url %>" 
-     alt="Post Image" 
-     class="post-image fullscreenable" 
-     data-fullscreen-src="<%= media.url %>" 
-     draggable="false" 
-     oncontextmenu="return false;">
-                  <% } else if (media.type === 'video') { %>
-                    <video controls 
-       class="post-video" 
-       controlsList="nodownload" 
-       disablePictureInPicture 
-       oncontextmenu="return false;" 
-       draggable="false">
-  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-  Your browser does not support the video tag.
-</video>
-                  <% } %>
+                  <img src="<%= media.url %>"
+                  alt="Post Image"
+                  class="post-image fullscreenable"
+                  data-fullscreen-src="<%= media.url %>"
+                  draggable="false"
+                  oncontextmenu="return false;">
+              <% } else if (media.type === 'video') { %>
+                <video
+                  class="post-video fullscreenable"
+                  controlsList="nodownload"
+                  data-fullscreen-src="<%= media.url %>"
+                  disablePictureInPicture
+                  draggable="false"
+                  oncontextmenu="return false;">
+                  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                  Your browser does not support the video tag.
+                </video>
+              <% } %>
                 </div>
               <% }); %>
             <% } else if (showLocked) { %>
@@ -936,12 +934,12 @@ data-username="<%= user.username %>">
                     <div class="media-carousel">
                       <% mediaItems.forEach((media, index) => { %>
                         <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                          <img src="<%= media.url %>" 
-     alt="Post Image" 
-     class="post-image fullscreenable" 
-     data-fullscreen-src="<%= media.url %>" 
-     draggable="false" 
-     oncontextmenu="return false;">
+                          <img src="<%= media.url %>"
+                          alt="Post Image"
+                          class="post-image fullscreenable"
+                          data-fullscreen-src="<%= media.url %>"
+                          draggable="false"
+                          oncontextmenu="return false;">
                         </div>
                       <% }); %>
                     </div>
@@ -1116,15 +1114,16 @@ data-username="<%= user.username %>">
                     <div class="media-carousel">
                       <% mediaItems.forEach((media, index) => { %>
                         <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                          <video controls 
-       class="post-video" 
-       controlsList="nodownload" 
-       disablePictureInPicture 
-       oncontextmenu="return false;" 
-       draggable="false">
-  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-  Your browser does not support the video tag.
-</video>
+                          <video
+                          class="post-video fullscreenable"
+                          controlsList="nodownload"
+                          data-fullscreen-src="<%= media.url %>"
+                          disablePictureInPicture
+                          draggable="false"
+                          oncontextmenu="return false;">
+                          <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                          Your browser does not support the video tag.
+                        </video>
                         </div>
                       <% }); %>
                     </div>
