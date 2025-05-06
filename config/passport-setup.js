@@ -11,16 +11,17 @@ passport.serializeUser((user, done) => {
   done(null, user.id);
 });
 
+// passport-setup.js
 passport.deserializeUser(async (id, done) => {
   try {
-    const user = await User.findById(id);
+    const user = await User.findById(id).lean();
     if (!user) {
-      logger.warn('Deserialize - No user found for ID');
+      logger.warn(`Deserialize - No user found for ID: ${id}`);
       return done(null, false);
     }
     done(null, user);
   } catch (err) {
-    logger.error(`Deserialize - Error: ${err.message}`);
+    logger.error(`Deserialize - Error for ID ${id}: ${err.message}`);
     done(err, null);
   }
 });

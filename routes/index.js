@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const sendEmail = require('../config/sendEmail');
 const PendingSubscription = require('../models/pendingSubscription');
 const SubscriptionBundle = require('../models/SubscriptionBundle');
+const Notification = require('../models/notifications');
 const logger = require('../logs/logger'); // Import Winston logger
 
 
@@ -127,7 +128,6 @@ router.post('/signup', async (req, res) => {
   }
 });
 
-// In index.js, replace the /verify/:token route with this
 router.get('/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -139,15 +139,15 @@ router.get('/verify/:token', async (req, res) => {
       if (alreadyVerifiedUser) {
         return res.render('welcome', {
           errorMessage: 'Your email is already verified. Please log in.',
-          creator: creator || req.session.creator || '',
-          ref: ref || ''
+          creator: req.query.creator || req.session.creator || '',
+          ref: req.query.ref || ''
         });
       }
       logger.warn('Invalid or expired verification token');
       return res.render('welcome', {
         errorMessage: 'Invalid or expired verification link.',
-        creator: creator || req.session.creator || '',
-        ref: ref || ''
+        creator: req.query.creator || req.session.creator || '',
+        ref: req.query.ref || ''
       });
     }
 
@@ -246,8 +246,8 @@ router.get('/verify/:token', async (req, res) => {
         logger.error(`Login error after verification: ${err.message}`);
         return res.render('welcome', {
           errorMessage: 'Error logging in after verification. Please try logging in manually.',
-          creator: creator || req.session.creator || '',
-          ref: ref || ''
+          creator: req.query.creator || req.session.creator || '',
+          ref: req.query.ref || ''
         });
       }
 
@@ -277,8 +277,8 @@ router.get('/verify/:token', async (req, res) => {
         logger.error(`Error during post-verification login: ${error.message}`);
         return res.render('welcome', {
           errorMessage: 'Error processing login after verification. Please try logging in manually.',
-          creator: creator || req.session.creator || '',
-          ref: ref || ''
+          creator: req.query.creator || req.session.creator || '',
+          ref: req.query.ref || ''
         });
       }
     });
@@ -286,8 +286,8 @@ router.get('/verify/:token', async (req, res) => {
     logger.error(`Error verifying email: ${error.message}`);
     res.render('welcome', {
       errorMessage: 'An error occurred. Please try again.',
-      creator: creator || req.session.creator || '',
-      ref: ref || ''
+      creator: req.query.creator || req.session.creator || '',
+      ref: req.query.ref || ''
     });
   }
 });
