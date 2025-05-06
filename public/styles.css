@@ -3859,196 +3859,126 @@ html, body {
   margin: 0; /* Remove default margin for tight spacing */
   font-size: 14px;
 }
-/* ==== THUMBNAIL STYLES ==== */
-.video-wrapper {
-  position: relative;
-  display: inline-block;
-  overflow: hidden;
-  max-width: 100%;
-  border-radius: 8px;
-}
-
-.video-wrapper img,
-.video-wrapper video {
-  width: auto;
-  max-width: 100%;
-  height: auto;
-  object-fit: initial;
-  display: block;
-}
-
-/* ==== CUSTOM FULLSCREEN BUTTON ==== */
-.custom-fullscreen-btn {
-  position: absolute;
-  bottom: 0.5rem;
-  right: 0.5rem;
-  z-index: 10;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
-  border: none;
-  border-radius: 0.25rem;
-  padding: 0.25rem 0.5rem;
-  font-size: 1.25rem;
-  cursor: pointer;
-  transition: background 0.2s;
-  /* Add TouchUI optimizations */
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
-}
-
-.custom-fullscreen-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-/* ==== OVERLAY STYLES ==== */
-#fullscreenOverlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.95); /* Darker background like OnlyFans */
+/* HIDE / SHOW */
+#lightbox.hidden {
   display: none;
+}
+#lightbox {
+  position: fixed;
+  inset: 0;                    /* top:0; left:0; right:0; bottom:0 */
+  display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 9999; /* Higher z-index to ensure it's above everything */
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  /* Improved mobile handling */
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  touch-action: none; /* Prevent default touch actions */
+  z-index: 9999;
+  padding: 0;                  /* no padding so video can fill vertically */
 }
 
-/* Ensure overlay fills viewport */
-#fullscreenOverlay.active {
-  display: flex;
+/* BACKDROP */
+#lb-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.9);
 }
 
-/* Container for the cloned media */
-#fullscreenMediaContainer {
+/* CONTENT BOX */
+#lb-content {
   position: relative;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-  z-index: 10000;
+  overflow: hidden;
 }
 
-/* Media styles - OnlyFans-style */
-#fullscreenMediaContainer video,
-#fullscreenMediaContainer img {
-  width: auto;
-  height: auto;
+/* CLOSE BUTTON */
+#lb-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10000;
+  background: rgba(0,0,0,0.5);
+  border: none;
+  color: white;
+  font-size: 2.5rem;
+  line-height: 1;
+  padding: 0.2rem 0.6rem;
+  cursor: pointer;
+  border-radius: 0.25rem;
+}
+
+/* SHARED MEDIA */
+.lb-media {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
-  margin: 0 auto;
-  padding: 0;
-  display: block;
+  display: none;
 }
 
-/* Video controls enhancements */
-#fullscreenMediaContainer video::-webkit-media-controls {
-  opacity: 1;
-  transition: opacity 0.3s;
-}
-
-#fullscreenMediaContainer video::-webkit-media-controls-panel {
-  background: linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 100%);
-}
-
-/* Mobile-specific adjustments */
-@media screen and (max-width: 768px) {
-  /* Fix iOS 100vh issue */
-  #fullscreenOverlay {
-    height: 100%;
-    height: -webkit-fill-available;
-    height: fill-available;
-  }
-  
-  #fullscreenMediaContainer {
-    height: 100%;
-    height: -webkit-fill-available;
-    height: fill-available;
-  }
-  
-  /* Ensure video fills screen appropriately */
-  #fullscreenMediaContainer video {
-    width: 100%;
-    height: auto;
-    max-height: 100vh;
-    max-height: -webkit-fill-available;
-    object-fit: contain;
-  }
-  
-  /* Optimize for portrait mode */
-  @media (orientation: portrait) {
-    #fullscreenMediaContainer video {
-      width: 100%;
-      height: auto;
-    }
-  }
-  
-  /* Optimize for landscape mode */
-  @media (orientation: landscape) {
-    #fullscreenMediaContainer video {
-      width: auto;
-      height: 100%;
-    }
-  }
-  
-  /* Make close button bigger for touch */
-  .close-fullscreen {
-    font-size: 2.5rem !important;
-    padding: 10px;
+/* VIDEO — fill more height on mobile */
+@media (max-width: 768px) {
+  #lb-vid {
+    width: auto !important;
+    height: 100vh !important;
+    object-fit: contain !important;
   }
 }
 
-/* Close button */
-.close-fullscreen {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  font-size: 2rem;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.5);
-  border: none;
-  border-radius: 50%;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  z-index: 10010;
-  /* TouchUI optimizations */
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+/* Add these new styles to hide browser controls better */
+#lb-vid::-webkit-media-controls-enclosure {
+  display: none !important;
 }
 
-/* Tap to play prompt for iOS */
-.tap-to-play {
+#lb-vid::-webkit-media-controls {
+  display: none !important;
+}
+
+/* Custom controls styling */
+.custom-controls {
   position: absolute;
-  top: 50%;
+  bottom: 20px;
   left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
-  padding: 15px 25px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.5);
+  padding: 10px;
   border-radius: 5px;
-  font-size: 18px;
-  z-index: 1002;
-  text-align: center;
-  /* TouchUI optimizations */
-  -webkit-tap-highlight-color: transparent;
-  touch-action: manipulation;
+  display: flex;
+  gap: 15px;
+  z-index: 10001;
 }
+
+.control-btn {
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 1.5rem;
+  padding: 0;
+}
+
+.progress-container {
+  position: relative;
+  width: 200px;
+  height: 10px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 5px;
+  cursor: pointer;
+  align-self: center;
+}
+
+.progress-bar {
+  height: 100%;
+  background: white;
+  border-radius: 5px;
+  width: 0%;
+}
+
+
+
+
+
+
+
 /********************************************
  * PROFILE ACTIONS (Chat, Tip, Broadcast Icons)
  ********************************************/

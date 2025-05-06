@@ -409,19 +409,16 @@ data-username="<%= user.username %>">
      draggable="false" 
      oncontextmenu="return false;">
                             <% } else if (media.type === 'video') { %>
-                              <!-- profile.ejs -->
-<div class="video-wrapper" style="position: relative;">
-  <video
-    src="<%= media.url %>"
-    class="fullscreenable"
-    controls
-    controlsList="nofullscreen nodownload"
-    disablePictureInPicture
-    draggable="false"
-    oncontextmenu="return false;"
-  ></video>
-  <button class="custom-fullscreen-btn" aria-label="Fullscreen">⛶</button>
-</div>
+                              <video 
+                              class="post-video fullscreenable" 
+                              data-fullscreen-src="<%= media.url %>" 
+                              disablePictureInPicture 
+                              draggable="false" 
+                              oncontextmenu="return false;">
+                              <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                              Your browser does not support the video tag.
+                            </video>
+                            
 
                             
 
@@ -569,30 +566,23 @@ data-username="<%= user.username %>">
                             <% mediaItems.forEach((media, index) => { %>
                               <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                                 <% if (media.type === 'image') { %>
-                                  <img src="<%= media.url %>" 
-     alt="Post Image" 
-     class="post-image fullscreenable" 
-     data-fullscreen-src="<%= media.url %>" 
-     draggable="false" 
-     oncontextmenu="return false;">
+                                  <img src="<%= media.url %>"
+                                    alt="Post Image"
+                                    class="post-image fullscreenable"
+                                    data-fullscreen-src="<%= media.url %>"
+                                    draggable="false"
+                                    oncontextmenu="return false;">
                                 <% } else if (media.type === 'video') { %>
-                                  <!-- profile.ejs -->
-<div class="video-wrapper" style="position: relative;">
-  <video
-    src="<%= media.url %>"
-    class="fullscreenable"
-    controls
-    controlsList="nofullscreen nodownload"
-    disablePictureInPicture
-    draggable="false"
-    oncontextmenu="return false;"
-  ></video>
-  <button class="custom-fullscreen-btn" aria-label="Fullscreen">⛶</button>
-</div>
-
-                                  
-
-
+                                  <video
+                                    class="post-video fullscreenable"
+                                    controlsList="nodownload"
+                                    data-fullscreen-src="<%= media.url %>"
+                                    disablePictureInPicture
+                                    draggable="false"
+                                    oncontextmenu="return false;">
+                                    <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                                    Your browser does not support the video tag.
+                                  </video>
                                 <% } %>
                               </div>
                             <% }); %>
@@ -1248,11 +1238,7 @@ data-username="<%= user.username %>">
     <% } %>
   </div>
 </div>
-<!-- Fullscreen Overlay with improved mobile support -->
-<div class="fullscreen-overlay" id="fullscreenOverlay">
-  <div id="fullscreenMediaContainer"></div>
-  <button class="close-fullscreen" id="closeFullscreen">×</button>
-</div>
+  
   <!-- Creator Actions -->
 
 
@@ -1383,6 +1369,26 @@ data-username="<%= user.username %>">
     </form>
   </div>
 </div>
+<!-- Lightbox HTML with custom controls -->
+<div id="lightbox" class="hidden">
+  <div id="lb-backdrop"></div>
+  <div id="lb-content">
+    <button id="lb-close" aria-label="Close fullscreen">×</button>
+    <img id="lb-img" class="lb-media" alt="">
+    <video id="lb-vid" class="lb-media" controlsList="nodownload noremoteplayback" disablePictureInPicture></video>
+    
+    <!-- Custom video controls -->
+    <div class="custom-controls" id="custom-controls">
+      <button class="control-btn" id="play-pause">▶</button>
+      <div class="progress-container" id="progress-container">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <button class="control-btn" id="mute-unmute">🔊</button>
+    </div>
+  </div>
+</div>
+  
+
    <!-- Sort Modal -->
    <div class="sort-modal" style="display: none;">
     <div class="sort-modal-content">
@@ -1430,13 +1436,163 @@ data-username="<%= user.username %>">
   function getDataBoolean(element, attributeName) {
     return element && element.dataset[attributeName] === 'true';
   }
-
+ 
   document.addEventListener('DOMContentLoaded', function() {
     const profileContainer = document.querySelector('.profile-container');
     const isDevEnv = profileContainer && profileContainer.dataset.env === 'development'; // Check environment
     const isCreatorViewingOwnProfile = getDataBoolean(profileContainer, 'isCreatorViewing');
     const isVisitorSubscribed = getDataBoolean(profileContainer, 'isSubscribed');
     const isLoggedIn = getDataBoolean(profileContainer, 'currentUser');
+    const lightbox = document.getElementById('lightbox');
+  const lbBackdrop = document.getElementById('lb-backdrop');
+  const lbContent = document.getElementById('lb-content');
+  const lbClose = document.getElementById('lb-close');
+  const lbImg = document.getElementById('lb-img');
+  const lbVid = document.getElementById('lb-vid');
+  const customControls = document.getElementById('custom-controls');
+  const playPauseBtn = document.getElementById('play-pause');
+  const progressContainer = document.getElementById('progress-container');
+  const progressBar = document.getElementById('progress-bar');
+  const muteUnmuteBtn = document.getElementById('mute-unmute');
+
+  // Prevent right-click context menu on the entire lightbox
+  lightbox.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    return false;
+  });
+
+  function openLightbox(src, isVideo, time = 0) {
+    if (isVideo) {
+      lbImg.style.display = 'none';
+      lbVid.src = src;
+      lbVid.currentTime = time;
+      lbVid.style.display = 'block';
+      customControls.style.display = 'flex';
+      
+      // Remove default controls and add our custom attributes
+      lbVid.removeAttribute('controls');
+      lbVid.setAttribute('controlsList', 'nodownload noremoteplayback');
+      lbVid.setAttribute('disablePictureInPicture', '');
+      
+      // Start with paused state
+      updatePlayPauseButton();
+      
+      // Setup video event listeners
+      setupVideoListeners();
+      
+      // Auto-play if desired
+      lbVid.play().catch(e => {
+        console.log('Autoplay prevented:', e);
+        updatePlayPauseButton();
+      });
+    } else {
+      lbVid.pause();
+      lbVid.removeAttribute('src');
+      lbVid.style.display = 'none';
+      customControls.style.display = 'none';
+      lbImg.src = src;
+      lbImg.style.display = 'block';
+    }
+    lightbox.classList.remove('hidden');
+    
+    // Prevent scrolling on the body when lightbox is open
+    document.body.style.overflow = 'hidden';
+  }
+
+  function setupVideoListeners() {
+    // Update progress bar as video plays
+    lbVid.addEventListener('timeupdate', updateProgressBar);
+    
+    // Update button state on play/pause
+    lbVid.addEventListener('play', updatePlayPauseButton);
+    lbVid.addEventListener('pause', updatePlayPauseButton);
+    
+    // Update mute button state
+    lbVid.addEventListener('volumechange', updateMuteButton);
+  }
+
+  function updateProgressBar() {
+    const percentage = (lbVid.currentTime / lbVid.duration) * 100;
+    progressBar.style.width = `${percentage}%`;
+  }
+
+  function updatePlayPauseButton() {
+    playPauseBtn.textContent = lbVid.paused ? '▶' : '⏸';
+  }
+
+  function updateMuteButton() {
+    muteUnmuteBtn.textContent = lbVid.muted ? '🔇' : '🔊';
+  }
+
+  // Play/Pause button functionality
+  playPauseBtn.addEventListener('click', () => {
+    if (lbVid.paused) {
+      lbVid.play();
+    } else {
+      lbVid.pause();
+    }
+    updatePlayPauseButton();
+  });
+
+  // Progress bar click functionality
+  progressContainer.addEventListener('click', (e) => {
+    const rect = progressContainer.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    lbVid.currentTime = pos * lbVid.duration;
+  });
+
+  // Mute/Unmute button functionality
+  muteUnmuteBtn.addEventListener('click', () => {
+    lbVid.muted = !lbVid.muted;
+    updateMuteButton();
+  });
+
+  // Attach to every fullscreenable media
+  document.querySelectorAll('.fullscreenable').forEach(el => {
+    el.style.cursor = 'zoom-in';
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const src = el.dataset.fullscreenSrc || el.src || el.currentSrc;
+      if (!src) return;
+      const isVideo = el.tagName.toLowerCase() === 'video';
+      const time = isVideo ? el.currentTime : 0;
+      openLightbox(src, isVideo, time);
+    });
+  });
+
+  // Close handlers
+  function close() {
+    lightbox.classList.add('hidden');
+    lbVid.pause();
+    lbVid.removeAttribute('src');
+    lbImg.removeAttribute('src');
+    
+    // Re-enable scrolling on the body
+    document.body.style.overflow = '';
+    
+    // Remove video event listeners to prevent memory leaks
+    lbVid.removeEventListener('timeupdate', updateProgressBar);
+    lbVid.removeEventListener('play', updatePlayPauseButton);
+    lbVid.removeEventListener('pause', updatePlayPauseButton);
+    lbVid.removeEventListener('volumechange', updateMuteButton);
+  }
+  
+  lbClose.addEventListener('click', close);
+  lbBackdrop.addEventListener('click', close);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') close();
+  });
+
+  // Prevent keyboard shortcuts that might enable download or control features
+  lightbox.addEventListener('keydown', e => {
+    // Prevent common keyboard shortcuts
+    if (e.ctrlKey || e.metaKey) {
+      // Prevent Ctrl+S, Ctrl+P, etc.
+      e.preventDefault();
+      return false;
+    }
+  });
 
    // --- Free Subscription Form ---
 document.querySelectorAll('.subscribe-free-bundle-form').forEach(form => {
@@ -2282,299 +2438,7 @@ if (viewToggle) {
     }
   });
 }
-// improved-fullscreen.js
-const overlay = document.getElementById('fullscreenOverlay');
-const container = document.getElementById('fullscreenMediaContainer');
-const closeBtn = document.getElementById('closeFullscreen');
-const fsButtons = document.querySelectorAll('.custom-fullscreen-btn');
 
-// Check if device is iOS
-const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-// Check if device is mobile
-const isMobile = /iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-
-// Helper function to handle fullscreen API
-function enterFullscreen(el) {
-  try {
-    if (el.requestFullscreen) return el.requestFullscreen();
-    if (el.webkitRequestFullscreen) return el.webkitRequestFullscreen();
-    if (el.msRequestFullscreen) return el.msRequestFullscreen();
-    console.warn('Fullscreen API not supported for element:', el);
-  } catch (error) {
-    console.error('Error entering fullscreen:', error);
-  }
-}
-
-function exitFullscreen() {
-  try {
-    if (
-      document.fullscreenElement ||
-      document.webkitFullscreenElement ||
-      document.msFullscreenElement
-    ) {
-      return (
-        document.exitFullscreen?.() ||
-        document.webkitExitFullscreen?.() ||
-        document.msExitFullscreen?.()
-      );
-    }
-  } catch (error) {
-    console.error('Error exiting fullscreen:', error);
-  }
-}
-
-// Open fullscreen function with better mobile handling
-const openFs = async (mediaEl) => {
-  try {
-    if (!mediaEl) {
-      console.error('No media element found');
-      return;
-    }
-
-    // Clone the media element
-    const clone = mediaEl.cloneNode(true);
-    clone.removeAttribute('class');
-    clone.removeAttribute('style');
-    
-    // For videos, add controls optimized for mobile
-    if (clone.tagName === 'VIDEO') {
-      clone.controls = true;
-      clone.playsInline = true; // Important for iOS
-      clone.controlsList = 'nodownload'; // Allow fullscreen button in native controls
-      
-      // Ensure video will play on mobile
-      if (isMobile) {
-        clone.muted = true; // Helps with autoplay on mobile
-      }
-      
-      // Try to play the video
-      clone.play().catch((e) => {
-        console.warn('Auto-play failed:', e);
-        // For iOS, we need user interaction
-        if (isIOS) {
-          const playPrompt = document.createElement('div');
-          playPrompt.className = 'tap-to-play';
-          playPrompt.innerHTML = '<span>Tap to play</span>';
-          playPrompt.style.position = 'absolute';
-          playPrompt.style.top = '50%';
-          playPrompt.style.left = '50%';
-          playPrompt.style.transform = 'translate(-50%, -50%)';
-          playPrompt.style.background = 'rgba(0,0,0,0.7)';
-          playPrompt.style.color = 'white';
-          playPrompt.style.padding = '15px 25px';
-          playPrompt.style.borderRadius = '5px';
-          playPrompt.style.fontSize = '18px';
-          playPrompt.style.zIndex = '1002';
-          
-          container.appendChild(playPrompt);
-          
-          playPrompt.addEventListener('click', () => {
-            clone.play().catch(console.error);
-            playPrompt.remove();
-          });
-        }
-      });
-    }
-
-    // Clear container and add the cloned media
-    container.innerHTML = '';
-    container.appendChild(clone);
-    overlay.classList.add('active');
-    
-    // Set body overflow to hidden to prevent scrolling
-    document.body.style.overflow = 'hidden';
-
-    // Function to adjust media size
-    const adjustMediaSize = () => {
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-      const isVideo = clone.tagName === 'VIDEO';
-      
-      // Get original dimensions
-      let naturalWidth = isVideo ? clone.videoWidth : clone.naturalWidth;
-      let naturalHeight = isVideo ? clone.videoHeight : clone.naturalHeight;
-
-      // Check for valid metadata
-      if (!naturalWidth || !naturalHeight) {
-        console.warn('Invalid media metadata, using fallback dimensions');
-        naturalWidth = viewportWidth;
-        naturalHeight = viewportHeight;
-      }
-
-      // Calculate aspect ratio
-      const mediaAspectRatio = naturalWidth / naturalHeight;
-      
-      // Set dimensions based on OnlyFans-style approach
-      if (isMobile) {
-        if (window.innerWidth < window.innerHeight) {
-          // Portrait mode - fill width
-          clone.style.width = '100%';
-          clone.style.height = 'auto';
-          clone.style.maxHeight = '100vh';
-        } else {
-          // Landscape mode - fill height with aspect ratio preserved
-          clone.style.width = 'auto';
-          clone.style.height = '100vh';
-          clone.style.maxWidth = '100vw';
-        }
-      } else {
-        // Desktop - fill available space while maintaining aspect ratio
-        if (mediaAspectRatio > viewportWidth / viewportHeight) {
-          clone.style.width = '100vw';
-          clone.style.height = 'auto';
-        } else {
-          clone.style.height = '100vh';
-          clone.style.width = 'auto';
-        }
-      }
-      
-      // Common styles
-      clone.style.objectFit = 'contain';
-      clone.style.margin = '0 auto';
-      clone.style.padding = '0';
-      clone.style.position = 'relative';
-      clone.style.display = 'block';
-      
-      // Debug info
-      console.log('Viewport (px):', viewportWidth, viewportHeight);
-      console.log('Media dimensions:', naturalWidth, naturalHeight);
-      console.log('Aspect ratio:', mediaAspectRatio);
-      console.log('Is mobile:', isMobile);
-      console.log('Applied styles:', clone.style.cssText);
-    };
-
-    // Initial adjustment
-    if (clone.tagName === 'VIDEO') {
-      if (clone.videoWidth && clone.videoHeight) {
-        adjustMediaSize();
-      } else {
-        clone.addEventListener('loadedmetadata', adjustMediaSize, { once: true });
-        // Add a fallback timeout just in case
-        setTimeout(() => {
-          if (!clone.videoWidth || !clone.videoHeight) {
-            console.warn('Video metadata not loaded after timeout, using fallback');
-            adjustMediaSize();
-          }
-        }, 1000);
-      }
-    } else {
-      // For images
-      if (clone.complete) {
-        adjustMediaSize();
-      } else {
-        clone.addEventListener('load', adjustMediaSize, { once: true });
-      }
-    }
-
-    // Handle resize and orientation
-    const resizeHandler = () => {
-      adjustMediaSize();
-    };
-    
-    window.addEventListener('resize', resizeHandler);
-    window.addEventListener('orientationchange', resizeHandler);
-
-    // Clean up event listeners
-    const cleanup = () => {
-      window.removeEventListener('resize', resizeHandler);
-      window.removeEventListener('orientationchange', resizeHandler);
-      document.body.style.overflow = ''; // Restore scrolling
-    };
-    
-    overlay.addEventListener('click', cleanup, { once: true });
-    closeBtn.addEventListener('click', cleanup, { once: true });
-
-    // Try to enter fullscreen if not on iOS (iOS has restrictions)
-    if (!isIOS) {
-      try {
-        await enterFullscreen(container);
-      } catch (err) {
-        console.warn('Could not enter fullscreen mode:', err);
-      }
-    }
-  } catch (error) {
-    console.error('Error in openFs:', error);
-    closeFs();
-  }
-};
-
-const closeFs = () => {
-  try {
-    overlay.classList.remove('active');
-    container.innerHTML = '';
-    document.body.style.overflow = ''; // Restore scrolling
-    exitFullscreen();
-  } catch (error) {
-    console.error('Error closing fullscreen:', error);
-  }
-};
-
-// Event listeners
-fsButtons.forEach((btn) =>
-  btn.addEventListener('click', (e) => {
-    try {
-      e.preventDefault(); // Prevent any default action
-      e.stopPropagation(); // Stop event bubbling
-      
-      const wrapper = e.currentTarget.closest('.video-wrapper');
-      if (!wrapper) {
-        console.error('No video-wrapper found');
-        return;
-      }
-      
-      const media = wrapper.querySelector('img, video');
-      if (!media) {
-        console.error('No media found in video-wrapper');
-        return;
-      }
-      
-      console.log('Fullscreen button clicked, media:', media);
-      openFs(media);
-    } catch (error) {
-      console.error('Error handling fullscreen button click:', error);
-    }
-  })
-);
-
-closeBtn.addEventListener('click', (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  closeFs();
-});
-
-document.addEventListener('fullscreenchange', () => {
-  if (!document.fullscreenElement && overlay.classList.contains('active')) {
-    console.log('Fullscreen exited, closing overlay');
-    closeFs();
-  }
-});
-
-overlay.addEventListener('click', (e) => {
-  if (e.target === overlay) closeFs();
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && overlay.classList.contains('active')) closeFs();
-});
-
-// Add swipe down to close on mobile
-if (isMobile) {
-  let touchStartY = 0;
-  let touchEndY = 0;
-  
-  overlay.addEventListener('touchstart', (e) => {
-    touchStartY = e.changedTouches[0].screenY;
-  }, {passive: true});
-  
-  overlay.addEventListener('touchend', (e) => {
-    touchEndY = e.changedTouches[0].screenY;
-    
-    // If swiped down more than 100px, close the overlay
-    if (touchEndY - touchStartY > 100) {
-      closeFs();
-    }
-  }, {passive: true});
-}
     // Upload Form Validation
 if (isCreatorViewingOwnProfile) {
   const uploadForm = document.getElementById('uploadContentForm');
@@ -3247,7 +3111,7 @@ const sortButton = document.querySelector('.sort-button');
       suggestionsContainer.classList.add('hidden');
     }
   });
- 
+
   });
   
 </script>
