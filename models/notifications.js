@@ -1,4 +1,4 @@
-// models/notification.js
+// models/notifications.js
 const mongoose = require('mongoose');
 
 const NotificationSchema = new mongoose.Schema({
@@ -11,5 +11,8 @@ const NotificationSchema = new mongoose.Schema({
   isRead: { type: Boolean, default: false },
   createdAt: { type: Date, default: Date.now }
 });
+
+// Add index for efficient querying
+NotificationSchema.index({ user: 1, createdAt: -1 });
 
 module.exports = mongoose.model('Notification', NotificationSchema);

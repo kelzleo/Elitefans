@@ -125,6 +125,7 @@ router.post('/signup', async (req, res) => {
   }
 });
 
+// In index.js, replace the /verify/:token route with this
 router.get('/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -175,6 +176,68 @@ router.get('/verify/:token', async (req, res) => {
     user.redirectAfterVerify = null;
     await user.save();
 
+    // Automatically subscribe to EliteFans
+    const eliteFans = await User.findOne({ username: 'elitefans', role: 'creator' });
+    if (!eliteFans) {
+      logger.error('EliteFans account not found for auto-subscription');
+    } else if (!eliteFans.freeSubscriptionEnabled) {
+      logger.warn('EliteFans account has free subscription disabled');
+    } else {
+      // Check if user is already subscribed to EliteFans
+      const isSubscribed = user.subscriptions.some(
+        (sub) =>
+          sub.creatorId.toString() === eliteFans._id.toString() &&
+          sub.status === 'active' &&
+          sub.subscriptionExpiry > new Date()
+      );
+
+      if (!isSubscribed) {
+        // Find or create free subscription bundle for EliteFans
+        let freeBundle = await SubscriptionBundle.findOne({
+          creatorId: eliteFans._id,
+          isFree: true
+        });
+        if (!freeBundle) {
+          freeBundle = new SubscriptionBundle({
+            price: 0,
+            currency: 'NGN',
+            description: 'Free subscription to EliteFans Official content',
+            creatorId: eliteFans._id,
+            isFree: true
+          });
+          await freeBundle.save();
+          logger.info(`Created free bundle for EliteFans: ${freeBundle._id}`);
+        }
+
+        // Add subscription to user
+        user.subscriptions.push({
+          creatorId: eliteFans._id,
+          subscriptionBundle: freeBundle._id,
+          subscribedAt: new Date(),
+          subscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+          status: 'active'
+        });
+        await user.save();
+        logger.info(`User ${user._id} auto-subscribed to EliteFans`);
+
+        // Create notification for EliteFans
+        await Notification.create({
+          user: eliteFans._id,
+          message: `${user.username} just subscribed to your free plan!`,
+          type: 'new_subscription',
+          creatorId: user._id,
+          creatorName: user.username,
+          isRead: false
+        });
+        logger.info(`Notification created for EliteFans: New subscription by ${user.username}`);
+
+        // Update EliteFans subscriber count
+        await eliteFans.updateSubscriberCount();
+      } else {
+        logger.info(`User ${user._id} already subscribed to EliteFans`);
+      }
+    }
+
     // Log in the user
     req.login(user, async (err) => {
       if (err) {
@@ -189,7 +252,7 @@ router.get('/verify/:token', async (req, res) => {
       try {
         await User.findByIdAndUpdate(user._id, {
           isOnline: true,
-          lastSeen: new Date(),
+          lastSeen: new Date()
         });
 
         // Clear session data
