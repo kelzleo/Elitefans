@@ -2,14 +2,13 @@
 const { Storage } = require('@google-cloud/storage');
 const path = require('path');
 const logger = require('../logs/logger');
-const sharp = require('sharp'); // Add this package for image processing
-const ffmpeg = require('fluent-ffmpeg'); // Add this package for video processing
-const fs = require('fs');
+const sharp = require('sharp'); // For image processing
+const ffmpeg = require('fluent-ffmpeg'); // For video processing
+const fs = require('fs').promises; // Use promises for async file operations
 const os = require('os');
-// ← Add these two lines ↓
+// Set FFmpeg path
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-
 
 // Decode the Base64-encoded credentials from GCLOUD_CREDS_BASE64
 let credentials;
@@ -101,7 +100,7 @@ const generateSignedUrlForCreatorRequest = async (filename) => {
   }
 };
 
-// NEW: Create a blurred preview image for special content
+// Create a blurred preview image for special content
 const createBlurredPreview = async (buffer, mimetype, originalBlobName) => {
   try {
     // Create a blurred version of the image
@@ -135,7 +134,7 @@ const createBlurredPreview = async (buffer, mimetype, originalBlobName) => {
   }
 };
 
-// NEW: Create a short video preview (first few seconds)
+// Create a short video preview (first few seconds)
 const createVideoPreview = async (buffer, mimetype, originalBlobName) => {
   try {
     // Create temporary files for processing
@@ -143,7 +142,7 @@ const createVideoPreview = async (buffer, mimetype, originalBlobName) => {
     const tempOutputPath = path.join(os.tmpdir(), `output-${Date.now()}.mp4`);
     
     // Write the buffer to the temp file
-    await fs.promises.writeFile(tempInputPath, buffer);
+    await fs.writeFile(tempInputPath, buffer);
 
     // Create a 5-second preview of the video with lowered resolution
     await new Promise((resolve, reject) => {
@@ -164,7 +163,7 @@ const createVideoPreview = async (buffer, mimetype, originalBlobName) => {
     });
 
     // Read the output file
-    const previewBuffer = await fs.promises.readFile(tempOutputPath);
+    const previewBuffer = await fs.readFile(tempOutputPath);
     
     // Create a new blob name for the video preview
     const previewBlobName = originalBlobName.replace('uploads/', 'previews/');
@@ -184,8 +183,8 @@ const createVideoPreview = async (buffer, mimetype, originalBlobName) => {
 
     // Clean up temp files
     await Promise.all([
-      fs.promises.unlink(tempInputPath),
-      fs.promises.unlink(tempOutputPath)
+      fs.unlink(tempInputPath),
+      fs.unlink(tempOutputPath)
     ]);
 
     logger.info(`Created video preview for ${originalBlobName}`);
@@ -196,7 +195,72 @@ const createVideoPreview = async (buffer, mimetype, originalBlobName) => {
   }
 };
 
-// Enhanced function to upload media with preview generation for special content
+// NEW: Create a thumbnail image for videos
+const createVideoThumbnail = async (buffer, originalBlobName) => {
+  try {
+    // Create temporary files for processing
+    const tempInputPath = path.join(os.tmpdir(), `input-thumb-${Date.now()}.mp4`);
+    const tempOutputPath = path.join(os.tmpdir(), `thumb-${Date.now()}.jpg`);
+
+    // Write the video buffer to a temp file
+    await fs.writeFile(tempInputPath, buffer);
+
+    // Extract a thumbnail at 1 second
+    await new Promise((resolve, reject) => {
+      ffmpeg(tempInputPath)
+        .screenshots({
+          count: 1,
+          folder: os.tmpdir(),
+          filename: path.basename(tempOutputPath),
+          timestamps: ['1'], // Capture at 1 second
+          size: '480x?', // Resize width to 480, maintain aspect ratio
+        })
+        .on('end', resolve)
+        .on('error', (err) => {
+          logger.error(`Error generating video thumbnail: ${err.message}`);
+          reject(err);
+        });
+    });
+
+    // Read the thumbnail file
+    let thumbnailBuffer = await fs.readFile(tempOutputPath);
+
+    // Optimize the thumbnail with sharp
+    thumbnailBuffer = await sharp(thumbnailBuffer)
+      .jpeg({ quality: 80 }) // Optimize quality
+      .toBuffer();
+
+    // Create a new blob name for the thumbnail
+    const thumbnailBlobName = originalBlobName.replace('uploads/', 'thumbnails/').replace(/\.[^/.]+$/, '.jpg');
+
+    // Upload the thumbnail to the bucket
+    const thumbnailBlob = bucket.file(thumbnailBlobName);
+    const thumbnailStream = thumbnailBlob.createWriteStream({
+      resumable: false,
+      contentType: 'image/jpeg',
+    });
+
+    await new Promise((resolve, reject) => {
+      thumbnailStream.on('finish', resolve);
+      thumbnailStream.on('error', reject);
+      thumbnailStream.end(thumbnailBuffer);
+    });
+
+    // Clean up temp files
+    await Promise.all([
+      fs.unlink(tempInputPath),
+      fs.unlink(tempOutputPath)
+    ]);
+
+    logger.info(`Created video thumbnail for ${originalBlobName}: ${thumbnailBlobName}`);
+    return thumbnailBlobName;
+  } catch (err) {
+    logger.error(`Error creating video thumbnail: ${err.message}`);
+    throw err;
+  }
+};
+
+// Enhanced function to upload media with preview and thumbnail generation for special content
 const uploadMediaWithPreview = async (buffer, type, filename, isSpecial = false) => {
   const mimeType = type === 'image' ? 'image/jpeg' : 'video/mp4';
   const blobName = `uploads/${type}/${Date.now()}_${filename}`;
@@ -216,20 +280,28 @@ const uploadMediaWithPreview = async (buffer, type, filename, isSpecial = false)
     blobStream.end(buffer);
   });
 
+  // Initialize return object
+  const result = {
+    originalUrl: blobName,
+    previewUrl: null,
+    posterUrl: null, // NEW: Include posterUrl for videos
+  };
+
   // If this is special content, create and upload preview version
-  let previewBlobName = null;
   if (isSpecial) {
     if (type === 'image') {
-      previewBlobName = await createBlurredPreview(buffer, mimeType, blobName);
+      result.previewUrl = await createBlurredPreview(buffer, mimeType, blobName);
     } else if (type === 'video') {
-      previewBlobName = await createVideoPreview(buffer, mimeType, blobName);
+      result.previewUrl = await createVideoPreview(buffer, mimeType, blobName);
     }
   }
 
-  return {
-    originalUrl: blobName,
-    previewUrl: previewBlobName
-  };
+  // If this is a video, generate a thumbnail
+  if (type === 'video') {
+    result.posterUrl = await createVideoThumbnail(buffer, blobName);
+  }
+
+  return result;
 };
 
 module.exports = {
@@ -241,5 +313,5 @@ module.exports = {
   generateSignedUrlForCreatorRequest,
   chatBucket,
   generateSignedUrlForChatMedia,
-  uploadMediaWithPreview, // Export the new function
+  uploadMediaWithPreview, // Export the updated function
 };

@@ -51,14 +51,17 @@ h1, h2 {
   min-height: 100vh;
   box-sizing: border-box;
   position: relative;
-}header.logo-header {
-  position: absolute !important; /* Scroll with page, override conflicts */
+}
+header.logo-header {
+  position: absolute !important;
   top: 10px;
- 
+  left: 0;
+  right: 0;
   z-index: 1000;
-  background: none;
   display: flex;
+  justify-content: center;  /* ← center children horizontally */
   align-items: center;
+  background: none;
 }
 
 .logo-link {
@@ -81,7 +84,7 @@ h1, h2 {
 
   font-weight: bold;
   color: red; /* Pink, or #ff0000 for red */
-  font-family: 'Arial', sans-serif;
+
   text-transform: uppercase;
 }
 

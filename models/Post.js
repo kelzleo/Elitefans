@@ -12,13 +12,15 @@ const mediaItemSchema = new Schema({
   url: { type: String, required: true },
   type: { type: String, enum: ['image', 'video'], required: true },
   contentType: { type: String },
-  previewUrl: { type: String } // Added field for preview URLs
+  previewUrl: { type: String }, // For preview URLs (special content)
+  posterUrl: { type: String } // NEW: For video thumbnails
 });
 
 const postSchema = new Schema({
   creator: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   contentUrl: { type: String },
-  previewUrl: { type: String }, // Added field for the main preview URL
+  previewUrl: { type: String }, // For main preview URL
+  posterUrl: { type: String }, // NEW: For main video thumbnail
   mediaItems: [mediaItemSchema],
   type: { type: String, enum: ['image', 'video', 'text', 'mixed'], required: true },
   writeUp: { type: String },

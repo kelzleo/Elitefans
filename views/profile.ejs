@@ -415,6 +415,7 @@ data-username="<%= user.username %>">
                                 disablePictureInPicture 
                                 draggable="false" 
                                 oncontextmenu="return false;">
+                                poster="<%= media.posterUrl %>"
                                 <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
                                 Your browser does not support the video tag.
                               </video>
@@ -555,6 +556,7 @@ data-username="<%= user.username %>">
                                   disablePictureInPicture
                                   draggable="false"
                                   oncontextmenu="return false;"
+                                  poster="<%= media.posterUrl %>"
                                   <%= showLocked ? '' : 'controls' %>>
                                   <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
                                   Your browser does not support the video tag.

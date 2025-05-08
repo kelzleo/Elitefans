@@ -67,7 +67,6 @@ const renderTaggedWriteUp = (writeUp, taggedUsers) => {
  * Otherwise, set a locked placeholder.
  * Preserves createdAt for frontend relative time formatting.
  */
-// Process post URLs and render writeUp with tagged users
 const processPostUrls = async (posts, currentUser, ownerUser, adminView = false) => {
   await Post.populate(posts, { path: 'taggedUsers', select: 'username' });
 
@@ -102,6 +101,15 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
         post.contentUrl = '/Uploads/placeholder.png';
       }
     }
+    // Generate signed URL for post.posterUrl (for single video posts)
+    if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
+      try {
+        post.posterUrl = await generateSignedUrl(post.posterUrl);
+      } catch (err) {
+        logger.error(`Failed to generate signed URL for post poster: ${err.message}`);
+        post.posterUrl = null; // Set to null instead of fallback
+      }
+    }
 
     // Handle new-style posts (multiple media)
     if (post.mediaItems && post.mediaItems.length > 0) {
@@ -121,6 +129,15 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
           } catch (err) {
             logger.error(`Failed to generate signed URL for media item: ${err.message}`);
             mediaItem.url = '/Uploads/placeholder.png';
+          }
+        }
+        // Generate signed URL for mediaItem.posterUrl (for videos)
+        if (mediaItem.type === 'video' && mediaItem.posterUrl && !mediaItem.posterUrl.startsWith('http')) {
+          try {
+            mediaItem.posterUrl = await generateSignedUrl(mediaItem.posterUrl);
+          } catch (err) {
+            logger.error(`Failed to generate signed URL for media item poster: ${err.message}`);
+            mediaItem.posterUrl = null; // Set to null instead of fallback
           }
         }
       }
@@ -1112,7 +1129,6 @@ router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
   }
 });
 
-// Upload content
 router.post(
   '/uploadContent',
   authCheck,
@@ -1175,6 +1191,7 @@ router.post(
       const mediaItems = [];
       let contentUrl = null;
       let previewUrl = null;
+      let posterUrl = null; // NEW: For single video posts
 
       if (hasImages) {
         for (const file of req.files.contentImages) {
@@ -1209,12 +1226,14 @@ router.post(
             type: 'video',
             contentType: file.mimetype,
             previewUrl: uploadResult.previewUrl,
+            posterUrl: uploadResult.posterUrl // NEW: Save posterUrl for videos
           });
         }
         postType = hasImages ? 'mixed' : 'video';
         if (!contentUrl) {
           contentUrl = mediaItems[0].url;
           previewUrl = mediaItems[0].previewUrl;
+          posterUrl = mediaItems[0].posterUrl; // NEW: Set posterUrl for single video
         }
       }
 
@@ -1231,6 +1250,7 @@ router.post(
         unlockPrice: isSpecial ? unlockPrice : undefined,
         contentUrl,
         previewUrl,
+        posterUrl, // NEW: Save posterUrl for single video posts
         taggedUsers,
         renderedWriteUp,
         category,

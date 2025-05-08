@@ -43,29 +43,48 @@ const processPostUrlForFeed = async (post, currentUser) => {
   );
 
   if (post.special && !hasPurchased) {
-    post.mediaItems = post.mediaItems?.map(item => ({
-      ...item,
-      url: `/Uploads/locked-placeholder-${item.type}.png`
-    })) || [];
-    post.contentUrl = post.contentUrl ? '/Uploads/locked-placeholder.png' : null;
     post.locked = true;
+
+    // Use preview URLs if available
+    if (post.mediaItems && post.mediaItems.length > 0) {
+      for (const item of post.mediaItems) {
+        if (item.previewUrl && !item.previewUrl.startsWith('http')) {
+          try {
+            item.url = await generateSignedUrl(item.previewUrl);
+          } catch (err) {
+            logger.error(`Failed to generate signed URL for preview: ${err.message}`);
+            item.url = `/Uploads/placeholder-${item.type}.png`;
+          }
+        } else {
+          item.url = `/Uploads/placeholder-${item.type}.png`;
+        }
+      }
+    } else if (post.previewUrl && !post.previewUrl.startsWith('http')) {
+      try {
+        post.contentUrl = await generateSignedUrl(post.previewUrl);
+      } catch (err) {
+        logger.error(`Failed to generate signed URL for post preview: ${err.message}`);
+        post.contentUrl = '/Uploads/placeholder.png';
+      }
+    } else {
+      post.contentUrl = '/Uploads/placeholder.png';
+    }
   } else {
     post.locked = false;
 
-    if (post.mediaItems?.length > 0) {
+    // Use original URLs
+    if (post.mediaItems && post.mediaItems.length > 0) {
       for (const item of post.mediaItems) {
         if (item.url && !item.url.startsWith('http')) {
           try {
             item.url = await generateSignedUrl(item.url);
           } catch (err) {
-            logger.error(`Failed to generate signed URL for mediaItem ${item.url}: ${err.message}`);
+            logger.error(`Failed to generate signed URL for mediaItem: ${err.message}`);
             item.url = `/Uploads/placeholder-${item.type}.png`;
           }
         }
       }
-    }
-
-    if (post.contentUrl && !post.contentUrl.startsWith('http')) {
+    } else if (post.contentUrl && !post.contentUrl.startsWith('http')) {
       try {
         post.contentUrl = await generateSignedUrl(post.contentUrl);
       } catch (err) {
