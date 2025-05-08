@@ -58,6 +58,15 @@ const processPostUrlForFeed = async (post, currentUser) => {
         } else {
           item.url = `/Uploads/placeholder-${item.type}.png`;
         }
+        // NEW: Generate signed URL for mediaItem.posterUrl (for videos)
+        if (item.type === 'video' && item.posterUrl && !item.posterUrl.startsWith('http')) {
+          try {
+            item.posterUrl = await generateSignedUrl(item.posterUrl);
+          } catch (err) {
+            logger.error(`Failed to generate signed URL for media item poster: ${err.message}`);
+            item.posterUrl = null; // Set to null instead of fallback
+          }
+        }
       }
     } else if (post.previewUrl && !post.previewUrl.startsWith('http')) {
       try {
@@ -66,8 +75,26 @@ const processPostUrlForFeed = async (post, currentUser) => {
         logger.error(`Failed to generate signed URL for post preview: ${err.message}`);
         post.contentUrl = '/Uploads/placeholder.png';
       }
+      // NEW: Generate signed URL for post.posterUrl (for single video posts)
+      if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
+        try {
+          post.posterUrl = await generateSignedUrl(post.posterUrl);
+        } catch (err) {
+          logger.error(`Failed to generate signed URL for post poster: ${err.message}`);
+          post.posterUrl = null; // Set to null instead of fallback
+        }
+      }
     } else {
       post.contentUrl = '/Uploads/placeholder.png';
+      // NEW: Generate signed URL for post.posterUrl (for single video posts)
+      if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
+        try {
+          post.posterUrl = await generateSignedUrl(post.posterUrl);
+        } catch (err) {
+          logger.error(`Failed to generate signed URL for post poster: ${err.message}`);
+          post.posterUrl = null; // Set to null instead of fallback
+        }
+      }
     }
   } else {
     post.locked = false;
@@ -83,6 +110,15 @@ const processPostUrlForFeed = async (post, currentUser) => {
             item.url = `/Uploads/placeholder-${item.type}.png`;
           }
         }
+        // NEW: Generate signed URL for mediaItem.posterUrl (for videos)
+        if (item.type === 'video' && item.posterUrl && !item.posterUrl.startsWith('http')) {
+          try {
+            item.posterUrl = await generateSignedUrl(item.posterUrl);
+          } catch (err) {
+            logger.error(`Failed to generate signed URL for media item poster: ${err.message}`);
+            item.posterUrl = null; // Set to null instead of fallback
+          }
+        }
       }
     } else if (post.contentUrl && !post.contentUrl.startsWith('http')) {
       try {
@@ -90,6 +126,15 @@ const processPostUrlForFeed = async (post, currentUser) => {
       } catch (err) {
         logger.error(`Failed to generate signed URL for post: ${err.message}`);
         post.contentUrl = '/Uploads/placeholder.png';
+      }
+      // NEW: Generate signed URL for post.posterUrl (for single video posts)
+      if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
+        try {
+          post.posterUrl = await generateSignedUrl(post.posterUrl);
+        } catch (err) {
+          logger.error(`Failed to generate signed URL for post poster: ${err.message}`);
+          post.posterUrl = null; // Set to null instead of fallback
+        }
       }
     }
   }

@@ -714,16 +714,18 @@ data-username="<%= user.username %>">
                                draggable="false" 
                                oncontextmenu="return false;">
                         <% } else if (media.type === 'video') { %>
-                          <video 
-                            class="post-video <%= showLocked ? 'blurred' : '' %>" 
-                            controlsList="nodownload" 
-                            disablePictureInPicture 
-                            oncontextmenu="return false;" 
-                            draggable="false"
-                            <%= showLocked ? '' : 'controls' %>>
-                            <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                            Your browser does not support the video tag.
-                          </video>
+                          <video
+                          class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                          controlsList="nodownload"
+                          data-fullscreen-src="<%= media.url %>"
+                          disablePictureInPicture
+                          draggable="false"
+                          oncontextmenu="return false;"
+                          poster="<%= media.posterUrl %>"
+                          <%= showLocked ? '' : 'controls' %>>
+                          <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                          Your browser does not support the video tag.
+                        </video>
                         <% } %>
                       </div>
                     <% }); %>
@@ -819,6 +821,7 @@ data-username="<%= user.username %>">
                         <img src="<%= media.url %>" alt="Preview Image" class="post-image blurred">
                       <% } else if (media.type === 'video') { %>
                         <video class="post-video blurred" disablePictureInPicture>
+                          poster="<%= media.posterUrl %>"
                           <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
                           Your browser does not support the video tag.
                         </video>
@@ -1088,12 +1091,14 @@ data-username="<%= user.username %>">
                   <div class="media-carousel">
                     <% mediaItems.forEach((media, index) => { %>
                       <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                        <video 
-                          class="post-video <%= showLocked ? 'blurred' : '' %>" 
-                          controlsList="nodownload" 
-                          disablePictureInPicture 
-                          oncontextmenu="return false;" 
+                        <video
+                          class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                          controlsList="nodownload"
+                          data-fullscreen-src="<%= media.url %>"
+                          disablePictureInPicture
                           draggable="false"
+                          oncontextmenu="return false;"
+                          poster="<%= media.posterUrl %>"
                           <%= showLocked ? '' : 'controls' %>>
                           <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
                           Your browser does not support the video tag.
@@ -1189,6 +1194,7 @@ data-username="<%= user.username %>">
                   <% mediaItems.forEach((media, index) => { %>
                     <div class="preview-media">
                       <video class="post-video blurred" disablePictureInPicture>
+                        poster="<%= media.posterUrl %>"
                         <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
                         Your browser does not support the video tag.
                       </video>
