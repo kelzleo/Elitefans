@@ -317,8 +317,8 @@ data-username="<%= user.username %>">
   <!-- Posts Tab -->
 <!-- Posts Tab -->
 <div class="tab-content <%= activeTab === 'posts' ? '' : 'hidden' %>" id="posts-tab">
-  <!-- Sort Button for Posts Tab -->
-  <div class="sort-container" style="text-align: right; margin-bottom: 10px;">
+   <!-- Sort Button for Posts Tab -->
+   <div class="sort-container" style="text-align: right; margin-bottom: 10px;">
     <button class="sort-button" title="Sort Posts">
       <i class="fas fa-sort"></i>
     </button>
@@ -402,19 +402,18 @@ data-username="<%= user.username %>">
                         <% mediaItems.forEach((media, index) => { %>
                           <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                             <% if (media.type === 'image') { %>
-                              <img src="<%= media.url %>"
-                                alt="Post Image"
-                                class="post-image fullscreenable"
-                                data-fullscreen-src="<%= media.url %>"
-                                draggable="false"
-                                oncontextmenu="return false;">
+                              <img src="<%= media.url %>" 
+                                   alt="Post Image" 
+                                   class="post-image fullscreenable" 
+                                   data-fullscreen-src="<%= media.url %>" 
+                                   draggable="false" 
+                                   oncontextmenu="return false;">
                             <% } else if (media.type === 'video') { %>
-                              <video
-                                class="post-video fullscreenable"
-                                controlsList="nodownload"
-                                data-fullscreen-src="<%= media.url %>"
-                                disablePictureInPicture
-                                draggable="false"
+                              <video 
+                                class="post-video fullscreenable" 
+                                data-fullscreen-src="<%= media.url %>" 
+                                disablePictureInPicture 
+                                draggable="false" 
                                 oncontextmenu="return false;">
                                 <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
                                 Your browser does not support the video tag.
@@ -503,103 +502,91 @@ data-username="<%= user.username %>">
                 <% 
                   const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
                   const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-                    currentUser.purchasedContent.some(function(p) { return p.contentId.toString() === post._id.toString(); });
+                    currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
                   const showLocked = post.special && !isAdminView && !hasPurchased;
+                  const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
+                    post.mediaItems : 
+                    (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
                 %>
-                <% if (showLocked) { %>
-                  <div class="locked-content-container">
-                    <% if (post.type === 'text') { %>
-                      <p class="post-text preview-text"><%- post.renderedWriteUp.substring(0, 100) %><% if (post.writeUp.length > 100) { %>...<% } %></p>
-                    <% } else { %>
-                      <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                      <% if (post.writeUp) { %>
-                        <p class="post-writeUp preview-text"><%- post.renderedWriteUp.substring(0, 100) %><% if (post.writeUp.length > 100) { %>...<% } %></p>
-                      <% } %>
-                    <% } %>
-                    <div class="unlock-overlay">
-                      <i class="fa fa-lock"></i>
-                      <div>Unlock for ₦<%= post.unlockPrice %></div>
-                      <% if (!isAdminView) { %>
-                        <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock Post</button>
-                      <% } %>
-                    </div>
-                  </div>
-                <% } else { %>
-                  <div class="profile-post-header">
-                    <div class="profile-creator-info">
-                      <a href="/profile/<%= user.username %>">
-                        <img src="<%= user.profilePicture || '/images/default-profile.png' %>" alt="<%= user.username %>'s profile picture" class="creator-profile-pic">
-                        <div class="profile-name-container">
-                          <span class="profile-creator-name">
-                            <%= user.profileName || user.username %>
-                            <% if (user.role === 'creator') { %>
-                              <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
-                            <% } %>
-                          </span>
-                          <span class="profile-username">@<%= user.username %></span>
-                        </div>
-                      </a>
-                    </div>
-                    <div class="post-menu">
-                      <button class="post-menu-button" data-post-id="<%= post._id %>" aria-label="Post options">
-                        <i class="fa-solid fa-ellipsis"></i>
-                      </button>
-                    </div>
-                  </div>
-                  <div class="post-content">
-                    <% console.log('Rendering post:', { id: post._id, type: post.type, contentUrl: post.contentUrl, writeUp: post.renderedWriteUp, category: post.category }); %>
-                    <% if (post.type === 'text') { %>
-                      <p class="post-text"><%- post.renderedWriteUp %></p>
-                    <% } else { %>
-                      <!-- Multiple Media Display -->
-                      <% 
-                        const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
-                          post.mediaItems : 
-                          (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
-                      %>
-                      <% if (mediaItems.length > 0) { %>
-                        <div class="media-carousel-container">
-                          <div class="media-carousel">
-                            <% mediaItems.forEach((media, index) => { %>
-                              <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                                <% if (media.type === 'image') { %>
-                                  <img src="<%= media.url %>"
-                                    alt="Post Image"
-                                    class="post-image fullscreenable"
-                                    data-fullscreen-src="<%= media.url %>"
-                                    draggable="false"
-                                    oncontextmenu="return false;">
-                                <% } else if (media.type === 'video') { %>
-                                  <video
-                                    class="post-video fullscreenable"
-                                    controlsList="nodownload"
-                                    data-fullscreen-src="<%= media.url %>"
-                                    disablePictureInPicture
-                                    draggable="false"
-                                    oncontextmenu="return false;">
-                                    <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                                    Your browser does not support the video tag.
-                                  </video>
-                                <% } %>
-                              </div>
-                            <% }); %>
-                          </div>
-                          <% if (mediaItems.length > 1) { %>
-                            <div class="carousel-nav">
-                              <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
-                              <div class="carousel-indicators">
-                                <% mediaItems.forEach((_, index) => { %>
-                                  <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
-                                <% }); %>
-                              </div>
-                              <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
-                            </div>
+                <div class="profile-post-header">
+                  <div class="profile-creator-info">
+                    <a href="/profile/<%= user.username %>">
+                      <img src="<%= user.profilePicture || '/images/default-profile.png' %>" alt="<%= user.username %>'s profile picture" class="creator-profile-pic">
+                      <div class="profile-name-container">
+                        <span class="profile-creator-name">
+                          <%= user.profileName || user.username %>
+                          <% if (user.role === 'creator') { %>
+                            <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
                           <% } %>
+                        </span>
+                        <span class="profile-username">@<%= user.username %></span>
+                      </div>
+                    </a>
+                  </div>
+                  <div class="post-menu">
+                    <button class="post-menu-button" data-post-id="<%= post._id %>" aria-label="Post options">
+                      <i class="fa-solid fa-ellipsis"></i>
+                    </button>
+                  </div>
+                </div>
+                <div class="post-content">
+                  <% console.log('Rendering post:', { id: post._id, type: post.type, contentUrl: post.contentUrl, writeUp: post.renderedWriteUp, category: post.category }); %>
+                  <% if (post.type === 'text') { %>
+                    <p class="post-text"><%- post.renderedWriteUp %></p>
+                  <% } else { %>
+                    <!-- Multiple Media Display -->
+                    <% if (mediaItems.length > 0) { %>
+                      <div class="media-carousel-container <%= showLocked ? 'locked' : '' %>">
+                        <div class="media-carousel">
+                          <% mediaItems.forEach((media, index) => { %>
+                            <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
+                              <% if (media.type === 'image') { %>
+                                <img src="<%= media.url %>"
+                                     alt="Post Image"
+                                     class="post-image fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                                     data-fullscreen-src="<%= media.url %>"
+                                     draggable="false"
+                                     oncontextmenu="return false;">
+                              <% } else if (media.type === 'video') { %>
+                                <video
+                                  class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                                  controlsList="nodownload"
+                                  data-fullscreen-src="<%= media.url %>"
+                                  disablePictureInPicture
+                                  draggable="false"
+                                  oncontextmenu="return false;"
+                                  <%= showLocked ? '' : 'controls' %>>
+                                  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                                  Your browser does not support the video tag.
+                                </video>
+                              <% } %>
+                            </div>
+                          <% }); %>
                         </div>
-                      <% } %>
-                      <% if (post.writeUp) { %>
-                        <p class="post-writeUp"><%- post.renderedWriteUp %></p>
-                      <% } %>
+                        <% if (mediaItems.length > 1) { %>
+                          <div class="carousel-nav">
+                            <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                            <div class="carousel-indicators">
+                              <% mediaItems.forEach((_, index) => { %>
+                                <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
+                              <% }); %>
+                            </div>
+                            <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
+                          </div>
+                        <% } %>
+                      </div>
+                    <% } %>
+                    <% if (post.writeUp) { %>
+                      <p class="post-writeUp"><%= showLocked ? post.renderedWriteUp.substring(0, 100) + (post.writeUp.length > 100 ? '...' : '') : post.renderedWriteUp %></p>
+                    <% } %>
+                  <% } %>
+                </div>
+                <% if (showLocked) { %>
+                  <div class="unlock-info">
+                    <i class="fa fa-lock"></i>
+                    <span>Unlock for ₦<%= post.unlockPrice %></span>
+                    <% if (!isAdminView) { %>
+                      <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock Post</button>
                     <% } %>
                   </div>
                 <% } %>
@@ -660,7 +647,7 @@ data-username="<%= user.username %>">
     <% } %>
   <% } %>
 </div>
- <!-- Media Tab -->
+<!-- Media Tab -->
 <div class="tab-content hidden" id="media-tab">
   <div class="media-subtabs">
     <button class="subtab-button active" data-subtab="all">All <span class="tab-count"><%= (user.imagesCount || 0) + (user.videosCount || 0) %></span></button>
@@ -712,58 +699,54 @@ data-username="<%= user.username %>">
                   </button>
                 </div>
               </div>
-              <% if (showLocked) { %>
-                <div class="locked-content-container">
-                  <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                  <div class="unlock-overlay">
-                    <i class="fa fa-lock"></i>
-                    <div>Unlock for ₦<%= post.unlockPrice %></div>
-                    <% if (!isAdminView) { %>
-                      <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
-                    <% } %>
-                  </div>
-                </div>
-              <% } else { %>
-                <% if (mediaItems.length > 0) { %>
-                  <div class="media-carousel-container">
-                    <div class="media-carousel">
-                      <% mediaItems.forEach((media, index) => { %>
-                        <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                          <% if (media.type === 'image') { %>
-                            <img src="<%= media.url %>"
-                              alt="Post Image"
-                              class="post-image fullscreenable"
-                              data-fullscreen-src="<%= media.url %>"
-                              draggable="false"
-                              oncontextmenu="return false;">
-                          <% } else if (media.type === 'video') { %>
-                            <video
-                              class="post-video fullscreenable"
-                              controlsList="nodownload"
-                              data-fullscreen-src="<%= media.url %>"
-                              disablePictureInPicture
-                              draggable="false"
-                              oncontextmenu="return false;">
-                              <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                              Your browser does not support the video tag.
-                            </video>
-                          <% } %>
-                        </div>
-                      <% }); %>
-                    </div>
-                    <% if (mediaItems.length > 1) { %>
-                      <div class="carousel-nav">
-                        <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
-                        <div class="carousel-indicators">
-                          <% mediaItems.forEach((_, index) => { %>
-                            <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
-                          <% }); %>
-                        </div>
-                        <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
+              <% if (mediaItems.length > 0) { %>
+                <div class="media-carousel-container <%= showLocked ? 'locked' : '' %>">
+                  <div class="media-carousel">
+                    <% mediaItems.forEach((media, index) => { %>
+                      <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
+                        <% if (media.type === 'image') { %>
+                          <img src="<%= media.url %>" 
+                               alt="Post Image" 
+                               class="post-image fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                               data-fullscreen-src="<%= media.url %>" 
+                               draggable="false" 
+                               oncontextmenu="return false;">
+                        <% } else if (media.type === 'video') { %>
+                          <video 
+                            class="post-video <%= showLocked ? 'blurred' : '' %>" 
+                            controlsList="nodownload" 
+                            disablePictureInPicture 
+                            oncontextmenu="return false;" 
+                            draggable="false"
+                            <%= showLocked ? '' : 'controls' %>>
+                            <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                            Your browser does not support the video tag.
+                          </video>
+                        <% } %>
                       </div>
-                    <% } %>
+                    <% }); %>
                   </div>
-                <% } %>
+                  <% if (mediaItems.length > 1) { %>
+                    <div class="carousel-nav">
+                      <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                      <div class="carousel-indicators">
+                        <% mediaItems.forEach((_, index) => { %>
+                          <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
+                        <% }); %>
+                      </div>
+                      <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                  <% } %>
+                </div>
+              <% } %>
+              <% if (showLocked) { %>
+                <div class="unlock-info">
+                  <i class="fa fa-lock"></i>
+                  <span>Unlock for ₦<%= post.unlockPrice %></span>
+                  <% if (!isAdminView) { %>
+                    <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                  <% } %>
+                </div>
               <% } %>
               <div class="normal-view-content">
                 <% if (!showLocked && post.writeUp) { %>
@@ -825,40 +808,46 @@ data-username="<%= user.username %>">
               </div>
             </div>
             <!-- Compact View: One media-item per media item -->
-            <% if (!showLocked && mediaItems.length > 0) { %>
+            <% if (showLocked) { %>
+              <div class="media-item compact-view locked" id="media-post-<%= post._id %>-locked">
+                <% if (mediaItems.length > 0) { %>
+                  <% mediaItems.forEach((media, index) => { %>
+                    <div class="preview-media">
+                      <% if (media.type === 'image') { %>
+                        <img src="<%= media.url %>" alt="Preview Image" class="post-image blurred">
+                      <% } else if (media.type === 'video') { %>
+                        <video class="post-video blurred" disablePictureInPicture>
+                          <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                          Your browser does not support the video tag.
+                        </video>
+                      <% } %>
+                    </div>
+                  <% }); %>
+                <% } %>
+              </div>
+            <% } else if (mediaItems.length > 0) { %>
               <% mediaItems.forEach((media, index) => { %>
                 <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
-                  <img src="<%= media.url %>"
-                  alt="Post Image"
-                  class="post-image fullscreenable"
-                  data-fullscreen-src="<%= media.url %>"
-                  draggable="false"
-                  oncontextmenu="return false;">
-              <% } else if (media.type === 'video') { %>
-                <video
-                  class="post-video fullscreenable"
-                  controlsList="nodownload"
-                  data-fullscreen-src="<%= media.url %>"
-                  disablePictureInPicture
-                  draggable="false"
-                  oncontextmenu="return false;">
-                  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                  Your browser does not support the video tag.
-                </video>
-              <% } %>
-                </div>
-              <% }); %>
-            <% } else if (showLocked) { %>
-              <div class="media-item compact-view locked" id="media-post-<%= post._id %>-locked">
-                <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                <div class="unlock-overlay">
-                  <i class="fa fa-lock"></i>
-                  <div>Unlock for ₦<%= post.unlockPrice %></div>
-                  <% if (!isAdminView) { %>
-                    <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                  <% if (media.type === 'image') { %>
+                    <img src="<%= media.url %>" 
+                         alt="Post Image" 
+                         class="post-image fullscreenable" 
+                         data-fullscreen-src="<%= media.url %>" 
+                         draggable="false" 
+                         oncontextmenu="return false;">
+                  <% } else if (media.type === 'video') { %>
+                    <video controls 
+                           class="post-video" 
+                           controlsList="nodownload" 
+                           disablePictureInPicture 
+                           oncontextmenu="return false;" 
+                           draggable="false">
+                      <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                      Your browser does not support the video tag.
+                    </video>
                   <% } %>
                 </div>
-              </div>
+              <% }); %>
             <% } %>
           <% }); %>
         </div>
@@ -917,45 +906,41 @@ data-username="<%= user.username %>">
                   </button>
                 </div>
               </div>
-              <% if (showLocked) { %>
-                <div class="locked-content-container">
-                  <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                  <div class="unlock-overlay">
-                    <i class="fa fa-lock"></i>
-                    <div>Unlock for ₦<%= post.unlockPrice %></div>
-                    <% if (!isAdminView) { %>
-                      <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
-                    <% } %>
-                  </div>
-                </div>
-              <% } else { %>
-                <% if (mediaItems.length > 0) { %>
-                  <div class="media-carousel-container">
-                    <div class="media-carousel">
-                      <% mediaItems.forEach((media, index) => { %>
-                        <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                          <img src="<%= media.url %>"
-                          alt="Post Image"
-                          class="post-image fullscreenable"
-                          data-fullscreen-src="<%= media.url %>"
-                          draggable="false"
-                          oncontextmenu="return false;">
-                        </div>
-                      <% }); %>
-                    </div>
-                    <% if (mediaItems.length > 1) { %>
-                      <div class="carousel-nav">
-                        <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
-                        <div class="carousel-indicators">
-                          <% mediaItems.forEach((_, index) => { %>
-                            <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
-                          <% }); %>
-                        </div>
-                        <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
+              <% if (mediaItems.length > 0) { %>
+                <div class="media-carousel-container <%= showLocked ? 'locked' : '' %>">
+                  <div class="media-carousel">
+                    <% mediaItems.forEach((media, index) => { %>
+                      <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
+                        <img src="<%= media.url %>" 
+                             alt="Post Image" 
+                             class="post-image fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                             data-fullscreen-src="<%= media.url %>" 
+                             draggable="false" 
+                             oncontextmenu="return false;">
                       </div>
-                    <% } %>
+                    <% }); %>
                   </div>
-                <% } %>
+                  <% if (mediaItems.length > 1) { %>
+                    <div class="carousel-nav">
+                      <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                      <div class="carousel-indicators">
+                        <% mediaItems.forEach((_, index) => { %>
+                          <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
+                        <% }); %>
+                      </div>
+                      <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                  <% } %>
+                </div>
+              <% } %>
+              <% if (showLocked) { %>
+                <div class="unlock-info">
+                  <i class="fa fa-lock"></i>
+                  <span>Unlock for ₦<%= post.unlockPrice %></span>
+                  <% if (!isAdminView) { %>
+                    <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                  <% } %>
+                </div>
               <% } %>
               <div class="normal-view-content">
                 <% if (!showLocked && post.writeUp) { %>
@@ -1017,28 +1002,27 @@ data-username="<%= user.username %>">
               </div>
             </div>
             <!-- Compact View -->
-            <% if (!showLocked && mediaItems.length > 0) { %>
+            <% if (showLocked) { %>
+              <div class="media-item compact-view locked" id="media-post-<%= post._id %>-locked">
+                <% if (mediaItems.length > 0) { %>
+                  <% mediaItems.forEach((media, index) => { %>
+                    <div class="preview-media">
+                      <img src="<%= media.url %>" alt="Preview Image" class="post-image blurred">
+                    </div>
+                  <% }); %>
+                <% } %>
+              </div>
+            <% } else if (mediaItems.length > 0) { %>
               <% mediaItems.forEach((media, index) => { %>
                 <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
                   <img src="<%= media.url %>" 
-                  alt="Post Image" 
-                  class="post-image fullscreenable" 
-                  data-fullscreen-src="<%= media.url %>" 
-                  draggable="false" 
-                  oncontextmenu="return false;">
+                       alt="Post Image" 
+                       class="post-image fullscreenable" 
+                       data-fullscreen-src="<%= media.url %>" 
+                       draggable="false" 
+                       oncontextmenu="return false;">
                 </div>
               <% }); %>
-            <% } else if (showLocked) { %>
-              <div class="media-item compact-view locked" id="media-post-<%= post._id %>-locked">
-                <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                <div class="unlock-overlay">
-                  <i class="fa fa-lock"></i>
-                  <div>Unlock for ₦<%= post.unlockPrice %></div>
-                  <% if (!isAdminView) { %>
-                    <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
-                  <% } %>
-                </div>
-              </div>
             <% } %>
           <% }); %>
         </div>
@@ -1097,49 +1081,45 @@ data-username="<%= user.username %>">
                   </button>
                 </div>
               </div>
-              <% if (showLocked) { %>
-                <div class="locked-content-container">
-                  <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                  <div class="unlock-overlay">
-                    <i class="fa fa-lock"></i>
-                    <div>Unlock for ₦<%= post.unlockPrice %></div>
-                    <% if (!isAdminView) { %>
-                      <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
-                    <% } %>
-                  </div>
-                </div>
-              <% } else { %>
-                <% if (mediaItems.length > 0) { %>
-                  <div class="media-carousel-container">
-                    <div class="media-carousel">
-                      <% mediaItems.forEach((media, index) => { %>
-                        <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                          <video
-                          class="post-video fullscreenable"
-                          controlsList="nodownload"
-                          data-fullscreen-src="<%= media.url %>"
-                          disablePictureInPicture
+              <% if (mediaItems.length > 0) { %>
+                <div class="media-carousel-container <%= showLocked ? 'locked' : '' %>">
+                  <div class="media-carousel">
+                    <% mediaItems.forEach((media, index) => { %>
+                      <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
+                        <video 
+                          class="post-video <%= showLocked ? 'blurred' : '' %>" 
+                          controlsList="nodownload" 
+                          disablePictureInPicture 
+                          oncontextmenu="return false;" 
                           draggable="false"
-                          oncontextmenu="return false;">
+                          <%= showLocked ? '' : 'controls' %>>
                           <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
                           Your browser does not support the video tag.
                         </video>
-                        </div>
-                      <% }); %>
-                    </div>
-                    <% if (mediaItems.length > 1) { %>
-                      <div class="carousel-nav">
-                        <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
-                        <div class="carousel-indicators">
-                          <% mediaItems.forEach((_, index) => { %>
-                            <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
-                          <% }); %>
-                        </div>
-                        <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
                       </div>
-                    <% } %>
+                    <% }); %>
                   </div>
-                <% } %>
+                  <% if (mediaItems.length > 1) { %>
+                    <div class="carousel-nav">
+                      <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                      <div class="carousel-indicators">
+                        <% mediaItems.forEach((_, index) => { %>
+                          <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
+                        <% }); %>
+                      </div>
+                      <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
+                    </div>
+                  <% } %>
+                </div>
+              <% } %>
+              <% if (showLocked) { %>
+                <div class="unlock-info">
+                  <i class="fa fa-lock"></i>
+                  <span>Unlock for ₦<%= post.unlockPrice %></span>
+                  <% if (!isAdminView) { %>
+                    <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                  <% } %>
+                </div>
               <% } %>
               <div class="normal-view-content">
                 <% if (!showLocked && post.writeUp) { %>
@@ -1201,31 +1181,33 @@ data-username="<%= user.username %>">
               </div>
             </div>
             <!-- Compact View -->
-            <% if (!showLocked && mediaItems.length > 0) { %>
+            <% if (showLocked) { %>
+              <div class="media-item compact-view locked" id="media-post-<%= post._id %>-locked">
+                <% if (mediaItems.length > 0) { %>
+                  <% mediaItems.forEach((media, index) => { %>
+                    <div class="preview-media">
+                      <video class="post-video blurred" disablePictureInPicture>
+                        <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                        Your browser does not support the video tag.
+                      </video>
+                    </div>
+                  <% }); %>
+                <% } %>
+              </div>
+            <% } else if (mediaItems.length > 0) { %>
               <% mediaItems.forEach((media, index) => { %>
                 <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
                   <video controls 
-                  class="post-video" 
-                  controlsList="nodownload" 
-                  disablePictureInPicture 
-                  oncontextmenu="return false;" 
-                  draggable="false">
-             <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-             Your browser does not support the video tag.
-           </video>
+                         class="post-video" 
+                         controlsList="nodownload" 
+                         disablePictureInPicture 
+                         oncontextmenu="return false;" 
+                         draggable="false">
+                    <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                    Your browser does not support the video tag.
+                  </video>
                 </div>
               <% }); %>
-            <% } else if (showLocked) { %>
-              <div class="media-item compact-view locked" id="media-post-<%= post._id %>-locked">
-                <img src="/Uploads/locked-placeholder.png" alt="Locked Content" class="post-image post-locked-placeholder">
-                <div class="unlock-overlay">
-                  <i class="fa fa-lock"></i>
-                  <div>Unlock for ₦<%= post.unlockPrice %></div>
-                  <% if (!isAdminView) { %>
-                    <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
-                  <% } %>
-                </div>
-              </div>
             <% } %>
           <% }); %>
         </div>
@@ -1237,7 +1219,6 @@ data-username="<%= user.username %>">
     <% } %>
   </div>
 </div>
-  
   <!-- Creator Actions -->
 
 

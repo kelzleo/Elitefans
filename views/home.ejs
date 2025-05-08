@@ -2,6 +2,14 @@
 <div class="home-container"
      data-current-user="<%= currentUser ? 'true' : 'false' %>"
      data-env="<%= env %>">
+  <!-- Logo Header -->
+  <header class="logo-header">
+    <a href="/home" class="logo-link">
+      <img src="https://storage.googleapis.com/my-public-profile-pictures/logos/elitefans-logo.PNG" alt="EliteFans Logo" class="site-logo">
+      <span class="logo-text">EliteFans</span>
+    </a>
+  </header>
+
   <!-- Search Section -->
   <div class="search-section">
     <div class="search-icon-container">
@@ -237,25 +245,25 @@
     </div>
   </div>
 
- 
-<!-- Lightbox HTML with custom controls -->
-<div id="lightbox" class="hidden">
-  <div id="lb-backdrop"></div>
-  <div id="lb-content">
-    <button id="lb-close" aria-label="Close fullscreen">×</button>
-    <img id="lb-img" class="lb-media" alt="">
-    <video id="lb-vid" class="lb-media" controlsList="nodownload noremoteplayback" disablePictureInPicture></video>
-    
-    <!-- Custom video controls -->
-    <div class="custom-controls" id="custom-controls">
-      <button class="control-btn" id="play-pause">▶</button>
-      <div class="progress-container" id="progress-container">
-        <div class="progress-bar" id="progress-bar"></div>
+  <!-- Lightbox HTML with custom controls -->
+  <div id="lightbox" class="hidden">
+    <div id="lb-backdrop"></div>
+    <div id="lb-content">
+      <button id="lb-close" aria-label="Close fullscreen">×</button>
+      <img id="lb-img" class="lb-media" alt="">
+      <video id="lb-vid" class="lb-media" controlsList="nodownload noremoteplayback" disablePictureInPicture></video>
+      
+      <!-- Custom video controls -->
+      <div class="custom-controls" id="custom-controls">
+        <button class="control-btn" id="play-pause">▶</button>
+        <div class="progress-container" id="progress-container">
+          <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <button class="control-btn" id="mute-unmute">🔊</button>
       </div>
-      <button class="control-btn" id="mute-unmute">🔊</button>
     </div>
   </div>
-</div>
+
   <!-- Post Action Modal -->
   <div id="postActionModal" class="post-action-modal hidden">
     <div class="post-action-modal-content">
@@ -328,159 +336,157 @@
       const isLoggedIn = container && container.dataset.currentUser === 'true';
 
       const lightbox = document.getElementById('lightbox');
-  const lbBackdrop = document.getElementById('lb-backdrop');
-  const lbContent = document.getElementById('lb-content');
-  const lbClose = document.getElementById('lb-close');
-  const lbImg = document.getElementById('lb-img');
-  const lbVid = document.getElementById('lb-vid');
-  const customControls = document.getElementById('custom-controls');
-  const playPauseBtn = document.getElementById('play-pause');
-  const progressContainer = document.getElementById('progress-container');
-  const progressBar = document.getElementById('progress-bar');
-  const muteUnmuteBtn = document.getElementById('mute-unmute');
+      const lbBackdrop = document.getElementById('lb-backdrop');
+      const lbContent = document.getElementById('lb-content');
+      const lbClose = document.getElementById('lb-close');
+      const lbImg = document.getElementById('lb-img');
+      const lbVid = document.getElementById('lb-vid');
+      const customControls = document.getElementById('custom-controls');
+      const playPauseBtn = document.getElementById('play-pause');
+      const progressContainer = document.getElementById('progress-container');
+      const progressBar = document.getElementById('progress-bar');
+      const muteUnmuteBtn = document.getElementById('mute-unmute');
 
-  // Prevent right-click context menu on the entire lightbox
-  lightbox.addEventListener('contextmenu', e => {
-    e.preventDefault();
-    return false;
-  });
+      // Prevent right-click context menu on the entire lightbox
+      lightbox.addEventListener('contextmenu', e => {
+        e.preventDefault();
+        return false;
+      });
 
-  function openLightbox(src, isVideo, time = 0) {
-    if (isVideo) {
-      lbImg.style.display = 'none';
-      lbVid.src = src;
-      lbVid.currentTime = time;
-      lbVid.style.display = 'block';
-      customControls.style.display = 'flex';
-      
-      // Remove default controls and add our custom attributes
-      lbVid.removeAttribute('controls');
-      lbVid.setAttribute('controlsList', 'nodownload noremoteplayback');
-      lbVid.setAttribute('disablePictureInPicture', '');
-      
-      // Start with paused state
-      updatePlayPauseButton();
-      
-      // Setup video event listeners
-      setupVideoListeners();
-      
-      // Auto-play if desired
-      lbVid.play().catch(e => {
-        console.log('Autoplay prevented:', e);
+      function openLightbox(src, isVideo, time = 0) {
+        if (isVideo) {
+          lbImg.style.display = 'none';
+          lbVid.src = src;
+          lbVid.currentTime = time;
+          lbVid.style.display = 'block';
+          customControls.style.display = 'flex';
+          
+          // Remove default controls and add our custom attributes
+          lbVid.removeAttribute('controls');
+          lbVid.setAttribute('controlsList', 'nodownload noremoteplayback');
+          lbVid.setAttribute('disablePictureInPicture', '');
+          
+          // Start with paused state
+          updatePlayPauseButton();
+          
+          // Setup video event listeners
+          setupVideoListeners();
+          
+          // Auto-play if desired
+          lbVid.play().catch(e => {
+            console.log('Autoplay prevented:', e);
+            updatePlayPauseButton();
+          });
+        } else {
+          lbVid.pause();
+          lbVid.removeAttribute('src');
+          lbVid.style.display = 'none';
+          customControls.style.display = 'none';
+          lbImg.src = src;
+          lbImg.style.display = 'block';
+        }
+        lightbox.classList.remove('hidden');
+        
+        // Prevent scrolling on the body when lightbox is open
+        document.body.style.overflow = 'hidden';
+      }
+
+      function setupVideoListeners() {
+        // Update progress bar as video plays
+        lbVid.addEventListener('timeupdate', updateProgressBar);
+        
+        // Update button state on play/pause
+        lbVid.addEventListener('play', updatePlayPauseButton);
+        lbVid.addEventListener('pause', updatePlayPauseButton);
+        
+        // Update mute button state
+        lbVid.addEventListener('volumechange', updateMuteButton);
+      }
+
+      function updateProgressBar() {
+        const percentage = (lbVid.currentTime / lbVid.duration) * 100;
+        progressBar.style.width = `${percentage}%`;
+      }
+
+      function updatePlayPauseButton() {
+        playPauseBtn.textContent = lbVid.paused ? '▶' : '⏸';
+      }
+
+      function updateMuteButton() {
+        muteUnmuteBtn.textContent = lbVid.muted ? '🔇' : '🔊';
+      }
+
+      // Play/Pause button functionality
+      playPauseBtn.addEventListener('click', () => {
+        if (lbVid.paused) {
+          lbVid.play();
+        } else {
+          lbVid.pause();
+        }
         updatePlayPauseButton();
       });
-    } else {
-      lbVid.pause();
-      lbVid.removeAttribute('src');
-      lbVid.style.display = 'none';
-      customControls.style.display = 'none';
-      lbImg.src = src;
-      lbImg.style.display = 'block';
-    }
-    lightbox.classList.remove('hidden');
-    
-    // Prevent scrolling on the body when lightbox is open
-    document.body.style.overflow = 'hidden';
-  }
 
-  function setupVideoListeners() {
-    // Update progress bar as video plays
-    lbVid.addEventListener('timeupdate', updateProgressBar);
-    
-    // Update button state on play/pause
-    lbVid.addEventListener('play', updatePlayPauseButton);
-    lbVid.addEventListener('pause', updatePlayPauseButton);
-    
-    // Update mute button state
-    lbVid.addEventListener('volumechange', updateMuteButton);
-  }
+      // Progress bar click functionality
+      progressContainer.addEventListener('click', (e) => {
+        const rect = progressContainer.getBoundingClientRect();
+        const pos = (e.clientX - rect.left) / rect.width;
+        lbVid.currentTime = pos * lbVid.duration;
+      });
 
-  function updateProgressBar() {
-    const percentage = (lbVid.currentTime / lbVid.duration) * 100;
-    progressBar.style.width = `${percentage}%`;
-  }
+      // Mute/Unmute button functionality
+      muteUnmuteBtn.addEventListener('click', () => {
+        lbVid.muted = !lbVid.muted;
+        updateMuteButton();
+      });
 
-  function updatePlayPauseButton() {
-    playPauseBtn.textContent = lbVid.paused ? '▶' : '⏸';
-  }
+      // Attach to every fullscreenable media
+      document.querySelectorAll('.fullscreenable').forEach(el => {
+        el.style.cursor = 'zoom-in';
+        el.addEventListener('click', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          const src = el.dataset.fullscreenSrc || el.src || el.currentSrc;
+          if (!src) return;
+          const isVideo = el.tagName.toLowerCase() === 'video';
+          const time = isVideo ? el.currentTime : 0;
+          openLightbox(src, isVideo, time);
+        });
+      });
 
-  function updateMuteButton() {
-    muteUnmuteBtn.textContent = lbVid.muted ? '🔇' : '🔊';
-  }
-
-  // Play/Pause button functionality
-  playPauseBtn.addEventListener('click', () => {
-    if (lbVid.paused) {
-      lbVid.play();
-    } else {
-      lbVid.pause();
-    }
-    updatePlayPauseButton();
-  });
-
-  // Progress bar click functionality
-  progressContainer.addEventListener('click', (e) => {
-    const rect = progressContainer.getBoundingClientRect();
-    const pos = (e.clientX - rect.left) / rect.width;
-    lbVid.currentTime = pos * lbVid.duration;
-  });
-
-  // Mute/Unmute button functionality
-  muteUnmuteBtn.addEventListener('click', () => {
-    lbVid.muted = !lbVid.muted;
-    updateMuteButton();
-  });
-
-  // Attach to every fullscreenable media
-  document.querySelectorAll('.fullscreenable').forEach(el => {
-    el.style.cursor = 'zoom-in';
-    el.addEventListener('click', e => {
-      e.preventDefault();
-      e.stopPropagation();
-      const src = el.dataset.fullscreenSrc || el.src || el.currentSrc;
-      if (!src) return;
-      const isVideo = el.tagName.toLowerCase() === 'video';
-      const time = isVideo ? el.currentTime : 0;
-      openLightbox(src, isVideo, time);
-    });
-  });
-
-  // Close handlers
-  function close() {
-    lightbox.classList.add('hidden');
-    lbVid.pause();
-    lbVid.removeAttribute('src');
-    lbImg.removeAttribute('src');
-    
-    // Re-enable scrolling on the body
-    document.body.style.overflow = '';
-    
-    // Remove video event listeners to prevent memory leaks
-    lbVid.removeEventListener('timeupdate', updateProgressBar);
-    lbVid.removeEventListener('play', updatePlayPauseButton);
-    lbVid.removeEventListener('pause', updatePlayPauseButton);
-    lbVid.removeEventListener('volumechange', updateMuteButton);
-  }
-  
-  lbClose.addEventListener('click', close);
-  lbBackdrop.addEventListener('click', close);
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape') close();
-  });
-
-  // Prevent keyboard shortcuts that might enable download or control features
-  lightbox.addEventListener('keydown', e => {
-    // Prevent common keyboard shortcuts
-    if (e.ctrlKey || e.metaKey) {
-      // Prevent Ctrl+S, Ctrl+P, etc.
-      e.preventDefault();
-      return false;
-    }
-  });
-
+      // Close handlers
+      function close() {
+        lightbox.classList.add('hidden');
+        lbVid.pause();
+        lbVid.removeAttribute('src');
+        lbImg.removeAttribute('src');
+        
+        // Re-enable scrolling on the body
+        document.body.style.overflow = '';
+        
+        // Remove video event listeners to prevent memory leaks
+        lbVid.removeEventListener('timeupdate', updateProgressBar);
+        lbVid.removeEventListener('play', updatePlayPauseButton);
+        lbVid.removeEventListener('pause', updatePlayPauseButton);
+        lbVid.removeEventListener('volumechange', updateMuteButton);
+      }
       
+      lbClose.addEventListener('click', close);
+      lbBackdrop.addEventListener('click', close);
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') close();
+      });
 
-      // --- Search Functionality (Unchanged) ---
+      // Prevent keyboard shortcuts that might enable download or control features
+      lightbox.addEventListener('keydown', e => {
+        // Prevent common keyboard shortcuts
+        if (e.ctrlKey || e.metaKey) {
+          // Prevent Ctrl+S, Ctrl+P, etc.
+          e.preventDefault();
+          return false;
+        }
+      });
+
+      // --- Search Functionality ---
       const searchIcon = document.querySelector('.search-icon');
       const searchIconContainer = document.querySelector('.search-icon-container');
       const searchContainer = document.querySelector('.search-container');
@@ -788,8 +794,6 @@
           }
         });
       });
-
-      
 
       // --- Post Action Modal ---
       const postMenuButtons = document.querySelectorAll('.post-menu-button');

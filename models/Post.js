@@ -1,3 +1,4 @@
+// models/post.js
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
@@ -11,14 +12,17 @@ const mediaItemSchema = new Schema({
   url: { type: String, required: true },
   type: { type: String, enum: ['image', 'video'], required: true },
   contentType: { type: String },
+  previewUrl: { type: String } // Added field for preview URLs
 });
 
 const postSchema = new Schema({
   creator: { type: Schema.Types.ObjectId, ref: 'User', required: true },
   contentUrl: { type: String },
+  previewUrl: { type: String }, // Added field for the main preview URL
   mediaItems: [mediaItemSchema],
   type: { type: String, enum: ['image', 'video', 'text', 'mixed'], required: true },
   writeUp: { type: String },
+  renderedWriteUp: { type: String },
   special: { type: Boolean, default: false },
   unlockPrice: { type: Number },
   likes: [{ type: Schema.Types.ObjectId, ref: 'User' }],
@@ -26,7 +30,7 @@ const postSchema = new Schema({
   totalTips: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now },
   taggedUsers: [{ type: Schema.Types.ObjectId, ref: 'User' }],
-  category: { type: String, default: null }, // New field for custom category
+  category: { type: String, default: null },
 });
 
 module.exports = mongoose.model('Post', postSchema);

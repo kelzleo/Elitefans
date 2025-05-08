@@ -1,35 +1,42 @@
 <!-- views/welcome.ejs -->
-<h1>Our Logo</h1>
-<% if (typeof creator !== 'undefined' && creator) { %>
-  <h2>Sign up or log in to subscribe to <%= creator %></h2>
-<% } else { %>
-  <h2>Sign up to meet and support your favorite creators</h2>
-<% } %>
+<header class="logo-header">
+  <a href="/home" class="logo-link">
+    <img src="https://storage.googleapis.com/my-public-profile-pictures/logos/elitefans-logo.PNG" alt="EliteFans Logo" class="site-logo">
+    <span class="logo-text">EliteFans</span>
+  </a>
+</header>
+<div class="welcome-container">
+  <% if (typeof creator !== 'undefined' && creator) { %>
+    <h2>Sign up or log in to subscribe to <%= creator %></h2>
+  <% } else { %>
+    <h2>Sign up to meet and support your favorite creators</h2>
+  <% } %>
 
-<% if (errorMessage && errorMessage.length > 0) { %>
-  <div class="error-message">
-    <%= errorMessage %>
+  <% if (errorMessage && errorMessage.length > 0) { %>
+    <div class="error-message">
+      <%= errorMessage %>
+    </div>
+  <% } %>
+
+  <form action="/login<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %>" method="POST" class="login-form">
+    <% if (creator) { %>
+      <input type="hidden" name="creator" value="<%= creator %>">
+    <% } %>
+    <% if (typeof ref !== 'undefined' && ref) { %>
+      <input type="hidden" name="ref" value="<%= ref %>">
+    <% } %>
+    <input type="text" name="usernameOrEmail" placeholder="Email or Username" required>
+    <input type="password" name="password" placeholder="Password" required>
+    <button type="submit" class="button-login">Login</button>
+  </form>
+
+  <div class="sign-options">
+    <a href="/google<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %><%= typeof ref !== 'undefined' && ref ? `${creator ? '&' : '?'}ref=${encodeURIComponent(ref)}` : '' %>" class="a-sign">Sign In With Google</a>
+    <a href="" class="a-sign">Sign In With X</a>
   </div>
-<% } %>
 
-<form action="/login<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %>" method="POST" class="login-form">
-  <% if (creator) { %>
-    <input type="hidden" name="creator" value="<%= creator %>">
-  <% } %>
-  <% if (typeof ref !== 'undefined' && ref) { %>
-    <input type="hidden" name="ref" value="<%= ref %>">
-  <% } %>
-  <input type="text" name="usernameOrEmail" placeholder="Email or Username" required>
-  <input type="password" name="password" placeholder="Password" required>
-  <button type="submit" class="button-login">Login</button>
-</form>
-
-<div class="sign-options">
-  <a href="/google<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %><%= typeof ref !== 'undefined' && ref ? `${creator ? '&' : '?'}ref=${encodeURIComponent(ref)}` : '' %>" class="a-sign">Sign In With Google</a>
-  <a href="" class="a-sign">Sign In With X</a>
-</div>
-
-<div class="signup-options">
-  <a href="/forgot-password" class="g-sign">Forgot Password?</a>
-  <a href="/signup<%= typeof ref !== 'undefined' && ref ? `?ref=${encodeURIComponent(ref)}` : '' %><%= creator ? `${typeof ref !== 'undefined' && ref ? '&' : '?'}creator=${encodeURIComponent(creator)}` : '' %>" class="g-sign">Sign Up Now</a>
+  <div class="signup-options">
+    <a href="/forgot-password" class="g-sign">Forgot Password?</a>
+    <a href="/signup<%= typeof ref !== 'undefined' && ref ? `?ref=${encodeURIComponent(ref)}` : '' %><%= creator ? `${typeof ref !== 'undefined' && ref ? '&' : '?'}creator=${encodeURIComponent(creator)}` : '' %>" class="g-sign">Sign Up Now</a>
+  </div>
 </div>

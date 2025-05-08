@@ -38,6 +38,7 @@ h1, h2 {
  body {
   font-family: "Roboto Slab", serif;
   background-color: #f7f7f7;
+ 
   margin: 0;
   padding: 0;
   overflow-x: hidden;
@@ -49,8 +50,77 @@ h1, h2 {
   padding-bottom: 80px; /* Increased base padding for mobile */
   min-height: 100vh;
   box-sizing: border-box;
+  position: relative;
+}header.logo-header {
+  position: absolute !important; /* Scroll with page, override conflicts */
+  top: 10px;
+ 
+  z-index: 1000;
+  background: none;
+  display: flex;
+  align-items: center;
 }
-/********************************************
+
+.logo-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.site-logo {
+  height: 40px;
+  width: auto;
+  max-width: 150px;
+  object-fit: contain;
+  display: block !important;
+}
+
+.logo-text {
+  margin-left: 5px;
+  font-size: 24px;
+
+  font-weight: bold;
+  color: red; /* Pink, or #ff0000 for red */
+  font-family: 'Arial', sans-serif;
+  text-transform: uppercase;
+}
+
+/* Prevent overlap */
+.welcome-container,
+.home-container,
+.signup-container {
+  padding-top: 80px;
+  max-width: 800px;
+  margin: 0 auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+/* Welcome page */
+.welcome-container h2 {
+  font-size: 28px;
+  margin-bottom: 20px;
+  text-align: center;
+}
+/* Responsive */
+@media (max-width: 768px) {
+  .site-logo {
+    height: 30px;
+  }
+  .logo-text {
+    font-size: 20px;
+    margin-left: 3px;
+  }
+  header.logo-header {
+    left: 10px;
+  }
+  .welcome-container,
+  .home-container,
+  .signup-container {
+    padding-top: 60px;
+  }
+}
+/****************************************
  * BOTTOM NAVIGATION
  ********************************************/
 .bottom-nav {
@@ -450,6 +520,24 @@ body {
 /********************************************
  * LOGIN / SIGNUP FORMS
  ********************************************/
+ 
+/* Prevent overlap */
+.welcome-container,
+.home-container,
+.signup-container {
+  padding-top: 80px; /* Space for header */
+  max-width: 800px;
+  margin: 0 auto;
+  padding-left: 20px;
+  padding-right: 20px;
+}
+
+/* Style for welcome page elements */
+.welcome-container h2 {
+  font-size: 28px;
+  margin-bottom: 20px;
+  text-align: center;
+}
 .sign-options {
   display: flex;
   flex-direction: column;
@@ -1322,9 +1410,70 @@ video.post-video,
   }
 }
 /********************************************
+ * LOCKED CONTENT PREVIEW STYLES
+ ********************************************/
+ .unlock-info {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  text-align: center;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.5);
+  border-radius: 4px;
+  font-size: 14px;
+  margin-top: 10px;
+}
+
+.unlock-info i {
+  font-size: 24px;
+}
+
+.unlock-info .unlock-button {
+  background-color: #ff69b4;
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.unlock-info .unlock-button:hover {
+  background-color: #ff4d94;
+}
+
+@media (min-width: 768px) {
+  .unlock-info {
+    font-size: 16px;
+  }
+  .unlock-info i {
+    font-size: 32px;
+  }
+  .unlock-info .unlock-button {
+    padding: 10px 20px;
+    font-size: 16px;
+  }
+}
+
+@media (min-width: 1024px) {
+  .unlock-info {
+    font-size: 18px;
+  }
+  .unlock-info i {
+    font-size: 40px;
+  }
+  .unlock-info .unlock-button {
+    padding: 12px 24px;
+    font-size: 18px;
+  }
+}
+
+/********************************************
  * POST CARD STYLES
  ********************************************/
- .post-card {
+.post-card {
   background-color: #fff;
   border: 1px solid #f8c8da;
   border-radius: 8px;
@@ -1792,53 +1941,6 @@ video.post-video,
   border-radius: 4px;
 }
 
-/* Locked content in compact view */
-.media-list .media-item.compact-view.locked img {
-  width: 100%;
-  height: 120px;
-  object-fit: cover;
-  filter: blur(5px);
-  border-radius: 4px;
-}
-
-.media-list .media-item.compact-view .unlock-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  color: #fff;
-  text-align: center;
-  border-radius: 4px;
-  font-size: 12px;
-}
-
-.media-list .media-item.compact-view .unlock-overlay i {
-  font-size: 24px;
-  margin-bottom: 5px;
-}
-
-.media-list .media-item.compact-view .unlock-overlay .unlock-button {
-  background-color: #ff69b4;
-  color: #fff;
-  border: none;
-  padding: 5px 10px;
-  border-radius: 4px;
-  cursor: pointer;
-  margin-top: 5px;
-  font-size: 12px;
-}
-
-/* Ensure timestamps and other normal view content are hidden in compact view */
-.media-list .normal-view-content {
-  display: none;
-}
-
 /* Messages */
 .no-media-message,
 .subscribe-prompt {
@@ -1954,12 +2056,8 @@ video.post-video,
     margin: 0 auto;
   }
   .media-list .media-item.compact-view img,
-  .media-list .media-item.compact-view video,
-  .media-list .media-item.compact-view.locked img {
+  .media-list .media-item.compact-view video {
     height: 150px;
-  }
-  .media-list .media-item.compact-view .unlock-overlay {
-    font-size: 14px;
   }
   .post-timestamp {
     font-size: 0.9rem;
@@ -1973,19 +2071,8 @@ video.post-video,
     margin: 0 auto;
   }
   .media-list .media-item.compact-view img,
-  .media-list .media-item.compact-view video,
-  .media-list .media-item.compact-view.locked img {
+  .media-list .media-item.compact-view video {
     height: 200px;
-  }
-  .media-list .media-item.compact-view .unlock-overlay {
-    font-size: 16px;
-  }
-  .media-list .media-item.compact-view .unlock-overlay i {
-    font-size: 32px;
-  }
-  .media-list .media-item.compact-view .unlock-overlay .unlock-button {
-    padding: 8px 16px;
-    font-size: 14px;
   }
   .post-timestamp {
     font-size: 0.95rem;
@@ -2289,7 +2376,7 @@ select.form-input:focus {
 /********************************************
  * SORT ICON AND MODAL STYLES
  ********************************************/
- .sort-container {
+.sort-container {
   text-align: right;
   margin-bottom: 10px;
 }
@@ -2297,7 +2384,7 @@ select.form-input:focus {
 .sort-button {
   background: none;
   border: none;
-  padding: 0;
+  padding: 5px 10px; /* Adjusted for better spacing */
   cursor: pointer;
   color: #666;
   transition: color 0.3s ease;

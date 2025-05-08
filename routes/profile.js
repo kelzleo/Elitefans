@@ -7,7 +7,7 @@ const Post = require('../models/Post');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
-const { bucket, profileBucket, generateSignedUrl } = require('../utilis/cloudStorage');
+const { bucket, profileBucket, generateSignedUrl, uploadMediaWithPreview } = require('../utilis/cloudStorage'); // Added uploadMediaWithPreview
 const SubscriptionBundle = require('../models/SubscriptionBundle');
 const flutter = require('../utilis/flutter');
 const Transaction = require('../models/Transaction');
@@ -21,9 +21,12 @@ const multerStorage = multer.memoryStorage();
 const upload = multer({ storage: multerStorage });
 const uploadFields = upload.fields([
   { name: 'profilePicture', maxCount: 1 },
-  { name: 'coverPhoto', maxCount: 1 }
+  { name: 'coverPhoto', maxCount: 1 },
 ]);
-
+const uploadContentFields = upload.fields([
+  { name: 'contentImages', maxCount: 10 },
+  { name: 'contentVideos', maxCount: 10 },
+]);
 // Authentication middleware
 const authCheck = (req, res, next) => {
   if (!req.user) {
@@ -64,24 +67,35 @@ const renderTaggedWriteUp = (writeUp, taggedUsers) => {
  * Otherwise, set a locked placeholder.
  * Preserves createdAt for frontend relative time formatting.
  */
-
 // Process post URLs and render writeUp with tagged users
 const processPostUrls = async (posts, currentUser, ownerUser, adminView = false) => {
   await Post.populate(posts, { path: 'taggedUsers', select: 'username' });
 
   for (const post of posts) {
     const isOwner = currentUser && currentUser._id.toString() === ownerUser._id.toString();
+    const isSubscribed = currentUser && currentUser.subscriptions &&
+      currentUser.subscriptions.some(sub =>
+        sub.creatorId.toString() === ownerUser._id.toString() &&
+        sub.status === 'active' &&
+        sub.subscriptionExpiry > new Date()
+      );
     const hasPurchased = currentUser && currentUser.purchasedContent &&
-      currentUser.purchasedContent.some((p) => p.contentId.toString() === post._id.toString());
+      currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
     const canViewSpecialContent = adminView || isOwner || hasPurchased;
+    const canViewPreview = isSubscribed && !hasPurchased && !isOwner && !adminView;
 
     // Handle old-style posts (single media)
     if (post.contentUrl && !post.contentUrl.startsWith('http')) {
       try {
         if (!post.special || canViewSpecialContent) {
           post.contentUrl = await generateSignedUrl(post.contentUrl);
+        } else if (canViewPreview && post.previewUrl) {
+          post.contentUrl = await generateSignedUrl(post.previewUrl);
+          post.isLocked = true; // Flag for frontend
         } else {
-          post.contentUrl = '/Uploads/locked-placeholder.png';
+          post.contentUrl = null; // Non-subscribers see nothing
+          post.isLocked = true;
+          post.isNonSubscriber = !isSubscribed;
         }
       } catch (err) {
         logger.error(`Failed to generate signed URL for post: ${err.message}`);
@@ -96,8 +110,13 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
           try {
             if (!post.special || canViewSpecialContent) {
               mediaItem.url = await generateSignedUrl(mediaItem.url);
+            } else if (canViewPreview && mediaItem.previewUrl) {
+              mediaItem.url = await generateSignedUrl(mediaItem.previewUrl);
+              post.isLocked = true;
             } else {
-              mediaItem.url = '/Uploads/locked-placeholder.png';
+              mediaItem.url = null; // Non-subscribers see nothing
+              post.isLocked = true;
+              post.isNonSubscriber = !isSubscribed;
             }
           } catch (err) {
             logger.error(`Failed to generate signed URL for media item: ${err.message}`);
@@ -117,10 +136,9 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
 
   logger.debug('Processed posts with createdAt timestamps:', {
     postIds: posts.map(p => p._id.toString()),
-    createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null)
+    createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null),
   });
 };
-
 router.get('/edit', authCheck, (req, res) => {
   res.render('edit-profile', { user: req.user, currentUser: req.user });
 });
@@ -1098,10 +1116,7 @@ router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
 router.post(
   '/uploadContent',
   authCheck,
-  upload.fields([
-    { name: 'contentImages', maxCount: 10 },
-    { name: 'contentVideos', maxCount: 10 },
-  ]),
+  uploadContentFields,
   async (req, res) => {
     if (req.user.role !== 'creator') {
       logger.warn('Unauthorized content upload attempt by non-creator');
@@ -1111,13 +1126,11 @@ router.post(
       const writeUp = req.body.writeUp || '';
       const isSpecial = req.body.special === 'true';
       const unlockPrice = req.body.unlockPrice ? Number(req.body.unlockPrice) : undefined;
-      const category = req.body.category || null; // Get category from form
-
-      // Check if we have any content
-      const hasImages = req.files.contentImages && req.files.contentImages.length > 0;
-      const hasVideos = req.files.contentVideos && req.files.contentVideos.length > 0;
+      const category = req.body.category || null;
 
       // Validate input
+      const hasImages = req.files.contentImages && req.files.contentImages.length > 0;
+      const hasVideos = req.files.contentVideos && req.files.contentVideos.length > 0;
       if (!writeUp && !hasImages && !hasVideos) {
         logger.warn('Attempted to upload empty post (no text or media)');
         req.flash('error_msg', 'Please provide text or upload at least one image or video.');
@@ -1150,58 +1163,59 @@ router.post(
       // Parse @username tags from writeUp
       const tagRegex = /@(\w+)/g;
       const matches = writeUp.match(tagRegex) || [];
-      const usernames = matches.map((tag) => tag.slice(1));
+      const usernames = matches.map(tag => tag.slice(1));
       const uniqueUsernames = [...new Set(usernames)];
 
       const users = await User.find({ username: { $in: uniqueUsernames } }).select('_id username');
-      const taggedUsers = users.map((user) => user._id);
+      const taggedUsers = users.map(user => user._id);
       const taggedUsersWithDetails = users;
-
-      // Helper function to upload files to cloud storage
-      const uploadToCloud = async (data, type, filename) => {
-        const blobName = `uploads/${type}/${Date.now()}_${filename}`;
-        const blob = bucket.file(blobName);
-        const blobStream = blob.createWriteStream({
-          resumable: false,
-          contentType: data.mimetype,
-        });
-        await new Promise((resolve, reject) => {
-          blobStream.on('finish', resolve);
-          blobStream.on('error', (err) => {
-            logger.error(`Error uploading ${type} to cloud storage: ${err.message}`);
-            reject(err);
-          });
-          blobStream.end(data);
-        });
-        return blobName;
-      };
 
       // Prepare post data
       let postType = 'text';
       const mediaItems = [];
+      let contentUrl = null;
+      let previewUrl = null;
 
       if (hasImages) {
         for (const file of req.files.contentImages) {
-          const blobName = await uploadToCloud(file.buffer, 'image', path.basename(file.originalname));
+          const uploadResult = await uploadMediaWithPreview(
+            file.buffer,
+            'image',
+            path.basename(file.originalname),
+            isSpecial
+          );
           mediaItems.push({
-            url: blobName,
+            url: uploadResult.originalUrl,
             type: 'image',
             contentType: file.mimetype,
+            previewUrl: uploadResult.previewUrl,
           });
         }
         postType = 'image';
+        contentUrl = mediaItems[0].url;
+        previewUrl = mediaItems[0].previewUrl;
       }
 
       if (hasVideos) {
         for (const file of req.files.contentVideos) {
-          const blobName = await uploadToCloud(file.buffer, 'video', path.basename(file.originalname));
+          const uploadResult = await uploadMediaWithPreview(
+            file.buffer,
+            'video',
+            path.basename(file.originalname),
+            isSpecial
+          );
           mediaItems.push({
-            url: blobName,
+            url: uploadResult.originalUrl,
             type: 'video',
             contentType: file.mimetype,
+            previewUrl: uploadResult.previewUrl,
           });
         }
         postType = hasImages ? 'mixed' : 'video';
+        if (!contentUrl) {
+          contentUrl = mediaItems[0].url;
+          previewUrl = mediaItems[0].previewUrl;
+        }
       }
 
       // Render writeUp with tagged users
@@ -1215,18 +1229,19 @@ router.post(
         writeUp,
         special: isSpecial,
         unlockPrice: isSpecial ? unlockPrice : undefined,
-        contentUrl: mediaItems.length > 0 ? mediaItems[0].url : null,
+        contentUrl,
+        previewUrl,
         taggedUsers,
         renderedWriteUp,
-        category, // Assign category
+        category,
       });
 
       await post.save();
       logger.info(`Saved post: ${post._id}, type: ${post.type}, media count: ${mediaItems.length}, taggedUsers: ${taggedUsers.length}, category: ${category}`);
 
       // Update user counts
-      const imageCount = mediaItems.filter((item) => item.type === 'image').length;
-      const videoCount = mediaItems.filter((item) => item.type === 'video').length;
+      const imageCount = mediaItems.filter(item => item.type === 'image').length;
+      const videoCount = mediaItems.filter(item => item.type === 'video').length;
 
       if (imageCount > 0 || videoCount > 0) {
         await User.findByIdAndUpdate(req.user._id, {
