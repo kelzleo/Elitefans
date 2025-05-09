@@ -519,7 +519,41 @@ body {
     font-size: 0.85rem;
   }
 }
+.password-container {
+  position: relative;
+  width: 100%;
+  margin: 10px 0; /* Matches signup-form input margins */
+}
 
+.password-container input[type="password"],
+.password-container input[type="text"] {
+  width: 100%;
+  padding: 10px 30px 10px 10px; /* Extra padding on right for eye icon */
+  font-size: 1rem;
+  box-sizing: border-box;
+}
+
+.toggle-password {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  font-size: 1.2rem;
+  color: #666; /* Subtle color for icon */
+}
+
+.toggle-password:hover {
+  color: #333; /* Darker on hover for better interaction */
+}
+
+.password-error {
+  display: none;
+  margin-top: 5px;
+  font-size: 0.9rem;
+  color: #ff0000; /* Explicit red color for error */
+  text-align: left;
+}
 /********************************************
  * LOGIN / SIGNUP FORMS
  ********************************************/
@@ -3849,18 +3883,25 @@ html, body {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 24px;
+  font-size: 18px; /* Reduced from 24px */
   color: #333;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.8);
-  padding: 5px;
+  padding: 3px; /* Reduced from 5px */
   border-radius: 50%;
   z-index: 10;
+  transition: color 0.3s, background 0.3s; /* Added for hover effects */
 }
 
+/* Hover effect for better interaction */
+.slider-nav:hover {
+  color: #ff69b4; /* Pink color on hover */
+  background: rgba(255, 255, 255, 1); /* Fully opaque background */
+}
+
+/* Positioning */
 .left-nav { left: 10px; }
 .right-nav { right: 10px; }
-
 /* List of trending creators */
 .trending-creators-list {
   display: flex;
@@ -3955,12 +3996,12 @@ html, body {
 }
 #lightbox {
   position: fixed;
-  inset: 0;                    /* top:0; left:0; right:0; bottom:0 */
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  padding: 0;                  /* no padding so video can fill vertically */
+  padding: 0;
 }
 
 /* BACKDROP */
@@ -3986,23 +4027,41 @@ html, body {
   position: absolute;
   top: 1rem;
   right: 1rem;
-  z-index: 10000;
-  background: rgba(0,0,0,0.5);
+  z-index: 10001; /* Increased to ensure visibility over other elements */
+  background: rgba(0, 0, 0, 0.7); /* Slightly darker for contrast */
   border: none;
   color: white;
   font-size: 2.5rem;
   line-height: 1;
-  padding: 0.2rem 0.6rem;
+  padding: 0.5rem 0.8rem; /* Increased padding for touch */
   cursor: pointer;
   border-radius: 0.25rem;
+  transition: transform 0.2s ease; /* Smooth scaling on tap */
 }
 
+/* Mobile-specific adjustments */
+@media (max-width: 768px) {
+  #lb-close {
+    top: 1.5rem; /* Move slightly down to avoid status bar/notch */
+    right: 1.5rem; /* Move slightly left for better reach */
+    font-size: 2rem; /* Slightly smaller for proportionality */
+    padding: 0.6rem 1rem; /* Larger touch area */
+    transform: scale(1);
+  }
+  #lb-close:active {
+    transform: scale(0.95); /* Visual feedback on tap */
+  }
+}
 /* SHARED MEDIA */
 .lb-media {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
   display: none;
+  user-select: none; /* Prevent text/image selection */
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 /* VIDEO — fill more height on mobile */
@@ -4014,16 +4073,27 @@ html, body {
   }
 }
 
-/* Add these new styles to hide browser controls better */
-#lb-vid::-webkit-media-controls-enclosure {
+/* Hide native video controls for all browsers */
+#lb-vid::-webkit-media-controls,
+#lb-vid::-webkit-media-controls-enclosure,
+#lb-vid::-webkit-media-controls-panel,
+#lb-vid::-webkit-media-controls-play-button,
+#lb-vid::-webkit-media-controls-volume-slider,
+#lb-vid::-webkit-media-controls-mute-button,
+#lb-vid::-webkit-media-controls-timeline,
+#lb-vid::-webkit-media-controls-current-time-display,
+#lb-vid::-webkit-media-controls-time-remaining-display,
+#lb-vid::-webkit-media-controls-fullscreen-button {
   display: none !important;
 }
 
-#lb-vid::-webkit-media-controls {
-  display: none !important;
+#lb-vid {
+  -moz-appearance: none; /* Firefox */
+  appearance: none;
+  pointer-events: none; /* Prevent interaction with native controls */
 }
 
-/* Custom controls styling */
+/* Ensure custom controls are interactive */
 .custom-controls {
   position: absolute;
   bottom: 20px;
@@ -4035,6 +4105,7 @@ html, body {
   display: flex;
   gap: 15px;
   z-index: 10001;
+  pointer-events: auto; /* Allow interaction with custom controls */
 }
 
 .control-btn {
@@ -4063,9 +4134,14 @@ html, body {
   width: 0%;
 }
 
-
-
-
+/* Ensure fullscreenable elements are clickable */
+.fullscreenable {
+  cursor: zoom-in !important;
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
 
 
 

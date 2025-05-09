@@ -1,29 +1,29 @@
 <!-- views/signup.ejs -->
- <!-- Logo Header -->
- <header class="logo-header">
+<header class="logo-header">
   <a href="/home" class="logo-link">
     <img src="https://storage.googleapis.com/my-public-profile-pictures/logos/elitefans-logo.PNG" alt="EliteFans Logo" class="site-logo">
     <span class="logo-text">EliteFans</span>
   </a>
 </header>
-<h1>Sign up to support your favorite creators</h1>
+<div class="welcome-container">
+  <h1>Sign up to support your favorite creators</h1>
 
 <% if (errorMessage) { %>
     <div class="error-message">
         <%= errorMessage %>
     </div>
 <% } %>
+
+</div>
 <form
-  action="/signup
-    <%= creator  ? `?creator=${encodeURIComponent(creator)}` : '' %>
-    <%= ref      ? `${creator ? '&' : '?'}ref=${encodeURIComponent(ref)}` : '' %>"
+  id="signupForm"
+  action="/signup<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %><%= ref ? `${creator ? '&' : '?'}ref=${encodeURIComponent(ref)}` : '' %>"
   method="POST"
   class="signup-form"
 >
   <% if (creator) { %>
     <input type="hidden" name="creator" value="<%= creator %>">
   <% } %>
-
   <% if (ref) { %>
     <input type="hidden" name="ref" value="<%= ref %>">
   <% } %>
@@ -31,7 +31,98 @@
   <h2>Create Your Account</h2>
   <input type="text" name="username" placeholder="Username" required>
   <input type="email" name="email" placeholder="Email" required>
-  <input type="password" name="password" placeholder="Password" required>
+  <div class="password-container">
+    <input type="password" name="password" placeholder="Password" required>
+    <span class="toggle-password">👁️</span>
+  </div>
+  <div class="password-error" id="passwordError"></div>
 
   <button type="submit" class="button-signup">Sign Up</button>
 </form>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const togglePassword = document.querySelector('.toggle-password');
+    const passwordInput = document.querySelector('input[name="password"]');
+    const usernameInput = document.querySelector('input[name="username"]');
+    const emailInput = document.querySelector('input[name="email"]');
+    const form = document.getElementById('signupForm');
+    const errorDiv = document.getElementById('passwordError');
+
+    // Toggle password visibility
+    togglePassword.addEventListener('click', function() {
+      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+      passwordInput.setAttribute('type', type);
+      this.textContent = type === 'password' ? '👁️' : '🙈';
+    });
+
+    // Real-time password validation
+    function validatePassword() {
+      const password = passwordInput.value;
+      const username = usernameInput.value.toLowerCase();
+      const email = emailInput.value.toLowerCase();
+      let errorMessage = '';
+
+      // Check requirements one at a time
+      if (password.length < 8) {
+        errorMessage = 'Password must be at least 8 characters long.';
+      } else {
+        const hasUppercase = /[A-Z]/.test(password);
+        const hasLowercase = /[a-z]/.test(password);
+        const hasNumber = /[0-9]/.test(password);
+        const hasSpecial = /[!@#$%^&*]/.test(password);
+        const varietyCount = [hasUppercase, hasLowercase, hasNumber, hasSpecial].filter(Boolean).length;
+        if (varietyCount < 3) {
+          errorMessage = 'Password must include at least 3 of: uppercase letter, lowercase letter, number, special character.';
+        } else {
+          const passwordLower = password.toLowerCase();
+          if (passwordLower.includes(username) || passwordLower.includes(email)) {
+            errorMessage = 'Password should not contain your username or email.';
+          }
+        }
+      }
+
+      // Display or clear error message
+      errorDiv.textContent = errorMessage;
+      errorDiv.style.display = errorMessage ? 'block' : 'none';
+    }
+
+    passwordInput.addEventListener('input', validatePassword);
+    usernameInput.addEventListener('input', validatePassword);
+    emailInput.addEventListener('input', validatePassword);
+
+    // Prevent submission if requirements aren't met
+    form.addEventListener('submit', function(e) {
+      const password = passwordInput.value;
+      const username = usernameInput.value.toLowerCase();
+      const email = emailInput.value.toLowerCase();
+
+      if (password.length < 8) {
+        e.preventDefault();
+        errorDiv.textContent = 'Password must be at least 8 characters long.';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      const hasUppercase = /[A-Z]/.test(password);
+      const hasLowercase = /[a-z]/.test(password);
+      const hasNumber = /[0-9]/.test(password);
+      const hasSpecial = /[!@#$%^&*]/.test(password);
+      const varietyCount = [hasUppercase, hasLowercase, hasNumber, hasSpecial].filter(Boolean).length;
+      if (varietyCount < 3) {
+        e.preventDefault();
+        errorDiv.textContent = 'Password must include at least 3 of: uppercase letter, lowercase letter, number, special character.';
+        errorDiv.style.display = 'block';
+        return;
+      }
+
+      const passwordLower = password.toLowerCase();
+      if (passwordLower.includes(username) || passwordLower.includes(email)) {
+        e.preventDefault();
+        errorDiv.textContent = 'Password should not contain your username or email.';
+        errorDiv.style.display = 'block';
+        return;
+      }
+    });
+  });
+</script>

@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Chat = require('../models/chat');
 const User = require('../models/users');
-const logger = require('../logs/logger'); // Import Winston logger at top
+const logger = require('../logs/logger');
 
 // Authentication middleware
 const authCheck = (req, res, next) => {
@@ -23,7 +23,7 @@ router.get('/', authCheck, async (req, res) => {
       .populate('participants', 'username profilePicture isOnline lastSeen')
       .sort({ updatedAt: -1 });
 
-    // Add unread status and latest message details to each chat
+    // Add unread status, latest message details, and timestamp to each chat
     const chatsWithStatus = chats.map(chat => {
       // Check for unread messages
       const hasUnread = chat.messages.some(
@@ -37,11 +37,12 @@ router.get('/', authCheck, async (req, res) => {
         ? chat.messages.sort((a, b) => b.timestamp - a.timestamp)[0] 
         : null;
       
-      // Determine preview content based on the latest message
+      // Determine preview content and timestamp
       let previewText = 'No messages yet.';
       let mediaType = null;
       let isTip = false;
       let tipAmount = null;
+      let lastMessageTime = '';
 
       if (latestMessage) {
         if (latestMessage.text) {
@@ -51,6 +52,12 @@ router.get('/', authCheck, async (req, res) => {
         }
         isTip = latestMessage.isTip || false;
         tipAmount = isTip ? latestMessage.tipAmount : null;
+        // Format the timestamp to "hour:minute AM/PM"
+        lastMessageTime = new Date(latestMessage.timestamp).toLocaleTimeString([], {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
       }
 
       return { 
@@ -59,7 +66,8 @@ router.get('/', authCheck, async (req, res) => {
         previewText, 
         mediaType, 
         isTip, 
-        tipAmount 
+        tipAmount,
+        lastMessageTime 
       };
     });
 

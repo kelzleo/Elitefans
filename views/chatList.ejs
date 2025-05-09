@@ -1,60 +1,4 @@
-<!-- views/chatList.ejs -->
-<style>
-  .chat-list-controls {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    flex-wrap: wrap;
-  }
-  .chat-list-controls select {
-    padding: 5px 10px;
-    border: 1px solid #e0e0e0;
-    border-radius: 5px;
-    font-size: 14px;
-    background: #fff;
-    cursor: pointer;
-    min-width: 120px;
-  }
-  .chat-list-controls .search-container {
-    position: relative;
-    flex-grow: 1;
-    min-width: 150px;
-    max-width: 200px;
-  }
-  .chat-list-controls #searchInput {
-    width: 100%;
-    padding: 5px 30px 5px 10px;
-    border: 1px solid #e0e0e0;
-    border-radius: 15px;
-    font-size: 14px;
-    box-sizing: border-box;
-  }
-  .chat-list-controls .search-container::after {
-    content: '\f002';
-    font-family: 'FontAwesome';
-    position: absolute;
-    right: 10px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: #888;
-  }
-  @media (max-width: 500px) {
-    .chat-list-controls {
-      flex-direction: column;
-      align-items: stretch;
-      gap: 10px;
-    }
-    .chat-list-controls select {
-      width: 100%;
-      min-width: unset;
-    }
-    .chat-list-controls .search-container {
-      max-width: unset;
-      width: 100%;
-    }
-  }
-</style>
-
+<!-- views/chatlist.ejs -->
 <div class="chat-list-container">
   <div class="chat-list-header">
     <h2>Chat</h2>
@@ -78,29 +22,6 @@
     <% chats.forEach(function(chat) { 
          let otherParticipant = chat.participants.find(p => p._id.toString() !== currentUser._id.toString());
          let hasUnread = chat.hasUnread; // Computed in chatlist.js
-
-         // Calculate "Last seen" time for the participant
-         let lastSeenDisplay = 'Unknown';
-         if (otherParticipant) {
-           if (otherParticipant.isOnline) {
-             lastSeenDisplay = 'Available Now';
-           } else if (otherParticipant.lastSeen) {
-             let timeDiff = Math.floor((Date.now() - new Date(otherParticipant.lastSeen)) / (1000 * 60)); // Time difference in minutes
-             if (timeDiff < 1) {
-               lastSeenDisplay = 'Last seen less than a minute ago';
-             } else if (timeDiff < 60) {
-               lastSeenDisplay = `Last seen ${timeDiff} min${timeDiff === 1 ? '' : 's'} ago`;
-             } else if (timeDiff < 1440) { // Less than 24 hours (1440 minutes)
-               let hours = Math.floor(timeDiff / 60);
-               lastSeenDisplay = `Last seen ${hours} hour${hours === 1 ? '' : 's'} ago`;
-             } else { // 24 hours or more
-               let days = Math.floor(timeDiff / (60 * 24)); // Convert minutes to days
-               lastSeenDisplay = `Last seen ${days} day${days === 1 ? '' : 's'} ago`;
-             }
-           } else {
-             lastSeenDisplay = 'Not available';
-           }
-         }
     %>
       <div class="chat-item <%= hasUnread ? 'unread' : '' %>" 
            data-username="<%= otherParticipant ? otherParticipant.username : 'Group Chat' %>" 
@@ -122,7 +43,7 @@
                     Group Chat
                   <% } %>
                 </h3>
-                <span class="chat-timestamp"><%= lastSeenDisplay %></span>
+                <span class="chat-timestamp"><%= chat.lastMessageTime || '' %></span>
               </div>
               <div class="chat-preview-wrapper">
                 <% if (chat.mediaType && !chat.previewText) { %>
@@ -203,7 +124,7 @@
           return nameA.localeCompare(nameB);
         } else if (filter === 'highest-tips') {
           const tipA = parseFloat(a.getAttribute('data-tip')) || 0;
-          const tipB = parseFloat(a.getAttribute('data-tip')) || 0;
+          const tipB = parseFloat(b.getAttribute('data-tip')) || 0;
           return tipB - tipA;
         }
       });

@@ -21,10 +21,38 @@ const userSchema = new mongoose.Schema({
     type: String,
     validate: {
       validator: function (value) {
-        if (this.googleId) return true;
-        return value && value.length >= 6;
+        if (this.googleId) return true; // Skip validation for Google accounts
+        if (!value) return false;
+
+        // Minimum length
+        if (value.length < 8) {
+          this.invalidate('password', 'Password must be at least 8 characters long.');
+          return false;
+        }
+
+        // Variety check
+        const hasUppercase = /[A-Z]/.test(value);
+        const hasLowercase = /[a-z]/.test(value);
+        const hasNumber = /[0-9]/.test(value);
+        const hasSpecial = /[!@#$%^&*]/.test(value);
+        const varietyCount = [hasUppercase, hasLowercase, hasNumber, hasSpecial].filter(Boolean).length;
+        if (varietyCount < 3) {
+          this.invalidate('password', 'Password must include at least 3 of: uppercase letter, lowercase letter, number, special character.');
+          return false;
+        }
+
+        // No username/email check
+        const passwordLower = value.toLowerCase();
+        const usernameLower = this.username ? this.username.toLowerCase() : '';
+        const emailLower = this.email ? this.email.toLowerCase() : '';
+        if (passwordLower.includes(usernameLower) || passwordLower.includes(emailLower)) {
+          this.invalidate('password', 'Password should not contain your username or email.');
+          return false;
+        }
+
+        return true;
       },
-      message: 'Password must be at least 6 characters long.'
+      message: 'Password validation failed.'
     }
   },
   resetPasswordToken: { type: String },

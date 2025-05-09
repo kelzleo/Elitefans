@@ -47,6 +47,7 @@ router.post('/signup', async (req, res) => {
   const ref = req.query.ref || req.body.ref || req.session.referralId;
 
   try {
+    // Check for existing user
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       return res.render('signup', {
@@ -56,6 +57,40 @@ router.post('/signup', async (req, res) => {
       });
     }
 
+    // Password validation
+    if (password.length < 8) {
+      return res.render('signup', {
+        errorMessage: 'Password must be at least 8 characters long.',
+        ref: ref || '',
+        creator: creator || queryCreator || sessionCreator || ''
+      });
+    }
+
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasLowercase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[!@#$%^&*]/.test(password);
+    const varietyCount = [hasUppercase, hasLowercase, hasNumber, hasSpecial].filter(Boolean).length;
+    if (varietyCount < 3) {
+      return res.render('signup', {
+        errorMessage: 'Password must include at least 3 of: uppercase letter, lowercase letter, number, special character.',
+        ref: ref || '',
+        creator: creator || queryCreator || sessionCreator || ''
+      });
+    }
+
+    const passwordLower = password.toLowerCase();
+    const usernameLower = username.toLowerCase();
+    const emailLower = email.toLowerCase();
+    if (passwordLower.includes(usernameLower) || passwordLower.includes(emailLower)) {
+      return res.render('signup', {
+        errorMessage: 'Password should not contain your username or email.',
+        ref: ref || '',
+        creator: creator || queryCreator || sessionCreator || ''
+      });
+    }
+
+    // Set redirect URL if creator exists
     let redirectUrl = null;
     const creatorParam = creator || queryCreator || sessionCreator;
     if (creatorParam) {
@@ -65,6 +100,7 @@ router.post('/signup', async (req, res) => {
       }
     }
 
+    // Hash password and create new user
     const hashedPassword = await bcrypt.hash(password, 10);
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const newUser = new User({
@@ -78,6 +114,7 @@ router.post('/signup', async (req, res) => {
       referredBy: null
     });
 
+    // Handle referral if provided
     if (ref) {
       const referrer = await User.findById(ref);
       if (referrer && referrer.role === 'creator') {
@@ -87,6 +124,7 @@ router.post('/signup', async (req, res) => {
       }
     }
 
+    // Save session data if redirectUrl exists
     if (redirectUrl) {
       req.session.redirectTo = redirectUrl;
       req.session.creator = creatorParam;
@@ -102,6 +140,7 @@ router.post('/signup', async (req, res) => {
       });
     }
 
+    // Save user and send verification email
     await newUser.save();
     delete req.session.referralId;
 
@@ -127,7 +166,6 @@ router.post('/signup', async (req, res) => {
     });
   }
 });
-
 router.get('/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;

@@ -134,17 +134,16 @@
                              oncontextmenu="return false;">
                       <% } else if (media.type === 'video') { %>
                         <video
-                          class="post-video <%= showLocked ? 'blurred' : '' %> fullscreenable"
-                          controlsList="nodownload"
-                          data-fullscreen-src="<%= media.url %>"
-                          disablePictureInPicture
-                          draggable="false"
-                          oncontextmenu="return false;"
-                          poster="<%= media.posterUrl %>"
-                          <%= showLocked ? '' : 'controls' %>>
-                          <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                          Your browser does not support the video tag.
-                        </video>
+                        class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                        controlsList="nodownload noremoteplayback"
+                        data-fullscreen-src="<%= media.url %>"
+                        disablePictureInPicture
+                        draggable="false"
+                        oncontextmenu="return false;"
+                        poster="<%= media.posterUrl %>">
+                        <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                        Your browser does not support the video tag.
+                      </video>
                       <% } %>
                     </div>
                   <% }); %>
@@ -334,156 +333,256 @@
       const isDevEnv = container && container.dataset.env === 'development';
       const isLoggedIn = container && container.dataset.currentUser === 'true';
 
-      const lightbox = document.getElementById('lightbox');
-      const lbBackdrop = document.getElementById('lb-backdrop');
-      const lbContent = document.getElementById('lb-content');
-      const lbClose = document.getElementById('lb-close');
-      const lbImg = document.getElementById('lb-img');
-      const lbVid = document.getElementById('lb-vid');
-      const customControls = document.getElementById('custom-controls');
-      const playPauseBtn = document.getElementById('play-pause');
-      const progressContainer = document.getElementById('progress-container');
-      const progressBar = document.getElementById('progress-bar');
-      const muteUnmuteBtn = document.getElementById('mute-unmute');
+      // Select all required elements
+  const lightbox = document.getElementById('lightbox');
+  const lbBackdrop = document.getElementById('lb-backdrop');
+  const lbContent = document.getElementById('lb-content');
+  const lbClose = document.getElementById('lb-close');
+  const lbImg = document.getElementById('lb-img');
+  const lbVid = document.getElementById('lb-vid');
+  const customControls = document.getElementById('custom-controls');
+  const playPauseBtn = document.getElementById('play-pause');
+  const progressContainer = document.getElementById('progress-container');
+  const progressBar = document.getElementById('progress-bar');
+  const muteUnmuteBtn = document.getElementById('mute-unmute');
+  
 
-      // Prevent right-click context menu on the entire lightbox
-      lightbox.addEventListener('contextmenu', e => {
-        e.preventDefault();
-        return false;
+  // Check if all required elements exist
+  if (!lightbox || !lbBackdrop || !lbContent || !lbClose || !lbImg || !lbVid || !customControls || !playPauseBtn || !progressContainer || !progressBar || !muteUnmuteBtn) {
+    if (isDevEnv) {
+      console.error('One or more lightbox elements are missing:', {
+        lightbox, lbBackdrop, lbContent, lbClose, lbImg, lbVid, customControls, playPauseBtn, progressContainer, progressBar, muteUnmuteBtn
       });
+    }
+    return;
+  }
 
-      function openLightbox(src, isVideo, time = 0) {
-        if (isVideo) {
-          lbImg.style.display = 'none';
-          lbVid.src = src;
-          lbVid.currentTime = time;
-          lbVid.style.display = 'block';
-          customControls.style.display = 'flex';
-          
-          // Remove default controls and add our custom attributes
-          lbVid.removeAttribute('controls');
-          lbVid.setAttribute('controlsList', 'nodownload noremoteplayback');
-          lbVid.setAttribute('disablePictureInPicture', '');
-          
-          // Start with paused state
-          updatePlayPauseButton();
-          
-          // Setup video event listeners
-          setupVideoListeners();
-          
-          // Auto-play if desired
-          lbVid.play().catch(e => {
-            console.log('Autoplay prevented:', e);
-            updatePlayPauseButton();
-          });
-        } else {
-          lbVid.pause();
-          lbVid.removeAttribute('src');
-          lbVid.style.display = 'none';
-          customControls.style.display = 'none';
-          lbImg.src = src;
-          lbImg.style.display = 'block';
-        }
-        lightbox.classList.remove('hidden');
-        
-        // Prevent scrolling on the body when lightbox is open
-        document.body.style.overflow = 'hidden';
-      }
+  // Prevent right-click context menu on the entire lightbox
+  lightbox.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    return false;
+  });
 
-      function setupVideoListeners() {
-        // Update progress bar as video plays
-        lbVid.addEventListener('timeupdate', updateProgressBar);
-        
-        // Update button state on play/pause
-        lbVid.addEventListener('play', updatePlayPauseButton);
-        lbVid.addEventListener('pause', updatePlayPauseButton);
-        
-        // Update mute button state
-        lbVid.addEventListener('volumechange', updateMuteButton);
-      }
+  // Prevent double-click to avoid triggering native fullscreen
+  lightbox.addEventListener('dblclick', e => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
 
-      function updateProgressBar() {
-        const percentage = (lbVid.currentTime / lbVid.duration) * 100;
-        progressBar.style.width = `${percentage}%`;
-      }
+  // Open lightbox function
+  function openLightbox(src, isVideo, time = 0) {
+    if (isDevEnv) console.log('Opening lightbox:', { src, isVideo, time });
 
-      function updatePlayPauseButton() {
-        playPauseBtn.textContent = lbVid.paused ? '▶' : '⏸';
-      }
+    if (isVideo) {
+      lbImg.style.display = 'none';
+      lbVid.src = src;
+      lbVid.currentTime = time;
+      lbVid.style.display = 'block';
+      customControls.style.display = 'flex';
 
-      function updateMuteButton() {
-        muteUnmuteBtn.textContent = lbVid.muted ? '🔇' : '🔊';
-      }
+      // Remove native controls and add security attributes
+      lbVid.removeAttribute('controls');
+      lbVid.setAttribute('controlsList', 'nodownload noremoteplayback');
+      lbVid.setAttribute('disablePictureInPicture', '');
+      lbVid.setAttribute('oncontextmenu', 'return false;');
 
-      // Play/Pause button functionality
-      playPauseBtn.addEventListener('click', () => {
-        if (lbVid.paused) {
-          lbVid.play();
-        } else {
-          lbVid.pause();
-        }
+      // Initialize video state
+      updatePlayPauseButton();
+      setupVideoListeners();
+
+      // Attempt auto-play
+      lbVid.play().catch(e => {
+        if (isDevEnv) console.log('Autoplay prevented:', e);
         updatePlayPauseButton();
       });
+    } else {
+      lbVid.pause();
+      lbVid.removeAttribute('src');
+      lbVid.style.display = 'none';
+      customControls.style.display = 'none';
+      lbImg.src = src;
+      lbImg.style.display = 'block';
+    }
 
-      // Progress bar click functionality
-      progressContainer.addEventListener('click', (e) => {
-        const rect = progressContainer.getBoundingClientRect();
-        const pos = (e.clientX - rect.left) / rect.width;
-        lbVid.currentTime = pos * lbVid.duration;
-      });
+    lightbox.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
 
-      // Mute/Unmute button functionality
-      muteUnmuteBtn.addEventListener('click', () => {
-        lbVid.muted = !lbVid.muted;
-        updateMuteButton();
-      });
+    // Prevent native fullscreen
+    document.addEventListener('fullscreenchange', preventNativeFullscreen);
+  }
 
-      // Attach to every fullscreenable media
-      document.querySelectorAll('.fullscreenable').forEach(el => {
-        el.style.cursor = 'zoom-in';
-        el.addEventListener('click', e => {
-          e.preventDefault();
-          e.stopPropagation();
-          const src = el.dataset.fullscreenSrc || el.src || el.currentSrc;
-          if (!src) return;
-          const isVideo = el.tagName.toLowerCase() === 'video';
-          const time = isVideo ? el.currentTime : 0;
-          openLightbox(src, isVideo, time);
-        });
-      });
+  // Setup video event listeners
+  function setupVideoListeners() {
+    lbVid.addEventListener('timeupdate', updateProgressBar);
+    lbVid.addEventListener('play', updatePlayPauseButton);
+    lbVid.addEventListener('pause', updatePlayPauseButton);
+    lbVid.addEventListener('volumechange', updateMuteButton);
+  }
 
-      // Close handlers
-      function close() {
-        lightbox.classList.add('hidden');
-        lbVid.pause();
-        lbVid.removeAttribute('src');
-        lbImg.removeAttribute('src');
-        
-        // Re-enable scrolling on the body
-        document.body.style.overflow = '';
-        
-        // Remove video event listeners to prevent memory leaks
-        lbVid.removeEventListener('timeupdate', updateProgressBar);
-        lbVid.removeEventListener('play', updatePlayPauseButton);
-        lbVid.removeEventListener('pause', updatePlayPauseButton);
-        lbVid.removeEventListener('volumechange', updateMuteButton);
+  // Update progress bar
+  function updateProgressBar() {
+    const percentage = (lbVid.currentTime / lbVid.duration) * 100;
+    progressBar.style.width = `${percentage}%`;
+  }
+
+  // Update play/pause button text
+  function updatePlayPauseButton() {
+    playPauseBtn.textContent = lbVid.paused ? '▶' : '⏸';
+  }
+
+  // Update mute/unmute button text
+  function updateMuteButton() {
+    muteUnmuteBtn.textContent = lbVid.muted ? '🔇' : '🔊';
+  }
+
+  // Play/Pause button click handler
+  playPauseBtn.addEventListener('click', () => {
+    if (lbVid.paused) {
+      lbVid.play();
+    } else {
+      lbVid.pause();
+    }
+    updatePlayPauseButton();
+  });
+
+  // Progress bar click handler
+  progressContainer.addEventListener('click', (e) => {
+    const rect = progressContainer.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    lbVid.currentTime = pos * lbVid.duration;
+  });
+
+  // Mute/Unmute button click handler
+  muteUnmuteBtn.addEventListener('click', () => {
+    lbVid.muted = !lbVid.muted;
+    updateMuteButton();
+  });
+
+  // Prevent native fullscreen mode
+  function preventNativeFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+      if (isDevEnv) console.log('Blocked native fullscreen attempt');
+    }
+  }
+
+  // Attach click handlers to fullscreenable media
+  document.querySelectorAll('.fullscreenable').forEach(el => {
+    el.style.cursor = 'zoom-in';
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const src = el.dataset.fullscreenSrc || el.src || el.currentSrc;
+      if (!src) {
+        if (isDevEnv) console.warn('No src found for fullscreenable element:', el);
+        return;
       }
-      
-      lbClose.addEventListener('click', close);
-      lbBackdrop.addEventListener('click', close);
-      document.addEventListener('keydown', e => {
-        if (e.key === 'Escape') close();
-      });
+      const isVideo = el.tagName.toLowerCase() === 'video';
+      const time = isVideo ? el.currentTime : 0;
+      if (isDevEnv) console.log('Fullscreenable clicked:', { src, isVideo, time });
+      openLightbox(src, isVideo, time);
+    });
 
-      // Prevent keyboard shortcuts that might enable download or control features
-      lightbox.addEventListener('keydown', e => {
-        // Prevent common keyboard shortcuts
-        if (e.ctrlKey || e.metaKey) {
-          // Prevent Ctrl+S, Ctrl+P, etc.
-          e.preventDefault();
-          return false;
-        }
-      });
+    // Prevent double-click and context menu on media
+    el.addEventListener('dblclick', e => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    el.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      return false;
+    });
+  });
+
+  // Close lightbox function
+  function close() {
+    lightbox.classList.add('hidden');
+    lbVid.pause();
+    lbVid.removeAttribute('src');
+    lbImg.removeAttribute('src');
+    document.body.style.overflow = '';
+    document.removeEventListener('fullscreenchange', preventNativeFullscreen);
+
+    // Clean up video event listeners
+    lbVid.removeEventListener('timeupdate', updateProgressBar);
+    lbVid.removeEventListener('play', updatePlayPauseButton);
+    lbVid.removeEventListener('pause', updatePlayPauseButton);
+    lbVid.removeEventListener('volumechange', updateMuteButton);
+
+    // Reset drag state
+    lbContent.style.transform = 'translateY(0)';
+    lbContent.style.transition = '';
+    lightbox.style.background = '';
+  }
+
+  // Close event handlers
+  lbClose.addEventListener('click', close);
+  lbBackdrop.addEventListener('click', close);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') close();
+  });
+
+  // Prevent keyboard shortcuts in lightbox
+  lightbox.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      return false;
+    }
+  });
+
+  // Drag-to-close functionality for mobile
+  let touchStartY = 0;
+  let touchCurrentY = 0;
+  let isDragging = false;
+  const dragThreshold = window.innerHeight * 0.3; // Close if dragged 30% of screen height
+
+  lbContent.addEventListener('touchstart', e => {
+    // Only allow dragging if not interacting with custom controls
+    if (e.target.closest('#custom-controls') || e.target.closest('#lb-close')) return;
+    touchStartY = e.touches[0].clientY;
+    isDragging = true;
+    lbContent.style.transition = 'none'; // Disable transitions during drag
+    if (isDevEnv) console.log('Touch start:', { touchStartY });
+  });
+
+  lbContent.addEventListener('touchmove', e => {
+    if (!isDragging) return;
+    touchCurrentY = e.touches[0].clientY;
+    const deltaY = touchCurrentY - touchStartY;
+
+    // Only allow downward drag
+    if (deltaY > 0) {
+      lbContent.style.transform = `translateY(${deltaY}px)`;
+      // Fade backdrop opacity based on drag distance
+      const opacity = 1 - Math.min(deltaY / dragThreshold, 1);
+      lightbox.style.background = `rgba(0, 0, 0, ${opacity * 0.9})`;
+      if (isDevEnv) console.log('Touch move:', { deltaY, opacity });
+    }
+  });
+
+  lbContent.addEventListener('touchend', e => {
+    if (!isDragging) return;
+    isDragging = false;
+    const deltaY = touchCurrentY - touchStartY;
+
+    if (deltaY > dragThreshold) {
+      // Animate close
+      lbContent.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+      lbContent.style.transform = `translateY(${window.innerHeight}px)`;
+      lightbox.style.background = 'rgba(0, 0, 0, 0)';
+      setTimeout(close, 300); // Close after animation
+      if (isDevEnv) console.log('Drag-to-close triggered:', { deltaY });
+    } else {
+      // Animate back to original position
+      lbContent.style.transition = 'transform 0.3s ease';
+      lbContent.style.transform = 'translateY(0)';
+      lightbox.style.background = 'rgba(0, 0, 0, 0.9)';
+      if (isDevEnv) console.log('Drag cancelled:', { deltaY });
+    }
+  });
+
+  // Debug: Log initialization
+  if (isDevEnv) console.log('Lightbox script initialized')
 
       // --- Search Functionality ---
       const searchIcon = document.querySelector('.search-icon');
@@ -1017,38 +1116,66 @@
       });
 
       // --- Trending Creators Navigation ---
-      const creatorCards = document.querySelectorAll('.featured-creator-card');
-      const totalCreators = creatorCards.length;
-      const creatorsPerPage = 3;
-      let currentPage = 0;
+const creatorCards = document.querySelectorAll('.featured-creator-card');
+const totalCreators = creatorCards.length;
+const creatorsPerPage = 3;
+let currentPage = 0;
+let autoSlideInterval;
 
-      function updateCreatorsDisplay() {
-        const startIndex = currentPage * creatorsPerPage;
-        const endIndex = startIndex + creatorsPerPage;
-        creatorCards.forEach((card, index) => {
-          card.style.display = (index >= startIndex && index < endIndex) ? 'block' : 'none';
-        });
-        document.getElementById('prevCreators').style.opacity = currentPage === 0 ? '0.5' : '1';
-        document.getElementById('prevCreators').style.pointerEvents = currentPage === 0 ? 'none' : 'auto';
-        document.getElementById('nextCreators').style.opacity = endIndex >= totalCreators ? '0.5' : '1';
-        document.getElementById('nextCreators').style.pointerEvents = endIndex >= totalCreators ? 'none' : 'auto';
-      }
+// Function to update the display of creator cards
+function updateCreatorsDisplay() {
+  const startIndex = currentPage * creatorsPerPage;
+  const endIndex = startIndex + creatorsPerPage;
+  creatorCards.forEach((card, index) => {
+    card.style.display = (index >= startIndex && index < endIndex) ? 'block' : 'none';
+  });
+  document.getElementById('prevCreators').style.opacity = currentPage === 0 ? '0.5' : '1';
+  document.getElementById('prevCreators').style.pointerEvents = currentPage === 0 ? 'none' : 'auto';
+  document.getElementById('nextCreators').style.opacity = endIndex >= totalCreators ? '0.5' : '1';
+  document.getElementById('nextCreators').style.pointerEvents = endIndex >= totalCreators ? 'none' : 'auto';
+}
 
-      document.getElementById('prevCreators').addEventListener('click', function() {
-        if (currentPage > 0) {
-          currentPage--;
-          updateCreatorsDisplay();
-        }
-      });
+// Function to start automatic sliding
+function startAutoSlide() {
+  autoSlideInterval = setInterval(() => {
+    if ((currentPage + 1) * creatorsPerPage < totalCreators) {
+      currentPage++;
+    } else {
+      currentPage = 0; // Loop back to the first slide
+    }
+    updateCreatorsDisplay();
+  }, 8000); // Slide every 5 seconds
+}
 
-      document.getElementById('nextCreators').addEventListener('click', function() {
-        if ((currentPage + 1) * creatorsPerPage < totalCreators) {
-          currentPage++;
-          updateCreatorsDisplay();
-        }
-      });
+// Function to stop automatic sliding
+function stopAutoSlide() {
+  clearInterval(autoSlideInterval);
+}
 
-      updateCreatorsDisplay();
+// Manual navigation event listeners
+document.getElementById('prevCreators').addEventListener('click', function() {
+  if (currentPage > 0) {
+    currentPage--;
+    updateCreatorsDisplay();
+  }
+});
+
+document.getElementById('nextCreators').addEventListener('click', function() {
+  if ((currentPage + 1) * creatorsPerPage < totalCreators) {
+    currentPage++;
+    updateCreatorsDisplay();
+  }
+});
+
+// Add hover functionality to pause and resume sliding
+const trendingContainer = document.querySelector('.trending-creators-container');
+trendingContainer.addEventListener('mouseenter', stopAutoSlide);
+trendingContainer.addEventListener('mouseleave', startAutoSlide);
+
+// Initialize the display and start auto-sliding
+updateCreatorsDisplay();
+startAutoSlide();
+      
     });
   </script>
 </div>

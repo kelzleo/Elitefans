@@ -409,16 +409,17 @@ data-username="<%= user.username %>">
                                    draggable="false" 
                                    oncontextmenu="return false;">
                             <% } else if (media.type === 'video') { %>
-                              <video 
-                                class="post-video fullscreenable" 
-                                data-fullscreen-src="<%= media.url %>" 
-                                disablePictureInPicture 
-                                draggable="false" 
-                                oncontextmenu="return false;">
-                                poster="<%= media.posterUrl %>"
-                                <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                                Your browser does not support the video tag.
-                              </video>
+                              <video
+                              class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                              controlsList="nodownload noremoteplayback"
+                              data-fullscreen-src="<%= media.url %>"
+                              disablePictureInPicture
+                              draggable="false"
+                              oncontextmenu="return false;"
+                              poster="<%= media.posterUrl %>">
+                              <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                              Your browser does not support the video tag.
+                            </video>
                             <% } %>
                           </div>
                         <% }); %>
@@ -550,17 +551,16 @@ data-username="<%= user.username %>">
                                      oncontextmenu="return false;">
                               <% } else if (media.type === 'video') { %>
                                 <video
-                                  class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                                  controlsList="nodownload"
-                                  data-fullscreen-src="<%= media.url %>"
-                                  disablePictureInPicture
-                                  draggable="false"
-                                  oncontextmenu="return false;"
-                                  poster="<%= media.posterUrl %>"
-                                  <%= showLocked ? '' : 'controls' %>>
-                                  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                                  Your browser does not support the video tag.
-                                </video>
+                                class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                                controlsList="nodownload noremoteplayback"
+                                data-fullscreen-src="<%= media.url %>"
+                                disablePictureInPicture
+                                draggable="false"
+                                oncontextmenu="return false;"
+                                poster="<%= media.posterUrl %>">
+                                <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                                Your browser does not support the video tag.
+                              </video>
                               <% } %>
                             </div>
                           <% }); %>
@@ -715,17 +715,16 @@ data-username="<%= user.username %>">
                                oncontextmenu="return false;">
                         <% } else if (media.type === 'video') { %>
                           <video
-                          class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                          controlsList="nodownload"
-                          data-fullscreen-src="<%= media.url %>"
-                          disablePictureInPicture
-                          draggable="false"
-                          oncontextmenu="return false;"
-                          poster="<%= media.posterUrl %>"
-                          <%= showLocked ? '' : 'controls' %>>
-                          <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                          Your browser does not support the video tag.
-                        </video>
+                                class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                                controlsList="nodownload noremoteplayback"
+                                data-fullscreen-src="<%= media.url %>"
+                                disablePictureInPicture
+                                draggable="false"
+                                oncontextmenu="return false;"
+                                poster="<%= media.posterUrl %>">
+                                <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                                Your browser does not support the video tag.
+                              </video>
                         <% } %>
                       </div>
                     <% }); %>
@@ -1092,17 +1091,16 @@ data-username="<%= user.username %>">
                     <% mediaItems.forEach((media, index) => { %>
                       <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                         <video
-                          class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                          controlsList="nodownload"
-                          data-fullscreen-src="<%= media.url %>"
-                          disablePictureInPicture
-                          draggable="false"
-                          oncontextmenu="return false;"
-                          poster="<%= media.posterUrl %>"
-                          <%= showLocked ? '' : 'controls' %>>
-                          <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                          Your browser does not support the video tag.
-                        </video>
+                                class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                                controlsList="nodownload noremoteplayback"
+                                data-fullscreen-src="<%= media.url %>"
+                                disablePictureInPicture
+                                draggable="false"
+                                oncontextmenu="return false;"
+                                poster="<%= media.posterUrl %>">
+                                <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                                Your browser does not support the video tag.
+                              </video>
                       </div>
                     <% }); %>
                   </div>
@@ -1193,11 +1191,17 @@ data-username="<%= user.username %>">
                 <% if (mediaItems.length > 0) { %>
                   <% mediaItems.forEach((media, index) => { %>
                     <div class="preview-media">
-                      <video class="post-video blurred" disablePictureInPicture>
-                        poster="<%= media.posterUrl %>"
-                        <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                        Your browser does not support the video tag.
-                      </video>
+                      <video
+                                class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                                controlsList="nodownload noremoteplayback"
+                                data-fullscreen-src="<%= media.url %>"
+                                disablePictureInPicture
+                                draggable="false"
+                                oncontextmenu="return false;"
+                                poster="<%= media.posterUrl %>">
+                                <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                                Your browser does not support the video tag.
+                              </video>
                     </div>
                   <% }); %>
                 <% } %>
@@ -1205,15 +1209,17 @@ data-username="<%= user.username %>">
             <% } else if (mediaItems.length > 0) { %>
               <% mediaItems.forEach((media, index) => { %>
                 <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
-                  <video controls 
-                         class="post-video" 
-                         controlsList="nodownload" 
-                         disablePictureInPicture 
-                         oncontextmenu="return false;" 
-                         draggable="false">
-                    <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                    Your browser does not support the video tag.
-                  </video>
+                  <video
+                  class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                  controlsList="nodownload noremoteplayback"
+                  data-fullscreen-src="<%= media.url %>"
+                  disablePictureInPicture
+                  draggable="false"
+                  oncontextmenu="return false;"
+                  poster="<%= media.posterUrl %>">
+                  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                  Your browser does not support the video tag.
+                </video>
                 </div>
               <% }); %>
             <% } %>
@@ -1431,7 +1437,8 @@ data-username="<%= user.username %>">
     const isCreatorViewingOwnProfile = getDataBoolean(profileContainer, 'isCreatorViewing');
     const isVisitorSubscribed = getDataBoolean(profileContainer, 'isSubscribed');
     const isLoggedIn = getDataBoolean(profileContainer, 'currentUser');
-    const lightbox = document.getElementById('lightbox');
+    // Select all required elements
+  const lightbox = document.getElementById('lightbox');
   const lbBackdrop = document.getElementById('lb-backdrop');
   const lbContent = document.getElementById('lb-content');
   const lbClose = document.getElementById('lb-close');
@@ -1442,6 +1449,17 @@ data-username="<%= user.username %>">
   const progressContainer = document.getElementById('progress-container');
   const progressBar = document.getElementById('progress-bar');
   const muteUnmuteBtn = document.getElementById('mute-unmute');
+  
+
+  // Check if all required elements exist
+  if (!lightbox || !lbBackdrop || !lbContent || !lbClose || !lbImg || !lbVid || !customControls || !playPauseBtn || !progressContainer || !progressBar || !muteUnmuteBtn) {
+    if (isDevEnv) {
+      console.error('One or more lightbox elements are missing:', {
+        lightbox, lbBackdrop, lbContent, lbClose, lbImg, lbVid, customControls, playPauseBtn, progressContainer, progressBar, muteUnmuteBtn
+      });
+    }
+    return;
+  }
 
   // Prevent right-click context menu on the entire lightbox
   lightbox.addEventListener('contextmenu', e => {
@@ -1449,28 +1467,36 @@ data-username="<%= user.username %>">
     return false;
   });
 
+  // Prevent double-click to avoid triggering native fullscreen
+  lightbox.addEventListener('dblclick', e => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  // Open lightbox function
   function openLightbox(src, isVideo, time = 0) {
+    if (isDevEnv) console.log('Opening lightbox:', { src, isVideo, time });
+
     if (isVideo) {
       lbImg.style.display = 'none';
       lbVid.src = src;
       lbVid.currentTime = time;
       lbVid.style.display = 'block';
       customControls.style.display = 'flex';
-      
-      // Remove default controls and add our custom attributes
+
+      // Remove native controls and add security attributes
       lbVid.removeAttribute('controls');
       lbVid.setAttribute('controlsList', 'nodownload noremoteplayback');
       lbVid.setAttribute('disablePictureInPicture', '');
-      
-      // Start with paused state
+      lbVid.setAttribute('oncontextmenu', 'return false;');
+
+      // Initialize video state
       updatePlayPauseButton();
-      
-      // Setup video event listeners
       setupVideoListeners();
-      
-      // Auto-play if desired
+
+      // Attempt auto-play
       lbVid.play().catch(e => {
-        console.log('Autoplay prevented:', e);
+        if (isDevEnv) console.log('Autoplay prevented:', e);
         updatePlayPauseButton();
       });
     } else {
@@ -1481,38 +1507,39 @@ data-username="<%= user.username %>">
       lbImg.src = src;
       lbImg.style.display = 'block';
     }
+
     lightbox.classList.remove('hidden');
-    
-    // Prevent scrolling on the body when lightbox is open
     document.body.style.overflow = 'hidden';
+
+    // Prevent native fullscreen
+    document.addEventListener('fullscreenchange', preventNativeFullscreen);
   }
 
+  // Setup video event listeners
   function setupVideoListeners() {
-    // Update progress bar as video plays
     lbVid.addEventListener('timeupdate', updateProgressBar);
-    
-    // Update button state on play/pause
     lbVid.addEventListener('play', updatePlayPauseButton);
     lbVid.addEventListener('pause', updatePlayPauseButton);
-    
-    // Update mute button state
     lbVid.addEventListener('volumechange', updateMuteButton);
   }
 
+  // Update progress bar
   function updateProgressBar() {
     const percentage = (lbVid.currentTime / lbVid.duration) * 100;
     progressBar.style.width = `${percentage}%`;
   }
 
+  // Update play/pause button text
   function updatePlayPauseButton() {
     playPauseBtn.textContent = lbVid.paused ? '▶' : '⏸';
   }
 
+  // Update mute/unmute button text
   function updateMuteButton() {
     muteUnmuteBtn.textContent = lbVid.muted ? '🔇' : '🔊';
   }
 
-  // Play/Pause button functionality
+  // Play/Pause button click handler
   playPauseBtn.addEventListener('click', () => {
     if (lbVid.paused) {
       lbVid.play();
@@ -1522,66 +1549,144 @@ data-username="<%= user.username %>">
     updatePlayPauseButton();
   });
 
-  // Progress bar click functionality
+  // Progress bar click handler
   progressContainer.addEventListener('click', (e) => {
     const rect = progressContainer.getBoundingClientRect();
     const pos = (e.clientX - rect.left) / rect.width;
     lbVid.currentTime = pos * lbVid.duration;
   });
 
-  // Mute/Unmute button functionality
+  // Mute/Unmute button click handler
   muteUnmuteBtn.addEventListener('click', () => {
     lbVid.muted = !lbVid.muted;
     updateMuteButton();
   });
 
-  // Attach to every fullscreenable media
+  // Prevent native fullscreen mode
+  function preventNativeFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+      if (isDevEnv) console.log('Blocked native fullscreen attempt');
+    }
+  }
+
+  // Attach click handlers to fullscreenable media
   document.querySelectorAll('.fullscreenable').forEach(el => {
     el.style.cursor = 'zoom-in';
     el.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
       const src = el.dataset.fullscreenSrc || el.src || el.currentSrc;
-      if (!src) return;
+      if (!src) {
+        if (isDevEnv) console.warn('No src found for fullscreenable element:', el);
+        return;
+      }
       const isVideo = el.tagName.toLowerCase() === 'video';
       const time = isVideo ? el.currentTime : 0;
+      if (isDevEnv) console.log('Fullscreenable clicked:', { src, isVideo, time });
       openLightbox(src, isVideo, time);
+    });
+
+    // Prevent double-click and context menu on media
+    el.addEventListener('dblclick', e => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    el.addEventListener('contextmenu', e => {
+      e.preventDefault();
+      return false;
     });
   });
 
-  // Close handlers
+  // Close lightbox function
   function close() {
     lightbox.classList.add('hidden');
     lbVid.pause();
     lbVid.removeAttribute('src');
     lbImg.removeAttribute('src');
-    
-    // Re-enable scrolling on the body
     document.body.style.overflow = '';
-    
-    // Remove video event listeners to prevent memory leaks
+    document.removeEventListener('fullscreenchange', preventNativeFullscreen);
+
+    // Clean up video event listeners
     lbVid.removeEventListener('timeupdate', updateProgressBar);
     lbVid.removeEventListener('play', updatePlayPauseButton);
     lbVid.removeEventListener('pause', updatePlayPauseButton);
     lbVid.removeEventListener('volumechange', updateMuteButton);
+
+    // Reset drag state
+    lbContent.style.transform = 'translateY(0)';
+    lbContent.style.transition = '';
+    lightbox.style.background = '';
   }
-  
+
+  // Close event handlers
   lbClose.addEventListener('click', close);
   lbBackdrop.addEventListener('click', close);
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') close();
   });
 
-  // Prevent keyboard shortcuts that might enable download or control features
+  // Prevent keyboard shortcuts in lightbox
   lightbox.addEventListener('keydown', e => {
-    // Prevent common keyboard shortcuts
     if (e.ctrlKey || e.metaKey) {
-      // Prevent Ctrl+S, Ctrl+P, etc.
       e.preventDefault();
       return false;
     }
   });
 
+  // Drag-to-close functionality for mobile
+  let touchStartY = 0;
+  let touchCurrentY = 0;
+  let isDragging = false;
+  const dragThreshold = window.innerHeight * 0.3; // Close if dragged 30% of screen height
+
+  lbContent.addEventListener('touchstart', e => {
+    // Only allow dragging if not interacting with custom controls
+    if (e.target.closest('#custom-controls') || e.target.closest('#lb-close')) return;
+    touchStartY = e.touches[0].clientY;
+    isDragging = true;
+    lbContent.style.transition = 'none'; // Disable transitions during drag
+    if (isDevEnv) console.log('Touch start:', { touchStartY });
+  });
+
+  lbContent.addEventListener('touchmove', e => {
+    if (!isDragging) return;
+    touchCurrentY = e.touches[0].clientY;
+    const deltaY = touchCurrentY - touchStartY;
+
+    // Only allow downward drag
+    if (deltaY > 0) {
+      lbContent.style.transform = `translateY(${deltaY}px)`;
+      // Fade backdrop opacity based on drag distance
+      const opacity = 1 - Math.min(deltaY / dragThreshold, 1);
+      lightbox.style.background = `rgba(0, 0, 0, ${opacity * 0.9})`;
+      if (isDevEnv) console.log('Touch move:', { deltaY, opacity });
+    }
+  });
+
+  lbContent.addEventListener('touchend', e => {
+    if (!isDragging) return;
+    isDragging = false;
+    const deltaY = touchCurrentY - touchStartY;
+
+    if (deltaY > dragThreshold) {
+      // Animate close
+      lbContent.style.transition = 'transform 0.3s ease, opacity 0.3s ease';
+      lbContent.style.transform = `translateY(${window.innerHeight}px)`;
+      lightbox.style.background = 'rgba(0, 0, 0, 0)';
+      setTimeout(close, 300); // Close after animation
+      if (isDevEnv) console.log('Drag-to-close triggered:', { deltaY });
+    } else {
+      // Animate back to original position
+      lbContent.style.transition = 'transform 0.3s ease';
+      lbContent.style.transform = 'translateY(0)';
+      lightbox.style.background = 'rgba(0, 0, 0, 0.9)';
+      if (isDevEnv) console.log('Drag cancelled:', { deltaY });
+    }
+  });
+
+  // Debug: Log initialization
+  if (isDevEnv) console.log('Lightbox script initialized')
    // --- Free Subscription Form ---
 document.querySelectorAll('.subscribe-free-bundle-form').forEach(form => {
   form.addEventListener('submit', async function(e) {
