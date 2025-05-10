@@ -4,6 +4,7 @@ const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const bcrypt = require('bcrypt');
 const keys = require('./keys');
 const User = require('../models/users');
+const SubscriptionBundle = require('../models/SubscriptionBundle');
 const logger = require('../logs/logger'); // Import Winston logger
 require('dotenv').config();
 
