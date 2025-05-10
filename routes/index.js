@@ -228,7 +228,7 @@ router.get('/verify/:token', async (req, res) => {
         (sub) =>
           sub.creatorId.toString() === eliteFans._id.toString() &&
           sub.status === 'active' &&
-          sub.subscriptionExpiry > new Date()
+          (sub.subscriptionExpiry === null || sub.subscriptionExpiry > new Date())
       );
 
       if (!isSubscribed) {
