@@ -269,6 +269,8 @@ userSchema.methods.removeBookmarksForExpiredSubscriptions = async function () {
   }
 };
 
+
+
 userSchema.statics.cleanupAllUsers = async function () {
   try {
     const users = await this.find({ 'subscriptions.0': { $exists: true } });
