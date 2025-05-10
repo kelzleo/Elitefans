@@ -1865,6 +1865,7 @@ router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
 
 // POST /profile/subscribe-free (subscribe to a free bundle)
 // POST /profile/subscribe-free
+// POST /profile/subscribe-free
 router.post('/subscribe-free', authCheck, async (req, res) => {
   try {
     const { creatorId, creatorUsername } = req.body;
@@ -1952,7 +1953,7 @@ router.post('/subscribe-free', authCheck, async (req, res) => {
       creatorId,
       subscriptionBundle: freeBundle._id,
       subscribedAt: new Date(),
-      subscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      subscriptionExpiry: null, // Free subscriptions do not expire
       status: 'active',
     };
     user.subscriptions.push(subscriptionData);
@@ -1980,6 +1981,7 @@ router.post('/subscribe-free', authCheck, async (req, res) => {
   }
 });
 
+// POST /profile/subscribe
 // POST /profile/subscribe
 router.post('/subscribe', async (req, res) => {
   try {
@@ -2088,7 +2090,7 @@ router.post('/subscribe', async (req, res) => {
         creatorId: creator._id,
         subscriptionBundle: bundle._id,
         subscribedAt: new Date(),
-        subscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+        subscriptionExpiry: null, // Free subscriptions do not expire
         status: 'active',
       };
       user.subscriptions.push(subscription);
@@ -2164,6 +2166,72 @@ router.post('/subscribe', async (req, res) => {
       status: 'error',
       message: 'An error occurred while processing your subscription',
       error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    });
+  }
+});
+
+// POST /unsubscribe/:creatorId
+router.post('/unsubscribe/:creatorId', authCheck, async (req, res) => {
+  try {
+    const { creatorId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(creatorId)) {
+      logger.error(`Invalid creatorId: ${creatorId} in unsubscribe`);
+      return res.status(400).json({
+        status: 'error',
+        message: 'Invalid creator ID format',
+      });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      logger.error('User not found in unsubscribe');
+      return res.status(404).json({
+        status: 'error',
+        message: 'User not found',
+      });
+    }
+
+    const creator = await User.findById(creatorId);
+    if (!creator || creator.role !== 'creator') {
+      logger.warn(`Creator ${creatorId} not found or not a creator in unsubscribe`);
+      return res.status(404).json({
+        status: 'error',
+        message: 'Creator not found',
+      });
+    }
+
+    const subscriptionIndex = user.subscriptions.findIndex(
+      (sub) =>
+        sub.creatorId.toString() === creatorId &&
+        sub.status === 'active' &&
+        sub.subscriptionExpiry === null // Only free subscriptions can be unsubscribed
+    );
+
+    if (subscriptionIndex === -1) {
+      logger.warn(`User ${user._id} not subscribed to creator ${creatorId} with a free subscription in unsubscribe`);
+      return res.status(400).json({
+        status: 'error',
+        message: 'You are not subscribed to this creator with a free subscription or cannot unsubscribe from a paid subscription here',
+      });
+    }
+
+    user.subscriptions[subscriptionIndex].status = 'expired';
+    await user.save();
+
+    await creator.updateSubscriberCount();
+
+    logger.info(`User ${user._id} unsubscribed from creator ${creatorId}`);
+    return res.json({
+      status: 'success',
+      message: 'Unsubscribed successfully',
+      redirect: `/profile/${creator.username}`,
+    });
+  } catch (err) {
+    logger.error(`Error unsubscribing from creator ${req.params.creatorId}: ${err.message}`);
+    return res.status(500).json({
+      status: 'error',
+      message: 'Error unsubscribing',
     });
   }
 });
@@ -2380,13 +2448,20 @@ router.get('/:username', async (req, res) => {
     logger.debug(`Defined subtab: ${subtab}, req.query: ${JSON.stringify(req.query)}`);
 
     let isSubscribed = false;
+    let isFreeSubscribed = false; // Added isFreeSubscribed
     if (req.user && !isOwnProfile && ownerUser.role === 'creator') {
       const now = new Date();
       isSubscribed = req.user.subscriptions.some(
         (sub) =>
           sub.creatorId.toString() === ownerUser._id.toString() &&
           sub.status === 'active' &&
-          sub.subscriptionExpiry > now
+          (sub.subscriptionExpiry === null || sub.subscriptionExpiry > now)
+      );
+      isFreeSubscribed = req.user.subscriptions.some(
+        (sub) =>
+          sub.creatorId.toString() === ownerUser._id.toString() &&
+          sub.status === 'active' &&
+          sub.subscriptionExpiry === null
       );
     }
 
@@ -2513,6 +2588,7 @@ router.get('/:username', async (req, res) => {
       currentUser: req.user || null,
       posts,
       isSubscribed,
+      isFreeSubscribed, // Added isFreeSubscribed
       bundles,
       adminView,
       env: process.env.NODE_ENV || 'development',
@@ -2558,13 +2634,20 @@ router.get('/:username/post/:postId', async (req, res) => {
     const isOwnProfile = req.user ? req.user._id.toString() === ownerUser._id.toString() : false;
     const adminView = req.user && req.query.adminView === 'true' && req.user.role === 'admin';
     let isSubscribed = false;
+    let isFreeSubscribed = false; // Added isFreeSubscribed
     if (req.user && !isOwnProfile && ownerUser.role === 'creator') {
       const now = new Date();
       isSubscribed = req.user.subscriptions.some(
         (sub) =>
           sub.creatorId.toString() === ownerUser._id.toString() &&
           sub.status === 'active' &&
-          sub.subscriptionExpiry > now
+          (sub.subscriptionExpiry === null || sub.subscriptionExpiry > now)
+      );
+      isFreeSubscribed = req.user.subscriptions.some(
+        (sub) =>
+          sub.creatorId.toString() === ownerUser._id.toString() &&
+          sub.status === 'active' &&
+          sub.subscriptionExpiry === null
       );
     }
 
@@ -2604,6 +2687,7 @@ router.get('/:username/post/:postId', async (req, res) => {
       currentUser: req.user || null,
       post,
       isSubscribed,
+      isFreeSubscribed, // Added isFreeSubscribed
       adminView,
       env: process.env.NODE_ENV || 'development',
       flashMessages: req.flash()
@@ -2645,8 +2729,14 @@ router.get('/view/:id', authCheck, async (req, res) => {
       (sub) =>
         sub.creatorId.toString() === ownerUser._id.toString() &&
         sub.status === 'active' &&
-        sub.subscriptionExpiry > now
+        (sub.subscriptionExpiry === null || sub.subscriptionExpiry > now)
     );
+    const isFreeSubscribed = currentUser.subscriptions.some(
+      (sub) =>
+        sub.creatorId.toString() === ownerUser._id.toString() &&
+        sub.status === 'active' &&
+        sub.subscriptionExpiry === null
+    ); // Added isFreeSubscribed
     const adminView = req.query.adminView && req.user.role === 'admin';
 
     // Define and validate subtab
@@ -2790,6 +2880,7 @@ router.get('/view/:id', authCheck, async (req, res) => {
       },
       currentUser,
       isSubscribed: isSubscribed || adminView,
+      isFreeSubscribed, // Added isFreeSubscribed
       posts,
       bundles,
       adminView,

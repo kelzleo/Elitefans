@@ -249,16 +249,16 @@ router.get('/verify/:token', async (req, res) => {
           logger.info(`Created free bundle for EliteFans: ${freeBundle._id}`);
         }
 
-        // Add subscription to user
+        // Add subscription to user with null expiry
         user.subscriptions.push({
           creatorId: eliteFans._id,
           subscriptionBundle: freeBundle._id,
           subscribedAt: new Date(),
-          subscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+          subscriptionExpiry: null, // Free subscriptions never expire
           status: 'active'
         });
         await user.save();
-        logger.info(`User ${user._id} auto-subscribed to EliteFans`);
+        logger.info(`User ${user._id} auto-subscribed to EliteFans with null expiry`);
 
         // Create notification for EliteFans
         await Notification.create({
@@ -329,7 +329,6 @@ router.get('/verify/:token', async (req, res) => {
     });
   }
 });
-
 router.get('/signup', (req, res) => {
   const creator = req.query.creator || req.session.creator || '';
   res.render('signup', { 

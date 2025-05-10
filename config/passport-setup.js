@@ -5,6 +5,7 @@ const bcrypt = require('bcrypt');
 const keys = require('./keys');
 const User = require('../models/users');
 const SubscriptionBundle = require('../models/SubscriptionBundle');
+const Notification = require('../models/notifications');
 const logger = require('../logs/logger'); // Import Winston logger
 require('dotenv').config();
 
@@ -70,7 +71,7 @@ passport.use(
           }
           await user.save();
 
-          // Automatically subscribe to EliteFans (same logic as verify route)
+          // Automatically subscribe to EliteFans
           const eliteFans = await User.findOne({ username: 'elitefans', role: 'creator' });
           if (!eliteFans) {
             logger.error('EliteFans account not found for auto-subscription');
@@ -105,11 +106,11 @@ passport.use(
                 creatorId: eliteFans._id,
                 subscriptionBundle: freeBundle._id,
                 subscribedAt: new Date(),
-                subscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+                subscriptionExpiry: null, // Free subscriptions never expire
                 status: 'active'
               });
               await user.save();
-              logger.info(`User ${user._id} auto-subscribed to EliteFans`);
+              logger.info(`User ${user._id} auto-subscribed to EliteFans with null expiry`);
 
               await Notification.create({
                 user: eliteFans._id,
@@ -156,7 +157,7 @@ passport.use(
 
         await user.save();
 
-        // Automatically subscribe to EliteFans (same logic as verify route)
+        // Automatically subscribe to EliteFans
         const eliteFans = await User.findOne({ username: 'elitefans', role: 'creator' });
         if (!eliteFans) {
           logger.error('EliteFans account not found for auto-subscription');
@@ -191,11 +192,11 @@ passport.use(
               creatorId: eliteFans._id,
               subscriptionBundle: freeBundle._id,
               subscribedAt: new Date(),
-              subscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+              subscriptionExpiry: null, // Free subscriptions never expire
               status: 'active'
             });
             await user.save();
-            logger.info(`User ${user._id} auto-subscribed to EliteFans`);
+            logger.info(`User ${user._id} auto-subscribed to EliteFans with null expiry`);
 
             await Notification.create({
               user: eliteFans._id,

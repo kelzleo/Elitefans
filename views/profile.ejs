@@ -96,9 +96,13 @@ data-username="<%= user.username %>">
         <%# Logged-in Visitor View %>
         <% if (isSubscribed) { %>
           <div class="subscription-actions">
-            <form action="/profile/unsubscribe/<%= user._id %>" method="POST" style="display: inline;">
-              <button type="submit" class="unsubscribe-btn">Subscribed</button>
-            </form>
+            <% if (isFreeSubscribed) { %>
+              <form action="/profile/unsubscribe/<%= user._id %>" method="POST" style="display: inline;">
+                <button type="submit" class="unsubscribe-btn">Unsubscribe</button>
+              </form>
+            <% } else { %>
+              <button class="subscribed-btn" disabled>Subscribed (Paid)</button>
+            <% } %>
             <% if (bundles && bundles.length > 0) { %>
               <button class="view-bundles-button" id="toggleBundlesBtn">View Options</button>
             <% } %>
@@ -1786,6 +1790,36 @@ document.querySelector('.toggle-free-subscription-form')?.addEventListener('subm
   if (isEnabling && !confirm('Enabling free mode will delete all paid bundles. Continue?')) {
     e.preventDefault();
   }
+});
+document.querySelectorAll('form[action^="/profile/unsubscribe/"]').forEach(form => {
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const submitButton = form.querySelector('button[type="submit"]');
+    const originalText = submitButton.textContent;
+    submitButton.textContent = 'Unsubscribing...';
+    submitButton.disabled = true;
+
+    try {
+      const response = await fetch(form.action, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const result = await response.json();
+      if (response.ok && result.status === 'success') {
+        alert(result.message || 'Unsubscribed successfully.');
+        window.location.reload();
+      } else {
+        alert(result.message || 'Error unsubscribing. Please try again.');
+        submitButton.textContent = originalText;
+        submitButton.disabled = false;
+      }
+    } catch (err) {
+      console.error('Error unsubscribing:', err.message);
+      alert('Error unsubscribing. Please try again.');
+      submitButton.textContent = originalText;
+      submitButton.disabled = false;
+    }
+  });
 });
 // --- Edit Bundle Form ---
 // --- Edit Bundle Modal and Form ---
