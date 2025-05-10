@@ -110,9 +110,7 @@ data-username="<%= user.username %>">
         <% } else { %>
           <%# Not Subscribed Visitor %>
           <% if (bundles && bundles.length > 0) { %>
-            <button class="subscribe-now-button" id="toggleBundlesBtn">
-              SUBSCRIBE NOW
-            </button>
+            <button class="subscribe-now-button" id="toggleBundlesBtn">SUBSCRIBE NOW</button>
           <% } else { %>
             <p class="no-bundles-message">No subscription options currently available.</p>
           <% } %>
@@ -406,24 +404,22 @@ data-username="<%= user.username %>">
                         <% mediaItems.forEach((media, index) => { %>
                           <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                             <% if (media.type === 'image') { %>
-                              <img src="<%= media.url %>" 
-                                   alt="Post Image" 
-                                   class="post-image fullscreenable" 
-                                   data-fullscreen-src="<%= media.url %>" 
-                                   draggable="false" 
-                                   oncontextmenu="return false;">
+                              <img
+                                src="<%= media.url %>"
+                                alt="Post Image"
+                                class="post-image <%= media.showLocked ? 'blurred' : '' %>"
+                                data-fullscreen-src="<%= media.url %>"
+                              />
                             <% } else if (media.type === 'video') { %>
                               <video
-                              class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                              controlsList="nodownload noremoteplayback"
-                              data-fullscreen-src="<%= media.url %>"
-                              disablePictureInPicture
-                              draggable="false"
-                              oncontextmenu="return false;"
-                              poster="<%= media.posterUrl %>">
-                              <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                              Your browser does not support the video tag.
-                            </video>
+                                class="post-video fullscreenable <%= typeof media.showLocked !== 'undefined' && media.showLocked ? 'blurred' : '' %>"
+                                controlsList="nodownload noremoteplayback"
+                                data-fullscreen-src="<%= media.url %>"
+                                disablePictureInPicture
+                              >
+                                <source src="<%= media.url %>" type="video/mp4" />
+                                Your browser does not support the video tag.
+                              </video>
                             <% } %>
                           </div>
                         <% }); %>
