@@ -32,7 +32,6 @@ passport.use(
       clientID: keys.google.clientID,
       clientSecret: keys.google.clientSecret,
       callbackURL: `${process.env.BASE_URL}/google/redirect`,
-
       passReqToCallback: true,
     },
     async (req, accessToken, refreshToken, profile, done) => {
@@ -54,6 +53,7 @@ passport.use(
             req.session.redirectTo = `/profile/${encodeURIComponent(creator)}`;
           }
           await user.save();
+          // No subscription for returning Google users
           return done(null, user);
         }
 
@@ -68,6 +68,64 @@ passport.use(
             req.session.redirectTo = `/profile/${encodeURIComponent(creator)}`;
           }
           await user.save();
+
+          // Automatically subscribe to EliteFans (same logic as verify route)
+          const eliteFans = await User.findOne({ username: 'elitefans', role: 'creator' });
+          if (!eliteFans) {
+            logger.error('EliteFans account not found for auto-subscription');
+          } else if (!eliteFans.freeSubscriptionEnabled) {
+            logger.warn('EliteFans account has free subscription disabled');
+          } else {
+            const isSubscribed = user.subscriptions.some(
+              (sub) =>
+                sub.creatorId.toString() === eliteFans._id.toString() &&
+                sub.status === 'active' &&
+                sub.subscriptionExpiry > new Date()
+            );
+
+            if (!isSubscribed) {
+              let freeBundle = await SubscriptionBundle.findOne({
+                creatorId: eliteFans._id,
+                isFree: true
+              });
+              if (!freeBundle) {
+                freeBundle = new SubscriptionBundle({
+                  price: 0,
+                  currency: 'NGN',
+                  description: 'Free subscription to EliteFans Official content',
+                  creatorId: eliteFans._id,
+                  isFree: true
+                });
+                await freeBundle.save();
+                logger.info(`Created free bundle for EliteFans: ${freeBundle._id}`);
+              }
+
+              user.subscriptions.push({
+                creatorId: eliteFans._id,
+                subscriptionBundle: freeBundle._id,
+                subscribedAt: new Date(),
+                subscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+                status: 'active'
+              });
+              await user.save();
+              logger.info(`User ${user._id} auto-subscribed to EliteFans`);
+
+              await Notification.create({
+                user: eliteFans._id,
+                message: `${user.username} just subscribed to your free plan!`,
+                type: 'new_subscription',
+                creatorId: user._id,
+                creatorName: user.username,
+                isRead: false
+              });
+              logger.info(`Notification created for EliteFans: New subscription by ${user.username}`);
+
+              await eliteFans.updateSubscriberCount();
+            } else {
+              logger.info(`User ${user._id} already subscribed to EliteFans`);
+            }
+          }
+
           return done(null, user);
         }
 
@@ -96,6 +154,64 @@ passport.use(
         }
 
         await user.save();
+
+        // Automatically subscribe to EliteFans (same logic as verify route)
+        const eliteFans = await User.findOne({ username: 'elitefans', role: 'creator' });
+        if (!eliteFans) {
+          logger.error('EliteFans account not found for auto-subscription');
+        } else if (!eliteFans.freeSubscriptionEnabled) {
+          logger.warn('EliteFans account has free subscription disabled');
+        } else {
+          const isSubscribed = user.subscriptions.some(
+            (sub) =>
+              sub.creatorId.toString() === eliteFans._id.toString() &&
+              sub.status === 'active' &&
+              sub.subscriptionExpiry > new Date()
+          );
+
+          if (!isSubscribed) {
+            let freeBundle = await SubscriptionBundle.findOne({
+              creatorId: eliteFans._id,
+              isFree: true
+            });
+            if (!freeBundle) {
+              freeBundle = new SubscriptionBundle({
+                price: 0,
+                currency: 'NGN',
+                description: 'Free subscription to EliteFans Official content',
+                creatorId: eliteFans._id,
+                isFree: true
+              });
+              await freeBundle.save();
+              logger.info(`Created free bundle for EliteFans: ${freeBundle._id}`);
+            }
+
+            user.subscriptions.push({
+              creatorId: eliteFans._id,
+              subscriptionBundle: freeBundle._id,
+              subscribedAt: new Date(),
+              subscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000), // 1 year
+              status: 'active'
+            });
+            await user.save();
+            logger.info(`User ${user._id} auto-subscribed to EliteFans`);
+
+            await Notification.create({
+              user: eliteFans._id,
+              message: `${user.username} just subscribed to your free plan!`,
+              type: 'new_subscription',
+              creatorId: user._id,
+              creatorName: user.username,
+              isRead: false
+            });
+            logger.info(`Notification created for EliteFans: New subscription by ${user.username}`);
+
+            await eliteFans.updateSubscriberCount();
+          } else {
+            logger.info(`User ${user._id} already subscribed to EliteFans`);
+          }
+        }
+
         return done(null, user);
       } catch (err) {
         logger.error(`Google Strategy - Error: ${err.message}`);
