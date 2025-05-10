@@ -94,27 +94,27 @@ data-username="<%= user.username %>">
       <%# --- Toggle Buttons --- %>
       <% if (currentUser && currentUser._id.toString() !== user._id.toString()) { %>
         <%# Logged-in Visitor View %>
-        <% if (isSubscribed) { %>
-          <div class="subscription-actions">
-            <% if (isFreeSubscribed) { %>
-              <form action="/profile/unsubscribe/<%= user._id %>" method="POST" style="display: inline;">
-                <button type="submit" class="unsubscribe-btn">Unsubscribe</button>
-              </form>
-            <% } else { %>
-              <button class="subscribed-btn" disabled>Subscribed (Paid)</button>
-            <% } %>
-            <% if (bundles && bundles.length > 0) { %>
-              <button class="view-bundles-button" id="toggleBundlesBtn">View Options</button>
-            <% } %>
-          </div>
-        <% } else { %>
-          <%# Not Subscribed Visitor %>
-          <% if (bundles && bundles.length > 0) { %>
-            <button class="subscribe-now-button" id="toggleBundlesBtn">SUBSCRIBE NOW</button>
-          <% } else { %>
-            <p class="no-bundles-message">No subscription options currently available.</p>
-          <% } %>
-        <% } %>
+<% if (isSubscribed) { %>
+  <div class="subscription-actions">
+    <% if (isFreeSubscribed) { %>
+      <form action="/profile/unsubscribe/<%= user._id %>" method="POST" style="display: inline;">
+        <button type="submit" class="unsubscribe-btn">Unsubscribe</button>
+      </form>
+    <% } else { %>
+      <button class="subscribed-btn" disabled>Subscribed (Paid)</button>
+    <% } %>
+    <% if (bundles && bundles.length > 0) { %>
+      <button class="view-bundles-button" id="toggleBundlesBtn">View Options</button>
+    <% } %>
+  </div>
+<% } else { %>
+  <%# Not Subscribed Visitor %>
+  <% if (bundles && bundles.length > 0) { %>
+    <button class="subscribe-now-button" id="toggleBundlesBtn">SUBSCRIBE NOW</button>
+  <% } else { %>
+    <p class="no-bundles-message">No subscription options currently available.</p>
+  <% } %>
+<% } %>
       <% } else if (currentUser && currentUser._id.toString() === user._id.toString() && user.role === 'creator') { %>
         <%# Creator's Own View %>
         <% if (bundles && bundles.length > 0) { %>
