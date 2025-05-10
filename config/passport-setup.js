@@ -31,7 +31,8 @@ passport.use(
     {
       clientID: keys.google.clientID,
       clientSecret: keys.google.clientSecret,
-      callbackURL: `${process.env.BASE_URL}/google/callback`,
+      callbackURL: `${process.env.BASE_URL}/google/redirect`,
+
       passReqToCallback: true,
     },
     async (req, accessToken, refreshToken, profile, done) => {
