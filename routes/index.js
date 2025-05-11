@@ -228,7 +228,7 @@ router.get('/verify/:token', async (req, res) => {
         (sub) =>
           sub.creatorId.toString() === eliteFans._id.toString() &&
           sub.status === 'active' &&
-          (sub.subscriptionExpiry === null || sub.subscriptionExpiry > new Date())
+          sub.subscriptionExpiry > new Date()
       );
 
       if (!isSubscribed) {
@@ -249,16 +249,16 @@ router.get('/verify/:token', async (req, res) => {
           logger.info(`Created free bundle for EliteFans: ${freeBundle._id}`);
         }
 
-        // Add subscription to user with null expiry
+        // Add subscription to user
         user.subscriptions.push({
           creatorId: eliteFans._id,
           subscriptionBundle: freeBundle._id,
           subscribedAt: new Date(),
-          subscriptionExpiry: null, // Free subscriptions never expire
+          subscriptionExpiry: new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000), // 5 years
           status: 'active'
         });
         await user.save();
-        logger.info(`User ${user._id} auto-subscribed to EliteFans with null expiry`);
+        logger.info(`User ${user._id} auto-subscribed to EliteFans`);
 
         // Create notification for EliteFans
         await Notification.create({

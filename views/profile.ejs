@@ -94,27 +94,29 @@ data-username="<%= user.username %>">
       <%# --- Toggle Buttons --- %>
       <% if (currentUser && currentUser._id.toString() !== user._id.toString()) { %>
         <%# Logged-in Visitor View %>
-<% if (isSubscribed) { %>
-  <div class="subscription-actions">
-    <% if (isFreeSubscribed) { %>
-      <form action="/profile/unsubscribe/<%= user._id %>" method="POST" style="display: inline;">
-        <button type="submit" class="unsubscribe-btn">Unsubscribe</button>
-      </form>
-    <% } else { %>
-      <button class="subscribed-btn" disabled>Subscribed (Paid)</button>
-    <% } %>
-    <% if (bundles && bundles.length > 0) { %>
-      <button class="view-bundles-button" id="toggleBundlesBtn">View Options</button>
-    <% } %>
-  </div>
-<% } else { %>
-  <%# Not Subscribed Visitor %>
-  <% if (bundles && bundles.length > 0) { %>
-    <button class="subscribe-now-button" id="toggleBundlesBtn">SUBSCRIBE NOW</button>
-  <% } else { %>
-    <p class="no-bundles-message">No subscription options currently available.</p>
-  <% } %>
-<% } %>
+        <% if (isSubscribed) { %>
+          <div class="subscription-actions">
+            <% if (isFreeSubscribed) { %>
+              <form action="/profile/unsubscribe/<%= user._id %>" method="POST" style="display: inline;">
+                <button type="submit" class="unsubscribe-btn">Unsubscribe</button>
+              </form>
+            <% } else { %>
+              <button class="subscribed-btn" disabled>Subscribed</button>
+            <% } %>
+            <% if (bundles && bundles.length > 0) { %>
+              <button class="view-bundles-button" id="toggleBundlesBtn">View Options</button>
+            <% } %>
+          </div>
+        <% } else { %>
+          <%# Not Subscribed Visitor %>
+          <% if (bundles && bundles.length > 0) { %>
+            <button class="subscribe-now-button" id="toggleBundlesBtn">
+              SUBSCRIBE NOW
+            </button>
+          <% } else { %>
+            <p class="no-bundles-message">No subscription options currently available.</p>
+          <% } %>
+        <% } %>
       <% } else if (currentUser && currentUser._id.toString() === user._id.toString() && user.role === 'creator') { %>
         <%# Creator's Own View %>
         <% if (bundles && bundles.length > 0) { %>
@@ -365,6 +367,7 @@ data-username="<%= user.username %>">
       <div class="posts-list">
         <% if (posts && posts.length > 0) { %>
           <% posts.forEach(post => { %>
+            <% const showLocked = false; %>
             <div class="post-card" id="post-<%= post._id %>" data-category="<%= post.category || 'none' %>">
               <div class="profile-post-header">
                 <div class="profile-creator-info">
@@ -404,22 +407,24 @@ data-username="<%= user.username %>">
                         <% mediaItems.forEach((media, index) => { %>
                           <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                             <% if (media.type === 'image') { %>
-                              <img
-                                src="<%= media.url %>"
-                                alt="Post Image"
-                                class="post-image <%= media.showLocked ? 'blurred' : '' %>"
-                                data-fullscreen-src="<%= media.url %>"
-                              />
+                              <img src="<%= media.url %>" 
+                                   alt="Post Image" 
+                                   class="post-image fullscreenable" 
+                                   data-fullscreen-src="<%= media.url %>" 
+                                   draggable="false" 
+                                   oncontextmenu="return false;">
                             <% } else if (media.type === 'video') { %>
                               <video
-                                class="post-video fullscreenable <%= typeof media.showLocked !== 'undefined' && media.showLocked ? 'blurred' : '' %>"
-                                controlsList="nodownload noremoteplayback"
-                                data-fullscreen-src="<%= media.url %>"
-                                disablePictureInPicture
-                              >
-                                <source src="<%= media.url %>" type="video/mp4" />
-                                Your browser does not support the video tag.
-                              </video>
+                              class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                              controlsList="nodownload noremoteplayback"
+                              data-fullscreen-src="<%= media.url %>"
+                              disablePictureInPicture
+                              draggable="false"
+                              oncontextmenu="return false;"
+                              poster="<%= media.posterUrl %>">
+                              <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                              Your browser does not support the video tag.
+                            </video>
                             <% } %>
                           </div>
                         <% }); %>
@@ -669,15 +674,15 @@ data-username="<%= user.username %>">
         <div class="media-content posts-list">
           <% mediaPosts.forEach(post => { %>
             <% 
-              const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-              const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-                currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
-              const showLocked = post.special && !isAdminView && !hasPurchased;
-              // Build media array from mediaItems or contentUrl
-              const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
-                post.mediaItems : 
-                (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
-            %>
+            const isOwner = currentUser && currentUser._id.toString() === user._id.toString();
+            const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+            const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+              currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
+            const showLocked = post.special && !isAdminView && !isOwner && !hasPurchased;
+            const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
+              post.mediaItems : 
+              (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
+          %>
             <!-- Normal View: One media-item with carousel -->
             <div class="media-item normal-view" id="media-post-<%= post._id %>">
               <div class="profile-post-header normal-view-only">
@@ -877,16 +882,15 @@ data-username="<%= user.username %>">
         <div class="media-content posts-list">
           <% imagePosts.forEach(post => { %>
             <% 
-              const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-              const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-                currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
-              const showLocked = post.special && !isAdminView && !hasPurchased;
-              // Build media array, filter for images only
-              const mediaItems = (post.mediaItems && post.mediaItems.length > 0 ? 
-                post.mediaItems.filter(media => media.type === 'image') : 
-                (post.contentUrl && post.type === 'image' ? [{ type: 'image', url: post.contentUrl, contentType: post.contentType }] : [])
-              );
-            %>
+            const isOwner = currentUser && currentUser._id.toString() === user._id.toString();
+            const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+            const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+              currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
+            const showLocked = post.special && !isAdminView && !isOwner && !hasPurchased;
+            const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
+              post.mediaItems : 
+              (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
+          %>
             <!-- Normal View -->
             <div class="media-item normal-view" id="media-post-<%= post._id %>">
               <div class="profile-post-header normal-view-only">
@@ -1052,16 +1056,15 @@ data-username="<%= user.username %>">
         <div class="media-content posts-list">
           <% videoPosts.forEach(post => { %>
             <% 
-              const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-              const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-                currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
-              const showLocked = post.special && !isAdminView && !hasPurchased;
-              // Build media array, filter for videos only
-              const mediaItems = (post.mediaItems && post.mediaItems.length > 0 ? 
-                post.mediaItems.filter(media => media.type === 'video') : 
-                (post.contentUrl && post.type === 'video' ? [{ type: 'video', url: post.contentUrl, contentType: post.contentType }] : [])
-              );
-            %>
+            const isOwner = currentUser && currentUser._id.toString() === user._id.toString();
+            const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+            const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+              currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
+            const showLocked = post.special && !isAdminView && !isOwner && !hasPurchased;
+            const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
+              post.mediaItems : 
+              (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
+          %>
             <!-- Normal View -->
             <div class="media-item normal-view" id="media-post-<%= post._id %>">
               <div class="profile-post-header normal-view-only">
@@ -1786,36 +1789,6 @@ document.querySelector('.toggle-free-subscription-form')?.addEventListener('subm
   if (isEnabling && !confirm('Enabling free mode will delete all paid bundles. Continue?')) {
     e.preventDefault();
   }
-});
-document.querySelectorAll('form[action^="/profile/unsubscribe/"]').forEach(form => {
-  form.addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const submitButton = form.querySelector('button[type="submit"]');
-    const originalText = submitButton.textContent;
-    submitButton.textContent = 'Unsubscribing...';
-    submitButton.disabled = true;
-
-    try {
-      const response = await fetch(form.action, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-      const result = await response.json();
-      if (response.ok && result.status === 'success') {
-        alert(result.message || 'Unsubscribed successfully.');
-        window.location.reload();
-      } else {
-        alert(result.message || 'Error unsubscribing. Please try again.');
-        submitButton.textContent = originalText;
-        submitButton.disabled = false;
-      }
-    } catch (err) {
-      console.error('Error unsubscribing:', err.message);
-      alert('Error unsubscribing. Please try again.');
-      submitButton.textContent = originalText;
-      submitButton.disabled = false;
-    }
-  });
 });
 // --- Edit Bundle Form ---
 // --- Edit Bundle Modal and Form ---

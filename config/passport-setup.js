@@ -5,7 +5,6 @@ const bcrypt = require('bcrypt');
 const keys = require('./keys');
 const User = require('../models/users');
 const SubscriptionBundle = require('../models/SubscriptionBundle');
-const Notification = require('../models/notifications');
 const logger = require('../logs/logger'); // Import Winston logger
 require('dotenv').config();
 
@@ -46,6 +45,7 @@ passport.use(
           return done(null, false, { message: 'No email found in Google profile' });
         }
 
+        // Check for existing user with Google ID
         let user = await User.findOne({ googleId: profile.id });
         if (user) {
           user.lastSeen = new Date();
@@ -55,10 +55,10 @@ passport.use(
             req.session.redirectTo = `/profile/${encodeURIComponent(creator)}`;
           }
           await user.save();
-          // No subscription for returning Google users
-          return done(null, user);
+          return done(null, user); // No auto-subscription for returning Google users
         }
 
+        // Check for existing user with same email
         user = await User.findOne({ email });
         if (user) {
           user.googleId = profile.id;
@@ -71,7 +71,7 @@ passport.use(
           }
           await user.save();
 
-          // Automatically subscribe to EliteFans
+          // Auto-subscribe to EliteFans
           const eliteFans = await User.findOne({ username: 'elitefans', role: 'creator' });
           if (!eliteFans) {
             logger.error('EliteFans account not found for auto-subscription');
@@ -82,7 +82,7 @@ passport.use(
               (sub) =>
                 sub.creatorId.toString() === eliteFans._id.toString() &&
                 sub.status === 'active' &&
-                (sub.subscriptionExpiry === null || sub.subscriptionExpiry > new Date())
+                sub.subscriptionExpiry > new Date()
             );
 
             if (!isSubscribed) {
@@ -106,11 +106,11 @@ passport.use(
                 creatorId: eliteFans._id,
                 subscriptionBundle: freeBundle._id,
                 subscribedAt: new Date(),
-                subscriptionExpiry: null, // Free subscriptions never expire
+                subscriptionExpiry: new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000), // 5 years
                 status: 'active'
               });
               await user.save();
-              logger.info(`User ${user._id} auto-subscribed to EliteFans with null expiry`);
+              logger.info(`User ${user._id} auto-subscribed to EliteFans`);
 
               await Notification.create({
                 user: eliteFans._id,
@@ -131,6 +131,7 @@ passport.use(
           return done(null, user);
         }
 
+        // Create new user
         const username = profile.displayName.replace(/\s+/g, '').toLowerCase();
         user = new User({
           username,
@@ -157,7 +158,7 @@ passport.use(
 
         await user.save();
 
-        // Automatically subscribe to EliteFans
+        // Auto-subscribe to EliteFans
         const eliteFans = await User.findOne({ username: 'elitefans', role: 'creator' });
         if (!eliteFans) {
           logger.error('EliteFans account not found for auto-subscription');
@@ -168,7 +169,7 @@ passport.use(
             (sub) =>
               sub.creatorId.toString() === eliteFans._id.toString() &&
               sub.status === 'active' &&
-              (sub.subscriptionExpiry === null || sub.subscriptionExpiry > new Date())
+              sub.subscriptionExpiry > new Date()
           );
 
           if (!isSubscribed) {
@@ -192,11 +193,11 @@ passport.use(
               creatorId: eliteFans._id,
               subscriptionBundle: freeBundle._id,
               subscribedAt: new Date(),
-              subscriptionExpiry: null, // Free subscriptions never expire
+              subscriptionExpiry: new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000), // 5 years
               status: 'active'
             });
             await user.save();
-            logger.info(`User ${user._id} auto-subscribed to EliteFans with null expiry`);
+            logger.info(`User ${user._id} auto-subscribed to EliteFans`);
 
             await Notification.create({
               user: eliteFans._id,
@@ -222,7 +223,6 @@ passport.use(
     }
   )
 );
-
 passport.use(
   new LocalStrategy(
     {
