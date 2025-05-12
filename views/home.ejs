@@ -34,20 +34,20 @@
 
   <!-- Feed Mode Container -->
   <div class="feed-mode-container">
-    <!-- Trending Creators Section -->
-    <% if (featuredCreators && featuredCreators.length > 0) { %>
-      <div class="trending-creators-container">
-        <h2>Trending Creators</h2>
-        <div class="slider-nav left-nav" id="prevCreators">
-          <i class="fa-solid fa-chevron-left"></i>
-        </div>
-        <div class="slider-nav right-nav" id="nextCreators">
-          <i class="fa-solid fa-chevron-right"></i>
-        </div>
-        <div class="trending-creators-list">
-          <% featuredCreators.forEach((creator, index) => { %>
+   <!-- Trending Creators Section -->
+<% if (featuredCreators && featuredCreators.length > 0) { %>
+  <div class="trending-creators-container">
+    <h2>Trending Creators</h2>
+    <div class="trending-creators-list">
+      <% 
+        const cardsPerSlide = 4;
+        for (let i = 0; i < featuredCreators.length; i += cardsPerSlide) { 
+          const slideCreators = featuredCreators.slice(i, i + cardsPerSlide);
+      %>
+        <div class="creator-slide">
+          <% slideCreators.forEach((creator, index) => { %>
             <% let bgImage = creator.coverPhoto ? `${creator.coverPhoto}` : '/Uploads/default-cover.jpg'; %>
-            <div class="featured-creator-card" data-index="<%= index %>">
+            <div class="featured-creator-card" data-index="<%= i + index %>">
               <div class="creator-card-background" style="background-image: url('<%= bgImage %>');">
                 <div class="subscriber-count">
                   <p><%= creator.subscriberCount %> subscriber(s)</p>
@@ -71,9 +71,16 @@
             </div>
           <% }); %>
         </div>
-      </div>
-    <% } %>
-
+      <% } %>
+    </div>
+    <!-- Add dots container -->
+    <div class="slider-dots">
+      <% for (let i = 0; i < Math.ceil(featuredCreators.length / 4); i++) { %>
+        <span class="dot" data-index="<%= i %>"></span>
+      <% } %>
+    </div>
+  </div>
+<% } %>
 <!-- Feed: Show Subscribed Posts -->
 <div class="feed-container">
   <% if (posts && posts.length > 0) { %>
@@ -1115,66 +1122,59 @@
         updateCarousel();
       });
 
-      // --- Trending Creators Navigation ---
-const creatorCards = document.querySelectorAll('.featured-creator-card');
-const totalCreators = creatorCards.length;
-const creatorsPerPage = 3;
-let currentPage = 0;
-let autoSlideInterval;
+      const trendingList = document.querySelector('.trending-creators-list');
+  const dots = document.querySelectorAll('.slider-dots .dot');
+  const trendingContainer = document.querySelector('.trending-creators-container');
+  const totalSlides = Math.ceil(document.querySelectorAll('.featured-creator-card').length / 4);
+  let autoSlideInterval;
 
-// Function to update the display of creator cards
-function updateCreatorsDisplay() {
-  const startIndex = currentPage * creatorsPerPage;
-  const endIndex = startIndex + creatorsPerPage;
-  creatorCards.forEach((card, index) => {
-    card.style.display = (index >= startIndex && index < endIndex) ? 'block' : 'none';
+  // Function to update the active dot based on scroll position
+  function updateActiveDot() {
+    const scrollLeft = trendingList.scrollLeft;
+    const slideWidth = trendingList.querySelector('.creator-slide').offsetWidth + 20; // Include gap
+    const currentSlide = Math.round(scrollLeft / slideWidth);
+    dots.forEach((dot, index) => {
+      dot.classList.toggle('active', index === currentSlide);
+    });
+  }
+
+  // Scroll event listener to update dots
+  trendingList.addEventListener('scroll', updateActiveDot);
+
+  // Function to start auto-sliding
+  function startAutoSlide() {
+    autoSlideInterval = setInterval(() => {
+      const slideWidth = trendingList.querySelector('.creator-slide').offsetWidth + 20; // Include gap
+      const nextScrollLeft = trendingList.scrollLeft + slideWidth;
+      if (nextScrollLeft + trendingList.clientWidth >= trendingList.scrollWidth) {
+        trendingList.scrollTo({ left: 0, behavior: 'smooth' }); // Loop back to start
+      } else {
+        trendingList.scrollTo({ left: nextScrollLeft, behavior: 'smooth' });
+      }
+    }, 8000); // Slide every 8 seconds
+  }
+
+  // Function to stop auto-sliding
+  function stopAutoSlide() {
+    clearInterval(autoSlideInterval);
+  }
+
+  // Dot click event listeners
+  dots.forEach(dot => {
+    dot.addEventListener('click', () => {
+      const index = parseInt(dot.dataset.index);
+      const slideWidth = trendingList.querySelector('.creator-slide').offsetWidth + 20; // Include gap
+      trendingList.scrollTo({ left: index * slideWidth, behavior: 'smooth' });
+    });
   });
-  document.getElementById('prevCreators').style.opacity = currentPage === 0 ? '0.5' : '1';
-  document.getElementById('prevCreators').style.pointerEvents = currentPage === 0 ? 'none' : 'auto';
-  document.getElementById('nextCreators').style.opacity = endIndex >= totalCreators ? '0.5' : '1';
-  document.getElementById('nextCreators').style.pointerEvents = endIndex >= totalCreators ? 'none' : 'auto';
-}
 
-// Function to start automatic sliding
-function startAutoSlide() {
-  autoSlideInterval = setInterval(() => {
-    if ((currentPage + 1) * creatorsPerPage < totalCreators) {
-      currentPage++;
-    } else {
-      currentPage = 0; // Loop back to the first slide
-    }
-    updateCreatorsDisplay();
-  }, 8000); // Slide every 5 seconds
-}
+  // Pause and resume auto-slide on hover
+  trendingContainer.addEventListener('mouseenter', stopAutoSlide);
+  trendingContainer.addEventListener('mouseleave', startAutoSlide);
 
-// Function to stop automatic sliding
-function stopAutoSlide() {
-  clearInterval(autoSlideInterval);
-}
-
-// Manual navigation event listeners
-document.getElementById('prevCreators').addEventListener('click', function() {
-  if (currentPage > 0) {
-    currentPage--;
-    updateCreatorsDisplay();
-  }
-});
-
-document.getElementById('nextCreators').addEventListener('click', function() {
-  if ((currentPage + 1) * creatorsPerPage < totalCreators) {
-    currentPage++;
-    updateCreatorsDisplay();
-  }
-});
-
-// Add hover functionality to pause and resume sliding
-const trendingContainer = document.querySelector('.trending-creators-container');
-trendingContainer.addEventListener('mouseenter', stopAutoSlide);
-trendingContainer.addEventListener('mouseleave', startAutoSlide);
-
-// Initialize the display and start auto-sliding
-updateCreatorsDisplay();
-startAutoSlide();
+  // Initialize
+  updateActiveDot(); // Set initial active dot
+  startAutoSlide(); // Start auto-sliding
       
     });
   </script>

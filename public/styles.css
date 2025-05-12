@@ -573,7 +573,8 @@ body {
 .welcome-container h2 {
   font-size: 28px;
   margin-bottom: 20px;
-  text-align: center;
+  text-align: center !important;
+ 
 }
 .sign-options {
   display: flex;
@@ -599,44 +600,50 @@ body {
 }
 
 .button-login {
-  width: auto;
+  display: block;    /* makes width apply */
+  width: 100%;       /* span the full form width */
+  box-sizing: border-box; /* include padding in that width */
   padding: 10px 20px;
   font-size: 1rem;
   background-color: #FF007F;
   color: white;
   border: none;
   cursor: pointer;
-  margin: 10px 0;
-  display: inline-block;
+  margin: 10px 0;    /* adjust as desired */
 }
+
 .button-login:hover {
   background-color: red;
 }
 
 .a-sign {
-  width: auto;
+  display: block;         /* or inline-block—either is fine */
+  width: 100%;            /* if you want it full-width like the login button */
+  box-sizing: border-box; /* include padding in that width */
+  text-align: center;     /* ← center the “Sign In With Google” text */
   padding: 10px 20px;
   font-size: 1rem;
   background-color: #FF007F;
   color: white;
-  border: none;
+  margin: 10px 0;         /* adjust or remove if you prefer flex spacing */
   cursor: pointer;
-  margin: 10px 0;
-  display: inline-block;
 }
+
 
 a {
   text-decoration: none;
 }
 
 .signup-options {
-  margin: 10px;
-  padding: 10px;
+  white-space: nowrap;       /* prevent wrapping */
+  text-align: center;        /* center the whole line */
+}
+.g-sign {
+  margin: 0 10px;            /* smaller horizontal margins */
+  padding: 5px 5px;
+  display: inline-block;     /* makes padding/margins more predictable */
 }
 
-.g-sign {
-  margin: 30px;
-}
 
 .signup-form {
   display: flex;
@@ -668,7 +675,6 @@ a {
 .button-signup:hover {
   background-color: red;
 }
-
 /********************************************
  * VERIFICATION PAGE
  ********************************************/
@@ -3864,11 +3870,12 @@ html, body {
   display: none !important;
 }
 
-
-/* --- Trending Creators Container --- */
+/* Trending Creators Container */
 .trending-creators-container {
-  padding: 20px;
+  padding: 20px 0; /* Remove horizontal padding, keep vertical */
   width: 100%;
+  max-width: 500px; /* Slightly increased to ensure centering without cutoff */
+  margin: 0 auto; /* Center the container */
   position: relative;
   text-align: center;
 }
@@ -3878,44 +3885,45 @@ html, body {
   margin-bottom: 20px;
 }
 
-/* Navigation arrows */
-.slider-nav {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 18px; /* Reduced from 24px */
-  color: #333;
-  cursor: pointer;
-  background: rgba(255, 255, 255, 0.8);
-  padding: 3px; /* Reduced from 5px */
-  border-radius: 50%;
-  z-index: 10;
-  transition: color 0.3s, background 0.3s; /* Added for hover effects */
-}
-
-/* Hover effect for better interaction */
-.slider-nav:hover {
-  color: #ff69b4; /* Pink color on hover */
-  background: rgba(255, 255, 255, 1); /* Fully opaque background */
-}
-
-/* Positioning */
-.left-nav { left: 10px; }
-.right-nav { right: 10px; }
-/* List of trending creators */
+/* List of trending creators - Enable horizontal sliding */
 .trending-creators-list {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 20px;
-  max-width: 600px; /* Increased from 500px to allow wider cards */
-  margin: 0 auto;
+  flex-direction: row; /* Horizontal arrangement of slides */
+  overflow-x: auto; /* Enable horizontal scrolling */
+  scroll-snap-type: x mandatory; /* Snap to each slide */
+  gap: 0; /* Remove gap to prevent left shift */
+  padding: 0; /* Remove padding to avoid extra space */
+  scroll-behavior: smooth; /* Smooth scrolling */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on mobile */
+}
+
+/* Hide scrollbar for aesthetics */
+.trending-creators-list::-webkit-scrollbar {
+  display: none;
+}
+
+.trending-creators-list {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+/* Each slide containing four cards */
+.creator-slide {
+  flex: 0 0 auto;
+  width: 100%; /* Full container width */
+  max-width: 480px; /* Consistent card width */
+  display: flex;
+  flex-direction: column; /* Stack cards vertically within slide */
+  gap: 20px; /* Gap between cards within a slide */
+  scroll-snap-align: center; /* Center each slide in the viewport */
+  align-items: center; /* Center cards horizontally within slide */
+  margin: 0 10px; /* Add small margin to prevent cutoff */
 }
 
 /* Each trending creator card */
 .featured-creator-card {
   width: 100%;
-  max-width: 480px; /* Increased from 400px to make it a little longer */
+  max-width: 480px; /* Match slide width */
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
@@ -3925,38 +3933,38 @@ html, body {
 .creator-card-background {
   position: relative;
   width: 100%;
-  height: 160px; /* Decreased from 200px to make it a little shorter */
+  height: 120px; /* Reduced height from previous setup */
   background-size: cover;
   background-position: center;
   display: flex;
   flex-direction: column;
-  justify-content: center; /* Center content vertically */
+  justify-content: center;
   padding: 10px;
 }
 
 /* Subscriber count in top-right */
 .subscriber-count {
   position: absolute;
-  top: 10px;
+  top: 8px;
   right: 10px;
-  color: white; /* Ensure visibility on cover photo */
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8); /* Add shadow for contrast */
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
 }
 
 .subscriber-count p {
   margin: 0;
-  font-size: 14px;
+  font-size: 12px;
 }
 
 /* Profile picture container */
 .profile-picture-container {
   position: absolute;
   left: 10px;
-  top: 50%; /* Center vertically */
-  transform: translateY(-50%); /* Adjust for true middle */
-  width: 60px;
-  height: 60px;
-  border: 3px solid white;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 50px;
+  height: 50px;
+  border: 2px solid white;
   border-radius: 50%;
   overflow: hidden;
   background: white;
@@ -3968,27 +3976,49 @@ html, body {
   object-fit: cover;
 }
 
-/* Creator info styling (username and profile name in a column) */
+/* Creator info styling */
 .creator-info {
   display: flex;
   flex-direction: column;
-  align-items: flex-start; /* Changed from center to left-align content */
-  text-align: left; /* Align text to the left */
-  color: white; /* Ensure visibility on cover photo */
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8); /* Add shadow for contrast */
-  margin-left: 80px; /* Shift left, leaving space after the profile picture */
+  align-items: flex-start;
+  text-align: left;
+  color: white;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.8);
+  margin-left: 70px;
 }
 
 .creator-info a {
-  color: white; /* Changed from pink to white for visibility */
+  color: white;
   text-decoration: none;
   font-weight: bold;
-  margin-bottom: 2px; /* Minimal space between username and profile name */
+  margin-bottom: 2px;
+  font-size: 14px;
 }
 
 .creator-info p {
-  margin: 0; /* Remove default margin for tight spacing */
-  font-size: 14px;
+  margin: 0;
+  font-size: 12px;
+}
+
+/* Slider dots */
+.slider-dots {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #ccc;
+  margin: 0 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.dot.active {
+  background-color: #ff69b4;
 }
 /* HIDE / SHOW */
 #lightbox.hidden {
