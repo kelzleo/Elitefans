@@ -62,6 +62,7 @@ header.logo-header {
   justify-content: center;  /* ← center children horizontally */
   align-items: center;
   background: none;
+  padding-bottom: 20px;
 }
 
 .logo-link {
@@ -88,23 +89,7 @@ header.logo-header {
   text-transform: uppercase;
 }
 
-/* Prevent overlap */
-.welcome-container,
-.home-container,
-.signup-container {
-  padding-top: 80px;
-  max-width: 800px;
-  margin: 0 auto;
-  padding-left: 20px;
-  padding-right: 20px;
-}
 
-/* Welcome page */
-.welcome-container h2 {
-  font-size: 28px;
-  margin-bottom: 20px;
-  text-align: center;
-}
 /* Responsive */
 @media (max-width: 768px) {
   .site-logo {
@@ -116,6 +101,7 @@ header.logo-header {
   }
   header.logo-header {
     left: 10px;
+    padding-bottom: 20px;
   }
   .welcome-container,
   .home-container,
@@ -554,6 +540,679 @@ body {
   color: #ff0000; /* Explicit red color for error */
   text-align: left;
 }
+/* Default background for the welcome page (mobile) */
+body.welcome-page {
+  background: linear-gradient(
+    45deg,
+    #322294 0%,   /* deep indigo-blue */
+    #5D2193 50%,  /* vibrant purple */
+    #9730A3 100%  /* magenta-pink */
+  );
+  background-size: 100% 100%;
+  overflow: hidden; /* Disable scrolling only on the welcome page */
+}
+
+/* Remove padding and background from .container to avoid gaps */
+body.welcome-page .container {
+  padding: 0;
+  background-color: transparent;
+}
+
+/* Remove padding-bottom and background from .content-wrapper to avoid extra space */
+body.welcome-page .content-wrapper {
+  padding-bottom: 0;
+  height: 100vh; /* Ensure it takes the full height on mobile */
+  display: flex;
+  flex-direction: column;
+  background-color: transparent;
+}
+
+/* Sign-up options at the top with padding and centering */
+.wel-signup-options {
+  position: absolute;
+  top: 40px;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px 30px;
+  z-index: 1000;
+}
+
+.wel-signup-options p {
+  font-size: 14px;
+  color: white;
+  margin: 0;
+}
+
+/* Box around “Get Started” */
+.wel-getstarted-box {
+  display: inline-block;
+  background: rgba(227, 224, 255, 0.3);
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-left: 6px;
+}
+
+.wel-getstarted-box a {
+  color: white;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.wel-getstarted-box a:hover {
+  text-decoration: underline;
+}
+
+.wel-signup-link {
+  color: white;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.wel-signup-link:hover {
+  text-decoration: underline;
+}
+
+/* Header styles */
+header.wel-logo-header {
+  position: absolute;
+  top: 120px;
+  left: 0;
+  right: 0;
+  z-index: 999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: none;
+  padding-bottom: 20px;
+}
+
+.wel-logo-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.wel-site-logo {
+  height: 40px;
+  width: auto;
+  max-width: 150px;
+  object-fit: contain;
+  display: block;
+}
+
+.wel-logo-text {
+  margin-left: 5px;
+  font-size: 24px;
+  font-weight: bold;
+  color: white;
+  text-transform: uppercase;
+}
+
+/* ——————————————————————————————
+   White content section + embedded top-edge pill
+   —————————————————————————————— */
+.wel-content-section {
+  position: relative;
+  margin-top: 25vh;               /* purple area is the top 25vh */
+  background-color: #ffffff;
+  border-top-left-radius: 30px;
+  border-top-right-radius: 30px;
+  height: 75vh;                   /* white card occupies bottom 75% */
+  overflow: hidden;               /* prevent internal scrolling */
+  padding: 20px 0;
+  z-index: 3;                     /* sit above the pill */
+}
+
+.wel-content-section::before {
+  content: "";
+  position: absolute;
+  top: -8px;                      /* 8px above the white card top */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 120px;                   /* match your card’s width */
+  height: 8px;                    /* pill thickness */
+  background: rgba(227, 224, 255, 0.6);  /* light-blue/purple tint */
+  border-radius: 4px;
+  z-index: 2;                     /* sit under the white card but over the pure purple */
+}
+
+/* Centered container for the login form (mobile default) */
+.wel-welcome-container {
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 20px;
+  text-align: center;
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Ensure form elements don’t overflow */
+.wel-login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.wel-input {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+
+.wel-password-container {
+  position: relative;
+}
+
+.wel-password-container input[type="password"],
+.wel-password-container input[type="text"] {
+  width: 100%;
+  padding: 12px 40px 12px 12px;
+  font-size: 16px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  box-sizing: border-box;
+}
+
+.wel-toggle-password {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  font-size: 18px;
+  color: #666;
+}
+
+.wel-toggle-password:hover {
+  color: #333;
+}
+
+.wel-button-login {
+  width: 100%;
+  padding: 12px;
+  font-size: 16px;
+  font-weight: bold;
+  color: white;
+  background: linear-gradient(
+    45deg,
+    #322294 0%,
+    #5D2193 50%,
+    #9730A3 100%
+  );
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.wel-button-login:hover {
+  background: linear-gradient(
+    45deg,
+    #E6E6FA 0%,
+    #9370DB 50%,
+    #4B0082 100%
+  );
+}
+
+.wel-heading {
+  font-size: 28px;
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 10px;
+}
+
+.wel-subheading {
+  font-size: 16px;
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.wel-error-message {
+  padding: 10px;
+  margin-bottom: 20px;
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+  border-radius: 5px;
+  font-size: 14px;
+}
+
+.wel-forgot-password {
+  margin-top: 15px;
+}
+
+.wel-forgot-link {
+  font-size: 14px;
+  color: #4B0082;
+  text-decoration: none;
+}
+
+.wel-forgot-link:hover {
+  text-decoration: underline;
+}
+
+.wel-sign-options {
+  margin-top: 30px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.wel-sign-text {
+  font-size: 14px;
+  color: #666;
+  margin: 0 0 15px 0;
+  text-align: center;
+  width: auto;
+}
+
+.wel-social-buttons {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.wel-a-sign {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 150px;
+  padding: 10px 15px;
+  font-size: 14px;
+  color: #333;
+  background-color: #f5f5f5;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  text-decoration: none;
+  transition: background-color 0.3s ease;
+}
+
+.wel-a-sign:hover {
+  background-color: #e0e0e0;
+}
+
+.wel-social-icon {
+  font-size: 20px;
+  margin-right: 10px;
+  color: #333;
+}
+
+/* Mobile-specific styles (≤ 768px) */
+@media (max-width: 768px) {
+  .wel-site-logo {
+    height: 30px;
+  }
+  .wel-logo-text {
+    font-size: 20px;
+    margin-left: 3px;
+  }
+  .wel-content-section {
+    margin-top: 25vh;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    height: 75vh;
+  }
+  .wel-welcome-container {
+    padding: 15px;
+  }
+  .wel-heading {
+    font-size: 24px;
+  }
+  .wel-subheading {
+    font-size: 14px;
+  }
+  .wel-input {
+    padding: 10px;
+    font-size: 14px;
+  }
+  .wel-button-login {
+    padding: 10px;
+    font-size: 14px;
+  }
+  .wel-a-sign {
+    width: 120px;
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .wel-social-icon {
+    font-size: 18px;
+    margin-right: 8px;
+  }
+}
+
+/* Desktop-specific styles (> 768px) */
+@media (min-width: 769px) {
+  body.welcome-page {
+    background-color: transparent;
+    overflow: auto;
+  }
+  .wel-signup-options {
+    top: 50px;
+    padding: 30px 40px;
+  }
+  .wel-signup-options p {
+    color: #666;
+  }
+  .wel-signup-link {
+    color: #4B0082;
+  }
+  .wel-logo-text {
+    color: #333;
+  }
+  body.welcome-page .content-wrapper {
+    height: auto;
+    min-height: 100vh;
+    justify-content: center;
+  }
+  .wel-content-section {
+    margin-top: 220px;
+    height: auto;
+    min-height: 500px;
+    overflow: visible;
+    padding: 40px 0;
+    border-top-left-radius: 30px;
+    border-top-right-radius: 30px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  }
+  .wel-welcome-container {
+    padding: 30px;
+    height: auto;
+    display: block;
+  }
+  .wel-heading {
+    font-size: 32px;
+  }
+  .wel-subheading {
+    font-size: 18px;
+  }
+  .wel-input {
+    padding: 14px;
+    font-size: 16px;
+  }
+  .wel-button-login {
+    padding: 14px;
+    font-size: 16px;
+  }
+  .wel-a-sign {
+    width: 160px;
+    padding: 12px 15px;
+    font-size: 14px;
+  }
+  .wel-social-icon {
+    font-size: 22px;
+    margin-right: 10px;
+  }
+}
+/* —————————————————————————
+   Scope everything inside .sel-signup-page
+   ————————————————————————— */
+   .sel-signup-page {
+    position: relative;
+    min-height: 100vh;
+    overflow: hidden;
+    background: linear-gradient(
+      45deg,
+      #322294 0%,
+      #5D2193 50%,
+      #9730A3 100%
+    );
+    background-size: 100% 100%;
+  }
+  
+  /* Top “Already have an account?” box */
+  .sel-signup-page .sel-signup-options {
+    position: absolute;
+    top: 40px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 0 20px;
+    z-index: 1000;
+  }
+  
+  .sel-signup-page .sel-signup-options p {
+    font-size: 14px;
+    color: white;
+    margin: 0;
+  }
+  
+  .sel-signup-page .sel-getstarted-box {
+    display: inline-block;
+    background: rgba(227, 224, 255, 0.3);
+    padding: 4px 12px;
+    border-radius: 20px;
+    margin-left: 6px;
+  }
+  
+  .sel-signup-page .sel-getstarted-box a {
+    color: white;
+    font-weight: bold;
+    text-decoration: none;
+  }
+  
+  .sel-signup-page .sel-getstarted-box a:hover {
+    text-decoration: underline;
+  }
+  
+  /* Header styles */
+  .sel-signup-page .sel-logo-header {
+    position: absolute;
+    top: 120px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding-bottom: 20px;
+    z-index: 999;
+  }
+  
+  .sel-signup-page .sel-logo-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+  }
+  
+  .sel-signup-page .sel-site-logo {
+    height: 40px;
+    max-width: 150px;
+    object-fit: contain;
+  }
+  
+  .sel-signup-page .sel-logo-text {
+    margin-left: 5px;
+    font-size: 24px;
+    font-weight: bold;
+    color: white;
+    text-transform: uppercase;
+  }
+  
+  /* White card + embedded pill */
+  .sel-signup-page .sel-content-section {
+    position: relative;
+    margin-top: 25vh;
+    background-color: #fff;
+    border-top-left-radius: 30px;
+    border-top-right-radius: 30px;
+    height: 75vh;
+    overflow: hidden;
+    padding: 20px 0;
+    z-index: 3;
+  }
+  
+  .sel-signup-page .sel-content-section::before {
+    content: "";
+    position: absolute;
+    top: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 120px;
+    height: 8px;
+    background: rgba(227, 224, 255, 0.6);
+    border-radius: 4px;
+    z-index: 2;
+  }
+  
+  /* Inner container */
+  .sel-signup-page .sel-welcome-container {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 20px;
+    text-align: center;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+  
+  /* Form elements */
+  .sel-signup-page .sel-signup-form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .sel-signup-page .sel-input {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+    box-sizing: border-box;
+  }
+  
+  .sel-signup-page .sel-password-container {
+    position: relative;
+  }
+  
+  .sel-signup-page .sel-password-container input {
+    width: 100%;
+    padding: 12px 40px 12px 12px;
+    font-size: 16px;
+    border: 1px solid #ddd;
+    border-radius: 5px;
+  }
+  
+  .sel-signup-page .sel-toggle-password {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 18px;
+    color: #666;
+  }
+  
+  .sel-signup-page .sel-toggle-password:hover {
+    color: #333;
+  }
+  
+  .sel-signup-page .sel-password-error {
+    font-size: 14px;
+    color: #c00;
+    display: none;
+    text-align: left;
+  }
+  
+  /* Submit button */
+  .sel-signup-page .sel-button-signup {
+    width: 100%;
+    padding: 12px;
+    font-size: 16px;
+    font-weight: bold;
+    color: white;
+    background: linear-gradient(
+      45deg,
+      #322294 0%,
+      #5D2193 50%,
+      #9730A3 100%
+    );
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+  }
+  
+  .sel-signup-page .sel-button-signup:hover {
+    background: linear-gradient(
+      45deg,
+      #E6E6FA 0%,
+      #9370DB 50%,
+      #4B0082 100%
+    );
+  }
+  
+  /* Headings & text */
+  .sel-signup-page .sel-heading {
+    font-size: 28px;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 10px;
+  }
+  
+  .sel-signup-page .sel-subheading {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 30px;
+  }
+  
+  .sel-signup-page .sel-error-message {
+    padding: 10px;
+    margin-bottom: 20px;
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+    border-radius: 5px;
+    font-size: 14px;
+  }
+  
+  /* Responsive tweaks */
+  @media (max-width: 768px) {
+    .sel-signup-page .sel-site-logo { height: 30px; }
+    .sel-signup-page .sel-logo-text { font-size: 20px; margin-left: 3px; }
+    .sel-signup-page .sel-heading { font-size: 24px; }
+    .sel-signup-page .sel-subheading { font-size: 14px; }
+    .sel-signup-page .sel-input { padding: 10px; font-size: 14px; }
+    .sel-signup-page .sel-button-signup { padding: 10px; font-size: 14px; }
+  }
+  
+  @media (min-width: 769px) {
+    .sel-signup-page { overflow: auto; }
+    .sel-signup-page .sel-signup-options { top: 50px; padding: 0 30px; }
+    .sel-signup-page .sel-signup-options p { color: #666; }
+    .sel-signup-page .sel-signup-link { color: #4B0082; }
+    .sel-signup-page .sel-logo-text { color: #333; }
+    .sel-signup-page .sel-content-section {
+      margin-top: 220px;
+      height: auto;
+      min-height: 500px;
+      padding: 40px 0;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+    .sel-signup-page .sel-welcome-container {
+      padding: 30px;
+      height: auto;
+      display: block;
+    }
+    .sel-signup-page .sel-heading { font-size: 32px; }
+    .sel-signup-page .sel-subheading { font-size: 18px; }
+    .sel-signup-page .sel-input { padding: 14px; font-size: 16px; }
+    .sel-signup-page .sel-button-signup { padding: 14px; font-size: 16px; }
+  }
+  
+
 /********************************************
  * LOGIN / SIGNUP FORMS
  ********************************************/
@@ -574,6 +1233,7 @@ body {
   font-size: 28px;
   margin-bottom: 20px;
   text-align: center !important;
+  padding-bottom: 40px;
  
 }
 .sign-options {
@@ -581,6 +1241,7 @@ body {
   flex-direction: column;
   margin: 20px;
   padding: 20px;
+ 
 }
 
 .login-form {
@@ -589,6 +1250,7 @@ body {
   margin: 0 auto;
   text-align: center;
   box-sizing: border-box;
+  padding: 50px
 }
 
 .login-form input {
@@ -598,6 +1260,7 @@ body {
   font-size: 1rem;
   box-sizing: border-box;
 }
+
 
 .button-login {
   display: block;    /* makes width apply */

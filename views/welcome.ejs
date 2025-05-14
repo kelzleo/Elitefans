@@ -1,52 +1,102 @@
 <!-- views/welcome.ejs -->
-<header class="logo-header">
-  <a href="/home" class="logo-link">
-    <img src="https://storage.googleapis.com/my-public-profile-pictures/logos/elitefans-logo.PNG" alt="EliteFans Logo" class="site-logo">
-    <span class="logo-text">EliteFans</span>
+
+<div class="wel-signup-options">
+  <p>
+    Don't have an account?
+    <span class="wel-getstarted-box">
+      <a
+        href="/signup<%= typeof ref !== 'undefined' && ref ? `?ref=${encodeURIComponent(ref)}` : '' %><%= creator ? `${typeof ref !== 'undefined' && ref ? '&' : '?'}creator=${encodeURIComponent(creator)}` : '' %>"
+        class="wel-signup-link"
+      >
+        Get Started
+      </a>
+    </span>
+  </p>
+</div>
+
+<header class="wel-logo-header">
+  <a href="/home" class="wel-logo-link">
+    <img
+      src="https://storage.googleapis.com/my-public-profile-pictures/logos/elitefans-logo.PNG"
+      alt="EliteFans Logo"
+      class="wel-site-logo"
+    >
+    <span class="wel-logo-text">EliteFans</span>
   </a>
 </header>
-<div class="welcome-container">
-  <% if (typeof creator !== 'undefined' && creator) { %>
-    <h2>Sign up or log in to subscribe to <%= creator %></h2>
-  <% } else { %>
-    <h2>Sign up to meet and support your favorite creators</h2>
-  <% } %>
 
-  <% if (errorMessage && errorMessage.length > 0) { %>
-    <div class="error-message">
-      <%= errorMessage %>
-    </div>
-  <% } %>
-
-  <form action="/login<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %>" method="POST" class="login-form">
-    <% if (creator) { %>
-      <input type="hidden" name="creator" value="<%= creator %>">
+<div class="wel-content-section">
+  <div class="wel-welcome-container">
+    <% if (typeof creator !== 'undefined' && creator) { %>
+      <h2 class="wel-heading">Welcome Back</h2>
+      <p class="wel-subheading">Sign up or log in to subscribe to <%= creator %></p>
+    <% } else { %>
+      <h2 class="wel-heading">Welcome Back</h2>
+      <p class="wel-subheading">Sign up to meet and support your favorite creators</p>
     <% } %>
-    <% if (typeof ref !== 'undefined' && ref) { %>
-      <input type="hidden" name="ref" value="<%= ref %>">
+
+    <% if (errorMessage && errorMessage.length > 0) { %>
+      <div class="wel-error-message">
+        <%= errorMessage %>
+      </div>
     <% } %>
-    <input type="text" name="usernameOrEmail" placeholder="Email or Username" required>
-    <div class="password-container">
-      <input type="password" name="password" placeholder="Password" required>
-      <span class="toggle-password">👁️</span>
+
+    <form
+      action="/login<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %>"
+      method="POST"
+      class="wel-login-form"
+    >
+      <% if (creator) { %>
+        <input type="hidden" name="creator" value="<%= creator %>">
+      <% } %>
+      <% if (typeof ref !== 'undefined' && ref) { %>
+        <input type="hidden" name="ref" value="<%= ref %>">
+      <% } %>
+
+      <input
+        type="text"
+        name="usernameOrEmail"
+        placeholder="Email Address or Username"
+        
+        required
+        class="wel-input"
+      >
+
+      <div class="wel-password-container">
+        <input
+          type="password"
+          name="password"
+          placeholder="Password"
+          required
+          class="wel-input"
+        >
+        <span class="wel-toggle-password">👁️</span>
+      </div>
+
+      <button type="submit" class="wel-button-login">Sign In</button>
+    </form>
+
+    <div class="wel-forgot-password">
+      <a href="/forgot-password" class="wel-forgot-link">Forgot your password?</a>
     </div>
-    <button type="submit" class="button-login">Login</button>
-  </form>
 
-  <div class="sign-options">
-    <a href="/google<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %><%= typeof ref !== 'undefined' && ref ? `${creator ? '&' : '?'}ref=${encodeURIComponent(ref)}` : '' %>" class="a-sign">Sign In With Google</a>
-    
-  </div>
-
-  <div class="signup-options">
-    <a href="/forgot-password" class="g-sign">Forgot Password?</a>
-    <a href="/signup<%= typeof ref !== 'undefined' && ref ? `?ref=${encodeURIComponent(ref)}` : '' %><%= creator ? `${typeof ref !== 'undefined' && ref ? '&' : '?'}creator=${encodeURIComponent(creator)}` : '' %>" class="g-sign">Sign Up Now</a>
+    <div class="wel-sign-options">
+      <p class="wel-sign-text">Or sign in with</p>
+      <div class="wel-social-buttons">
+        <a
+          href="/google<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %><%= typeof ref !== 'undefined' && ref ? `${creator ? '&' : '?'}ref=${encodeURIComponent(ref)}` : '' %>"
+          class="wel-a-sign"
+        >
+          <i class="fa-brands fa-google wel-social-icon"></i> Google
+        </a>
+      </div>
+    </div>
   </div>
 </div>
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    const togglePassword = document.querySelector('.toggle-password');
+    const togglePassword = document.querySelector('.wel-toggle-password');
     const passwordInput = document.querySelector('input[name="password"]');
 
     togglePassword.addEventListener('click', function() {

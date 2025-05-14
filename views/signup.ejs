@@ -1,128 +1,151 @@
 <!-- views/signup.ejs -->
-<header class="logo-header">
-  <a href="/home" class="logo-link">
-    <img src="https://storage.googleapis.com/my-public-profile-pictures/logos/elitefans-logo.PNG" alt="EliteFans Logo" class="site-logo">
-    <span class="logo-text">EliteFans</span>
-  </a>
-</header>
-<div class="welcome-container">
-  <h1>Sign up to support your favorite creators</h1>
 
-<% if (errorMessage) { %>
-    <div class="error-message">
-        <%= errorMessage %>
-    </div>
-<% } %>
+<div class="sel-signup-page">
 
-</div>
-<form
-  id="signupForm"
-  action="/signup<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %><%= ref ? `${creator ? '&' : '?'}ref=${encodeURIComponent(ref)}` : '' %>"
-  method="POST"
-  class="signup-form"
->
-  <% if (creator) { %>
-    <input type="hidden" name="creator" value="<%= creator %>">
-  <% } %>
-  <% if (ref) { %>
-    <input type="hidden" name="ref" value="<%= ref %>">
-  <% } %>
-
-  <h2>Create Your Account</h2>
-  <input type="text" name="username" placeholder="Username" required>
-  <input type="email" name="email" placeholder="Email" required>
-  <div class="password-container">
-    <input type="password" name="password" placeholder="Password" required>
-    <span class="toggle-password">👁️</span>
+  <!-- 1. Top “Already have an account?” box -->
+  <div class="sel-signup-options">
+    <p>
+      Already have an account?
+      <span class="sel-getstarted-box">
+        <% 
+          // Build query string for redirect back to welcome ("/")
+          const queryParts = [];
+          if (creator) queryParts.push('creator=' + encodeURIComponent(creator));
+          if (ref)     queryParts.push('ref='     + encodeURIComponent(ref));
+        %>
+        <a
+          href="/<%= queryParts.length ? '?' + queryParts.join('&') : '' %>"
+          class="sel-signup-link"
+        >
+          Sign In
+        </a>
+      </span>
+    </p>
   </div>
-  <div class="password-error" id="passwordError"></div>
 
-  <button type="submit" class="button-signup">Sign Up</button>
-</form>
+  <!-- 2. Branded Header -->
+  <header class="sel-logo-header">
+    <a href="/home" class="sel-logo-link">
+      <img
+        src="https://storage.googleapis.com/my-public-profile-pictures/logos/elitefans-logo.PNG"
+        alt="EliteFans Logo"
+        class="sel-site-logo"
+      >
+      <span class="sel-logo-text">EliteFans</span>
+    </a>
+  </header>
+
+  <!-- 3. White card + embedded pill via CSS -->
+  <div class="sel-content-section">
+    <div class="sel-welcome-container">
+      <h2 class="sel-heading">Join EliteFans</h2>
+      <p class="sel-subheading">
+        Create your account to unlock exclusive perks, chat with creators, and support your favorites.
+      </p>
+
+      <% if (errorMessage && errorMessage.length) { %>
+        <div class="sel-error-message"><%= errorMessage %></div>
+      <% } %>
+
+      <!-- 4. Sign-up form -->
+      <form
+        id="sel-signupForm"
+        action="/signup<%= queryParts.length ? '?' + queryParts.join('&') : '' %>"
+        method="POST"
+        class="sel-signup-form"
+      >
+        <% if (creator) { %>
+          <input type="hidden" name="creator" value="<%= creator %>">
+        <% } %>
+        <% if (ref) { %>
+          <input type="hidden" name="ref" value="<%= ref %>">
+        <% } %>
+
+        <h3 class="sel-form-title">Create Your Account</h3>
+
+        <input
+          type="text"
+          name="username"
+          placeholder="Username"
+          required
+          class="sel-input"
+        >
+
+        <input
+          type="email"
+          name="email"
+          placeholder="Email Address"
+          required
+          class="sel-input"
+        >
+
+        <div class="sel-password-container">
+          <input
+            type="password"
+            name="password"
+            placeholder="Password"
+            required
+            class="sel-input"
+          >
+          <span class="sel-toggle-password">👁️</span>
+        </div>
+        <div id="sel-passwordError" class="sel-password-error"></div>
+
+        <button type="submit" class="sel-button-signup">Sign Up</button>
+      </form>
+    </div>
+  </div>
+
+</div><!-- /.sel-signup-page -->
 
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    const togglePassword = document.querySelector('.toggle-password');
-    const passwordInput = document.querySelector('input[name="password"]');
-    const usernameInput = document.querySelector('input[name="username"]');
-    const emailInput = document.querySelector('input[name="email"]');
-    const form = document.getElementById('signupForm');
-    const errorDiv = document.getElementById('passwordError');
+    const togglePassword = document.querySelector('.sel-toggle-password');
+    const passwordInput  = document.querySelector('input[name="password"]');
+    const usernameInput  = document.querySelector('input[name="username"]');
+    const emailInput     = document.querySelector('input[name="email"]');
+    const form           = document.getElementById('sel-signupForm');
+    const errorDiv       = document.getElementById('sel-passwordError');
 
-    // Toggle password visibility
-    togglePassword.addEventListener('click', function() {
-      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-      passwordInput.setAttribute('type', type);
-      this.textContent = type === 'password' ? '👁️' : '🙈';
-    });
-
-    // Real-time password validation
     function validatePassword() {
-      const password = passwordInput.value;
-      const username = usernameInput.value.toLowerCase();
-      const email = emailInput.value.toLowerCase();
-      let errorMessage = '';
+      const pwd      = passwordInput.value;
+      const uname    = usernameInput.value.toLowerCase();
+      const emailL   = emailInput.value.toLowerCase();
+      let msg        = '';
 
-      // Check requirements one at a time
-      if (password.length < 8) {
-        errorMessage = 'Password must be at least 8 characters long.';
+      if (pwd.length < 8) {
+        msg = 'At least 8 characters.';
       } else {
-        const hasUppercase = /[A-Z]/.test(password);
-        const hasLowercase = /[a-z]/.test(password);
-        const hasNumber = /[0-9]/.test(password);
-        const hasSpecial = /[!@#$%^&*]/.test(password);
-        const varietyCount = [hasUppercase, hasLowercase, hasNumber, hasSpecial].filter(Boolean).length;
-        if (varietyCount < 3) {
-          errorMessage = 'Password must include at least 3 of: uppercase letter, lowercase letter, number, special character.';
-        } else {
-          const passwordLower = password.toLowerCase();
-          if (passwordLower.includes(username) || passwordLower.includes(email)) {
-            errorMessage = 'Password should not contain your username or email.';
-          }
+        const checks = [
+          /[A-Z]/.test(pwd),
+          /[a-z]/.test(pwd),
+          /[0-9]/.test(pwd),
+          /[!@#$%^&*]/.test(pwd)
+        ].filter(Boolean).length;
+        if (checks < 3) {
+          msg = 'Include 3 of: uppercase, lowercase, number, symbol.';
+        } else if (pwd.toLowerCase().includes(uname) || pwd.toLowerCase().includes(emailL)) {
+          msg = 'Don’t include username or email.';
         }
       }
 
-      // Display or clear error message
-      errorDiv.textContent = errorMessage;
-      errorDiv.style.display = errorMessage ? 'block' : 'none';
+      errorDiv.textContent   = msg;
+      errorDiv.style.display = msg ? 'block' : 'none';
     }
+
+    togglePassword.addEventListener('click', () => {
+      const type = passwordInput.type === 'password' ? 'text' : 'password';
+      passwordInput.type = type;
+      togglePassword.textContent = type === 'password' ? '👁️' : '🙈';
+    });
 
     passwordInput.addEventListener('input', validatePassword);
     usernameInput.addEventListener('input', validatePassword);
     emailInput.addEventListener('input', validatePassword);
 
-    // Prevent submission if requirements aren't met
     form.addEventListener('submit', function(e) {
-      const password = passwordInput.value;
-      const username = usernameInput.value.toLowerCase();
-      const email = emailInput.value.toLowerCase();
-
-      if (password.length < 8) {
-        e.preventDefault();
-        errorDiv.textContent = 'Password must be at least 8 characters long.';
-        errorDiv.style.display = 'block';
-        return;
-      }
-
-      const hasUppercase = /[A-Z]/.test(password);
-      const hasLowercase = /[a-z]/.test(password);
-      const hasNumber = /[0-9]/.test(password);
-      const hasSpecial = /[!@#$%^&*]/.test(password);
-      const varietyCount = [hasUppercase, hasLowercase, hasNumber, hasSpecial].filter(Boolean).length;
-      if (varietyCount < 3) {
-        e.preventDefault();
-        errorDiv.textContent = 'Password must include at least 3 of: uppercase letter, lowercase letter, number, special character.';
-        errorDiv.style.display = 'block';
-        return;
-      }
-
-      const passwordLower = password.toLowerCase();
-      if (passwordLower.includes(username) || passwordLower.includes(email)) {
-        e.preventDefault();
-        errorDiv.textContent = 'Password should not contain your username or email.';
-        errorDiv.style.display = 'block';
-        return;
-      }
+      validatePassword();
+      if (errorDiv.textContent) e.preventDefault();
     });
   });
 </script>
