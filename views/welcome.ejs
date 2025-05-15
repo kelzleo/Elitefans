@@ -16,12 +16,18 @@
 
 <header class="wel-logo-header">
   <a href="/home" class="wel-logo-link">
+    <!-- First logo -->
     <img
       src="https://storage.googleapis.com/my-public-profile-pictures/logos/elitefans-logo.PNG"
       alt="EliteFans Logo"
       class="wel-site-logo"
     >
-    <span class="wel-logo-text">EliteFans</span>
+    <!-- Second logo (white variant) -->
+    <img
+      src="https://storage.googleapis.com/my-public-profile-pictures/logos/Elite%20Fans%20Logo%20(White).png"
+      alt="EliteFans White Logo"
+      class="wel-site-logo secondary-logo"
+    >
   </a>
 </header>
 
@@ -36,7 +42,7 @@
     <% } %>
 
     <% if (errorMessage && errorMessage.length > 0) { %>
-      <div class="wel-error-message">
+      <div class="wel-error-message" role="alert">
         <%= errorMessage %>
       </div>
     <% } %>
@@ -53,24 +59,27 @@
         <input type="hidden" name="ref" value="<%= ref %>">
       <% } %>
 
+      <label for="usernameOrEmail" class="sr-only">Email or Username</label>
       <input
+        id="usernameOrEmail"
         type="text"
         name="usernameOrEmail"
         placeholder="Email Address or Username"
-        
         required
         class="wel-input"
       >
 
       <div class="wel-password-container">
+        <label for="password" class="sr-only">Password</label>
         <input
+          id="password"
           type="password"
           name="password"
           placeholder="Password"
           required
           class="wel-input"
         >
-        <span class="wel-toggle-password">👁️</span>
+        <span class="wel-toggle-password" aria-label="Toggle password visibility">👁️</span>
       </div>
 
       <button type="submit" class="wel-button-login">Sign In</button>
@@ -97,7 +106,7 @@
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     const togglePassword = document.querySelector('.wel-toggle-password');
-    const passwordInput = document.querySelector('input[name="password"]');
+    const passwordInput = document.getElementById('password');
 
     togglePassword.addEventListener('click', function() {
       const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
