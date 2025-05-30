@@ -26,7 +26,7 @@ router.get('/', authCheck, async (req, res) => {
     if (currentUser.role === 'creator') {
       transactions = await Transaction.find({ creator: currentUser._id })
         .sort({ createdAt: -1 })
-        .populate('user', 'username')
+        .populate('user', 'username profilePicture') // Add profilePicture here
         .populate('post', 'writeUp')
         .populate('subscriptionBundle', 'description price');
 
@@ -52,7 +52,7 @@ router.get('/', authCheck, async (req, res) => {
     } else {
       transactions = await Transaction.find({ user: currentUser._id })
         .sort({ createdAt: -1 })
-        .populate('creator', 'username')
+        .populate('creator', 'username profilePicture') // Add profilePicture here
         .populate('post', 'writeUp')
         .populate('subscriptionBundle', 'description price');
 
@@ -77,6 +77,7 @@ router.get('/', authCheck, async (req, res) => {
     res.status(500).send('Error loading dashboard');
   }
 });
+
 
 router.post('/add-bank', authCheck, async (req, res) => {
   try {

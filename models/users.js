@@ -72,6 +72,25 @@ const userSchema = new mongoose.Schema({
     coverPhoto: {
        type: String, 
        default: 'https://storage.googleapis.com/my-public-profile-pictures/coverPhotos/cover%20E.png' },
+       instagramUrl: {
+        type: String,
+        validate: {
+          validator: function (v) {
+            return !v || /^https?:\/\/(www\.)?instagram\.com\/.+$/.test(v);
+          },
+          message: 'Invalid Instagram URL'
+        }
+      },
+      twitterUrl: {
+        type: String,
+        validate: {
+          validator: function (v) {
+            return !v || /^https?:\/\/(www\.)?(twitter\.com|x\.com)\/.+$/.test(v);
+          },
+          message: 'Invalid Twitter/X URL'
+        }
+      },
+       
   uploadedContent: [
     {
       filename: { type: String, required: true },

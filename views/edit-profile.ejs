@@ -28,6 +28,12 @@
     <label class="edit-profile-label" for="bio">Bio:</label>
     <textarea class="edit-profile-textarea" id="bio" name="bio"><%= user.bio %></textarea>
 
+    <label class="edit-profile-label" for="instagramUrl">Instagram URL (optional):</label>
+    <input class="edit-profile-input" type="url" id="instagramUrl" name="instagramUrl" value="<%= user.instagramUrl || '' %>">
+
+    <label class="edit-profile-label" for="twitterUrl">Twitter/X URL (optional):</label>
+    <input class="edit-profile-input" type="url" id="twitterUrl" name="twitterUrl" value="<%= user.twitterUrl || '' %>">
+
     <div class="profile-images-section">
         <div class="image-upload-container">
             <label class="edit-profile-label" for="profilePicture">Profile Picture:</label>
@@ -56,25 +62,5 @@
     <button class="edit-profile-button" type="submit">Save Changes</button>
 </form>
 
-<script>
-  document.addEventListener('DOMContentLoaded', function () {
-    const form = document.querySelector('.edit-profile-form');
-    const usernameInput = document.getElementById('username');
-    const originalUsername = usernameInput.value;
-
-    form.addEventListener('submit', function (e) {
-      const newUsername = usernameInput.value.trim();
-      const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
-      if (!usernameRegex.test(newUsername)) {
-        e.preventDefault();
-        alert('Username must be 3-20 characters long, alphanumeric, and can include underscores.');
-        return;
-      }
-      if (newUsername !== originalUsername) {
-        if (!confirm('Changing your username will update your profile URL. Existing links to your profile may break. Are you sure you want to proceed?')) {
-          e.preventDefault();
-        }
-      }
-    });
-  });
+<script src="/js/edit-profile.js" defer> 
 </script>

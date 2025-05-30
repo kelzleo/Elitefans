@@ -16,6 +16,7 @@ const socketIo = require('socket.io');
 const User = require('./models/users');
 const multer = require('multer');
 const logger = require('./logs/logger'); // Import Winston logger
+const csurf = require('csurf'); // Added for CSRF protection
 
 // Import configuration and keys
 const keys = require('./config/keys');
@@ -42,6 +43,12 @@ const dashboardRoutes = require('./routes/dashboard');
 const bookmarksRoutes = require('./routes/bookmarks');
 const referralsRoutes = require('./routes/referrals');
 const purchasedContentRoutes = require('./routes/purchasedContent');
+
+// Check for COOKIE_KEY
+if (!process.env.COOKIE_KEY) {
+  console.error('COOKIE_KEY is not set in environment variables');
+  process.exit(1);
+}
 
 // Initialize Express app
 const app = express();
@@ -81,9 +88,9 @@ app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(express.json({ limit: '5mb' }));
 
-// Session middleware
+// Session middleware with secure cookie in production (HTTPS enforced)
 const sessionMiddleware = session({
-  secret: process.env.COOKIE_KEY || 'fallback-secret',
+  secret: process.env.COOKIE_KEY, // Removed fallback
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
@@ -118,6 +125,15 @@ app.use((req, res, next) => {
 // Passport middleware
 app.use(passport.initialize());
 app.use(passport.session());
+
+// CSRF middleware
+app.use(csurf());
+
+// Make CSRF token available in views
+app.use((req, res, next) => {
+  res.locals.csrfToken = req.csrfToken();
+  next();
+});
 
 // Apply updateUserStatus middleware
 app.use(updateUserStatus);
@@ -259,6 +275,12 @@ app.get('/storage-example', async (req, res) => {
       error: err.message,
     });
   }
+});
+
+// CSRF error handler
+app.use((err, req, res, next) => {
+  if (err.code !== 'EBADCSRFTOKEN') return next(err);
+  res.status(403).send('Form tampered with');
 });
 
 // Chat (Socket.io) Setup

@@ -1,9 +1,6 @@
 const crypto = require('crypto');
 require('dotenv').config(); // Load environment variables from .env file
 
-function generateCookieKey() {
-  return crypto.randomBytes(32).toString('hex');
-}
 
 
 

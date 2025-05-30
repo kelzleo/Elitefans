@@ -34,7 +34,7 @@ h1, h2 {
 /********************************************
  * BODY / CONTAINER
  ********************************************/
- 
+
  body {
   font-family: "Roboto Slab", serif;
   background-color: #f7f7f7;
@@ -102,7 +102,343 @@ header.logo-header {
     max-width: 180px;
   }
 }
-
+.del-dashboard-container {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px;
+  }
+  .del-dashboard-title {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 30px;
+  color: var(--text-dark);
+  }
+  /* Balance Card (for Creators) */
+  .del-balance-card {
+    background: linear-gradient(
+      45deg,
+      #322294 0%,
+      #5D2193 50%,
+      #9730A3 100%
+    );
+  border-radius: 12px;
+  padding: 20px;
+  color: white;
+  position: relative;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+  }
+  .del-balance-title {
+  font-size: 18px;
+  font-weight: 500;
+  margin-bottom: 5px;
+  color: white !important;
+  }
+  .del-balance-amount {
+  font-size: 42px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  }
+  .del-fund-wallet-btn {
+  background-color: rgba(255, 255, 255, 0.2);
+  border: 1px solid white;
+  border-radius: 30px;
+  color: white;
+  padding: 10px 20px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  width: fit-content;
+  transition: background-color 0.3s;
+  }
+  .del-fund-wallet-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  }
+  .del-wallet-icon {
+  margin-right: 10px;
+  }
+  /* Stats Cards */
+  .del-stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 15px;
+  margin-bottom: 30px;
+  }
+  .del-stats-card {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+  .del-amount {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--primary-color);
+  margin-bottom: 5px;
+  }
+  .del-label {
+  font-size: 14px;
+  color: var(--text-light);
+  margin-bottom: 10px;
+  }
+  .del-trend {
+  font-size: 12px;
+  color: var(--text-lighter);
+  display: flex;
+  align-items: center;
+  }
+  .del-trend-icon {
+  margin-right: 5px;
+  }
+  .del-total-card .del-amount {
+  color: var(--secondary-color);
+  }
+  /* Section Styling */
+  .del-section {
+  background-color: var(--card-bg);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 30px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  }
+  .del-section-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: var(--text-dark);
+  }
+  /* Referral Link */
+  .del-referral-link {
+  margin-bottom: 30px;
+  }
+  .del-referral-btn {
+  background-color: var(--secondary-color);
+  color: red;
+  padding: 10px 20px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 500;
+  display: inline-block;
+  transition: background-color 0.3s;
+  }
+  .del-referral-btn:hover {
+  background-color: red;
+  color: white;
+  }
+  /* Banks List */
+  .del-banks-list {
+  margin-bottom: 30px;
+  }
+  .del-bank-item {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid var(--border-color);
+  }
+  .del-bank-item:last-child {
+  border-bottom: none;
+  }
+  .del-bank-icon {
+  font-size: 24px;
+  margin-right: 15px;
+  }
+  .del-bank-name {
+  font-weight: 500;
+  margin-bottom: 5px;
+  }
+  .del-account-number {
+  color: var(--text-light);
+  font-size: 14px;
+  }
+  .del-no-banks {
+  color: var(--text-light);
+  font-style: italic;
+  }
+  /* Forms */
+  .del-bank-form-container,
+  .del-withdraw-form {
+  background-color: var(--light-bg);
+  border-radius: 8px;
+  padding: 20px;
+  }
+  .del-form-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 15px;
+  }
+  .del-form-group {
+  margin-bottom: 15px;
+  }
+  .del-form-label {
+  display: block;
+  margin-bottom: 5px;
+  font-weight: 500;
+  color: var(--text-dark);
+  }
+  .del-form-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  font-size: 14px;
+  box-sizing: border-box;
+  }
+  .del-form-input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  }
+  .del-form-submit,
+  .del-withdraw-btn {
+    background: linear-gradient(
+      45deg,
+      #322294 0%,
+      #5D2193 50%,
+      #9730A3 100%
+    );
+  color: white;
+  border: none;
+  padding: 10px 20px;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  }
+  .del-form-submit:hover,
+  .del-withdraw-btn:hover {
+  background-color: #cc0000;
+  }
+  .del-form-submit:disabled,
+  .del-withdraw-btn:disabled {
+  background-color: var(--text-lighter);
+  cursor: not-allowed;
+  }
+  .del-form-message {
+  margin-top: 10px;
+  font-size: 14px;
+  }
+  .del-form-message.del-success {
+  color: var(--success-color);
+  }
+  .del-form-message.del-error {
+  color: var(--error-color);
+  }
+  .del-form-message.del-processing {
+  color: var(--processing-color);
+  }
+  .del-withdraw-info {
+  margin-bottom: 15px;
+  color: var(--text-light);
+  font-size: 14px;
+  }
+  /* Transactions */
+  .del-transactions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+  }
+  .del-see-all {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  }
+  .del-arrow-icon {
+  margin-left: 5px;
+  }
+  .del-transaction-item {
+  display: flex;
+  align-items: center;
+  padding: 15px;
+  border-bottom: 1px solid var(--border-color);
+  }
+  .del-transaction-item:last-child {
+  border-bottom: none;
+  }
+  .del-transaction-avatar {
+  margin-right: 15px;
+  }
+  .del-avatar-img {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  }
+  .del-transaction-info {
+  flex-grow: 1;
+  }
+  .del-transaction-user {
+  font-weight: 500;
+  margin-bottom: 5px;
+  }
+  .del-transaction-date {
+  color: var(--text-light);
+  font-size: 12px;
+  }
+  .del-transaction-details {
+  text-align: right;
+  }
+  .del-transaction-type {
+  font-size: 12px;
+  color: white;
+  background-color: #6c757d;
+  padding: 3px 8px;
+  border-radius: 12px;
+  display: inline-block;
+  margin-bottom: 5px;
+  }
+  .del-transaction-type.subscription {
+  background-color: #007bff;
+  }
+  .del-transaction-type.special {
+  background-color: #9c27b0;
+  }
+  .del-transaction-type.tip {
+  background-color: #28a745;
+  }
+  .del-transaction-amount {
+  font-weight: 700;
+  }
+  .del-transaction-amount.credit {
+  color: var(--success-color);
+  }
+  .del-transaction-amount.debit {
+  color: var(--error-color);
+  }
+  .del-no-transactions {
+  color: var(--text-light);
+  font-style: italic;
+  padding: 15px;
+  text-align: center;
+  }
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+  .del-stats-row {
+  grid-template-columns: 1fr;
+  }
+  .del-transaction-item {
+  flex-direction: column;
+  align-items: flex-start;
+  }
+  .del-transaction-avatar {
+  margin-bottom: 10px;
+  margin-right: 0;
+  }
+  .del-transaction-info {
+  margin-bottom: 10px;
+  width: 100%;
+  }
+  .del-transaction-details {
+  width: 100%;
+  text-align: left;
+  }
+  }
 /****************************************
  * BOTTOM NAVIGATION
  ********************************************/
@@ -885,72 +1221,192 @@ header.wel-logo-header {
     font-size: 18px;
     margin-right: 8px;
   }
+  /* Hide the left section on mobile */
+  .wel-left-section {
+    display: none;
+  }
+  .wel-page-container {
+    display: block;
+  }
+  .wel-right-section {
+    display: block;
+  }
+  /* Ensure logo header is visible on mobile */
+  .wel-logo-header {
+    display: flex;
+  }
 }
 
 /* Desktop-specific styles (> 768px) */
 @media (min-width: 769px) {
   body.welcome-page {
-    background-color: transparent;
+    background-color: #ffffff; /* White background for split layout */
     overflow: auto;
   }
-  .wel-signup-options {
-    top: 50px;
-    padding: 30px 40px;
-  }
-  .wel-signup-options p {
-    color: #666;
-  }
-  .wel-signup-link {
-    color: #4B0082;
-  }
-  .wel-logo-text {
-    color: #333;
-  }
+
   body.welcome-page .content-wrapper {
     height: auto;
     min-height: 100vh;
+    padding-bottom: 0;
+    display: block;
+  }
+
+  /* Hide mobile-specific elements on desktop */
+  .wel-signup-options,
+  .wel-logo-header {
+    display: none !important; /* Force hide to prevent creeping */
+    visibility: hidden; /* Additional safeguard */
+  }
+
+  /* Main container for the split layout */
+  .wel-page-container {
+    display: flex;
+    flex-direction: row;
+    min-height: 100vh;
+    width: 100%;
+    max-width: 1440px; /* Limit max width for larger screens */
+    margin: 0 auto; /* Center the layout */
+  }
+
+  /* Left Section: Get Started, Logo, and Tagline */
+  .wel-left-section {
+    flex: 1;
+   background: linear-gradient(
+    45deg,
+    #322294 0%,   /* deep indigo-blue */
+    #5D2193 50%,  /* vibrant purple */
+    #9730A3 100%  /* magenta-pink */
+  );
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* Align items to the top */
+    align-items: center;
+    padding: 60px; /* Increased padding for better spacing */
+    min-width: 500px; /* Ensure enough space for content */
+    position: relative; /* For absolute positioning if needed elsewhere */
+  }
+
+  .wel-signup-desktop {
+    position: static; /* Keep as static */
+    text-align: center;
+    margin-top: 0; /* No extra margin from the top */
+    margin-bottom: 15px; /* Space below */
+  }
+
+  .wel-signup-desktop p {
+    font-size: 16px;
+    color: white !important; /* Ensure text is white */
+    margin: 0;
+  }
+
+  .wel-signup-desktop .wel-getstarted-box {
+    background: rgba(255, 255, 255, 0.2); /* Slightly different background for desktop */
+    padding: 6px 14px;
+  }
+
+  .wel-signup-desktop .wel-signup-link {
+    color: white !important; /* Ensure link is white */
+    font-size: 16px;
+  }
+
+  .wel-logo-container {
+    margin-top: 5px; /* Minimal space above logos */
+    margin-bottom: 20px; /* Space below logos */
+    width: 100%;
+    text-align: center;
+    display: flex;
     justify-content: center;
+    align-items: center;
   }
+
+  .wel-logo-link {
+    display: flex; /* Use flex to align both logos */
+    justify-content: center;
+    align-items: center;
+  }
+
+  .wel-site-logo {
+    height: 80px; /* Larger logo for desktop fullscreen */
+    width: auto;
+    max-width: 200px;
+    display: block;
+  }
+
+  .secondary-logo {
+    height: 80px; /* Match primary logo size */
+    width: auto;
+    max-width: 200px;
+    display: block;
+    margin-left: 15px; /* Spacing between logos */
+  }
+
+  .wel-tagline {
+    font-size: 32px; /* Already reduced */
+    font-weight: bold;
+    color: #ffffff !important; /* Explicitly set to white with high priority */
+    text-align: center;
+    line-height: 1.1; /* Adjusted to tighten the lines */
+    margin: 0;
+    max-width: 80%; /* Limit width for readability */
+  }
+
+  /* Right Section: Original Content */
+  .wel-right-section {
+    flex: 1;
+    background-color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    padding: 60px; /* Increased padding for better spacing */
+    min-width: 500px; /* Ensure enough space for form */
+  }
+
+  /* Adjust content section for desktop */
   .wel-content-section {
-    margin-top: 220px;
+    margin-top: 0;
     height: auto;
-    min-height: 500px;
-    overflow: visible;
+    min-height: auto;
+    background-color: #ffffff;
+    border-radius: 0;
+    box-shadow: none;
     padding: 40px 0;
-    border-top-left-radius: 30px;
-    border-top-right-radius: 30px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    overflow: visible;
+    width: 100%;
+    max-width: 400px; /* Match original form width */
   }
+
   .wel-welcome-container {
     padding: 30px;
     height: auto;
     display: block;
   }
+
+  /* Preserve original form styles */
   .wel-heading {
-    font-size: 32px;
+    font-size: 28px;
   }
   .wel-subheading {
-    font-size: 18px;
+    font-size: 16px;
   }
   .wel-input {
-    padding: 14px;
+    padding: 12px;
     font-size: 16px;
   }
   .wel-button-login {
-    padding: 14px;
+    padding: 12px;
     font-size: 16px;
   }
   .wel-a-sign {
-    width: 160px;
-    padding: 12px 15px;
+    width: 150px;
+    padding: 10px 15px;
     font-size: 14px;
   }
   .wel-social-icon {
-    font-size: 22px;
+    font-size: 20px;
     margin-right: 10px;
   }
 }
-
 /* —————————————————————————
 /* Scope everything inside .sel-signup-page */
 .sel-signup-page {
@@ -1202,201 +1658,7 @@ header.wel-logo-header {
   .sel-signup-page .sel-button-signup { padding: 14px; font-size: 16px; }
 }
 
-/********************************************
- * LOGIN / SIGNUP FORMS
- ********************************************/
- 
-/* Prevent overlap */
-.welcome-container,
-.home-container,
-.signup-container {
-  padding-top: 80px; /* Space for header */
-  max-width: 800px;
-  margin: 0 auto;
-  padding-left: 20px;
-  padding-right: 20px;
-}
 
-/* Style for welcome page elements */
-.welcome-container h2 {
-  font-size: 28px;
-  margin-bottom: 20px;
-  text-align: center !important;
-  padding-bottom: 40px;
- 
-}
-.sign-options {
-  display: flex;
-  flex-direction: column;
-  margin: 20px;
-  padding: 20px;
- 
-}
-
-.login-form {
-  width: 100%;
-  max-width: 350px;
-  margin: 0 auto;
-  text-align: center;
-  box-sizing: border-box;
-  padding: 50px
-}
-
-.login-form input {
-  width: 100%;
-  padding: 12px;
-  margin: 10px 0;
-  font-size: 1rem;
-  box-sizing: border-box;
-}
-
-
-.button-login {
-  display: block;    /* makes width apply */
-  width: 100%;       /* span the full form width */
-  box-sizing: border-box; /* include padding in that width */
-  padding: 10px 20px;
-  font-size: 1rem;
-  background-color: #FF007F;
-  color: white;
-  border: none;
-  cursor: pointer;
-  margin: 10px 0;    /* adjust as desired */
-}
-
-.button-login:hover {
-  background-color: red;
-}
-
-.a-sign {
-  display: block;         /* or inline-block—either is fine */
-  width: 100%;            /* if you want it full-width like the login button */
-  box-sizing: border-box; /* include padding in that width */
-  text-align: center;     /* ← center the “Sign In With Google” text */
-  padding: 10px 20px;
-  font-size: 1rem;
-  background-color: #FF007F;
-  color: white;
-  margin: 10px 0;         /* adjust or remove if you prefer flex spacing */
-  cursor: pointer;
-}
-
-
-a {
-  text-decoration: none;
-}
-
-.signup-options {
-  white-space: nowrap;       /* prevent wrapping */
-  text-align: center;        /* center the whole line */
-}
-.g-sign {
-  margin: 0 10px;            /* smaller horizontal margins */
-  padding: 5px 5px;
-  display: inline-block;     /* makes padding/margins more predictable */
-}
-
-
-.signup-form {
-  display: flex;
-  flex-direction: column;
-  padding: 10px;
-  margin: 10px;
-  text-align: center;
-  box-sizing: border-box;
-}
-
-.signup-form input {
-  padding: 10px;
-  margin: 10px 0;
-  font-size: 1rem;
-  box-sizing: border-box;
-}
-
-.button-signup {
-  width: auto;
-  padding: 10px 20px;
-  font-size: 1rem;
-  background-color: #FF007F;
-  color: white;
-  border: none;
-  cursor: pointer;
-  margin: 10px 0;
-  display: inline-block;
-}
-.button-signup:hover {
-  background-color: red;
-}
-/********************************************
- * VERIFICATION PAGE
- ********************************************/
-.verify-container {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100vh;
-  background: linear-gradient(to right, #f7a1d3, #ffd1dc);
-  color: #333;
-  text-align: center;
-  padding: 20px;
-  box-sizing: border-box;
-}
-
-.verify-container h1 {
-  font-size: 1.8em;
-  color: #fff;
-  font-weight: bold;
-  margin-bottom: 15px;
-  letter-spacing: 1px;
-}
-
-.verify-container p {
-  font-size: 1em;
-  color: #f3f3f3;
-  margin-bottom: 20px;
-  font-weight: 500;
-}
-
-.verify-container .btn {
-  padding: 12px 25px;
-  background-color: #ff70a6;
-  color: #fff;
-  text-decoration: none;
-  border-radius: 30px;
-  font-size: 1em;
-  font-weight: bold;
-  transition: background-color 0.3s, transform 0.2s;
-  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
-}
-.verify-container .btn:hover {
-  background-color: #ff3e75;
-  transform: translateY(-5px);
-}
-
-@media (min-width: 601px) {
-  .verify-container h1 {
-    font-size: 2em;
-  }
-  .verify-container p {
-    font-size: 1.1em;
-  }
-  .verify-container .btn {
-    padding: 15px 30px;
-  }
-}
-
-@media (min-width: 1024px) {
-  .verify-container h1 {
-    font-size: 2.5em;
-  }
-  .verify-container p {
-    font-size: 1.3em;
-  }
-  .verify-container .btn {
-    padding: 18px 35px;
-  }
-}
 
 /********************************************
  * PROFILE PAGE
@@ -1489,13 +1751,66 @@ a {
 }
 
 /********************************************
+ * HEADER AND SEARCH CONTAINER
+ ********************************************/
+ .header-search-wrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 20px;
+  position: relative;
+  z-index: 1000;
+  width: 100%; /* Ensure wrapper spans full width */
+  box-sizing: border-box; /* Prevent padding issues */
+}
+
+/********************************************
+ * HEADER SECTION
+ ********************************************/
+ .home-logo-header {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0; /* Prevent header from shrinking */
+}
+
+.home-logo-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  gap: 1px; /* Minimal spacing between logos */
+}
+
+.home-site-logo {
+  width: 40px; /* Small size for logos */
+  height: auto;
+  margin: 0; /* Remove any default margins */
+}
+.hidden {
+  display: none !important;
+}
+
+.creator-profile-pic-md {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.creator-profile-pic-sm {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+/********************************************
  * SEARCH SECTION
  ********************************************/
- .search-section {
-  position: relative;
+.search-section {
   display: flex;
-  justify-content: flex-end;
-  padding: 10px 20px;
+  align-items: center;
+  position: relative;
+  margin-left: auto; /* Push search section to the right end */
 }
 
 .search-icon-container {
@@ -1511,7 +1826,7 @@ a {
 .search-container {
   position: absolute;
   top: 100%;
-  right: 20px;
+  right: 0;
   width: 300px;
   background-color: #fff;
   border-radius: 10px;
@@ -1564,16 +1879,12 @@ a {
 .suggestion-item:hover {
   background-color: #f5f5f5;
 }
+
 /* Add styling for suggestion links */
 .suggestion-link {
   color: #ff4081; /* Match the search results link color */
   text-decoration: none;
   font-weight: bold;
-}
-
-/* Ensure suggestion-item hover matches the search results */
-.suggestion-item:hover {
-  background-color: #f5f5f5; /* Same hover effect as search results */
 }
 
 .suggestion-profile-pic {
@@ -1593,6 +1904,7 @@ a {
   padding: 10px;
   border-bottom: 1px solid #eee;
 }
+
 .creator-info {
   display: flex;
   flex-direction: column;
@@ -1609,18 +1921,38 @@ a {
   color: #666;
   font-size: 0.9rem;
 }
+
 .creator-profile-pic {
   margin-right: 5px; /* Reduced from 10px to 5px */
 }
+
 /* Ensure subscriber count stays on one line */
 .creator-info p:last-child {
   white-space: nowrap; /* Prevent wrapping */
 }
 
+/* Responsive adjustments */
 @media (max-width: 768px) {
+  .header-search-wrapper {
+    padding: 10px;
+  }
+
+  .home-logo-header {
+    flex-shrink: 0;
+  }
+
+  .home-site-logo {
+    width: 30px; /* Smaller logo size for mobile */
+  }
+
+  .search-section {
+    flex-shrink: 0;
+    margin-left: auto; /* Ensure search stays on the right */
+  }
+
   .search-container {
-    width: 250px;
-    right: 10px;
+    width: 200px; /* Smaller search container for mobile */
+    right: 0;
   }
 }
 
@@ -2895,8 +3227,10 @@ video.post-video,
 /********************************************
  * PROFILE CREATOR SUGGESTIONS
  ********************************************/
-.profile-creator-suggestions {
+ .profile-creator-suggestions {
   position: absolute;
+  left: 0;
+  width: 100%;
   background: #fff;
   border: 1px solid #ccc;
   border-radius: 4px;
@@ -2904,7 +3238,19 @@ video.post-video,
   z-index: 1000;
   max-height: 200px;
   overflow-y: auto;
-  padding: 5px;
+  padding: 5px 10px; /* Matches .form-textarea padding */
+  box-sizing: border-box;
+}
+
+.profile-creator-suggestions.suggestions-positioned {
+  top: calc(attr(data-top-offset px, 0) + 2px); /* +2px gap below line */
+  /* Fallback for browsers without attr() support */
+  top: calc(var(--default-line-height, 20px) + 12px); /* padding-top + line-height + gap */
+  transform: translateY(2px); /* Small gap below the cursor line */
+}
+
+.profile-creator-suggestions.hidden {
+  display: none;
 }
 
 .profile-suggestion-item {
@@ -2955,6 +3301,10 @@ video.post-video,
   color: #333;
 }
 
+.textarea-wrapper {
+  position: relative;
+}
+
 .form-textarea {
   width: 100%;
   padding: 10px;
@@ -2970,12 +3320,17 @@ video.post-video,
   border-radius: 4px;
 }
 
-/* NEW: Style for category select to ensure consistency */
+/* Ensure file inputs are hidden correctly */
+.form-input.hidden {
+  display: none;
+}
+
+/* Style for category select to ensure consistency */
 select.form-input {
-  appearance: none; /* Remove default browser styling */
-  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path fill="%23666" d="M2 4l4 4 4-4z"/></svg>') no-repeat right 10px center; /* Custom dropdown arrow */
+  appearance: none;
+  background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 12 12"><path fill="%23666" d="M2 4l4 4 4-4z"/></svg>') no-repeat right 10px center;
   background-size: 12px;
-  padding-right: 30px; /* Space for arrow */
+  padding-right: 30px;
   font-size: 14px;
   color: #333;
   cursor: pointer;
@@ -3067,11 +3422,17 @@ select.form-input:focus {
 .remove-media-button:hover {
   background: #c82333;
 }
-
+/********************************************
+ * SORT CONTAINER STYLES
+ ********************************************/
+ .sort-container-align {
+  text-align: right;
+  margin-bottom: 10px;
+}
 /********************************************
  * SORT ICON AND MODAL STYLES
  ********************************************/
-.sort-container {
+ .sort-container {
   text-align: right;
   margin-bottom: 10px;
 }
@@ -3104,6 +3465,10 @@ select.form-input:focus {
   align-items: center;
   justify-content: center;
   z-index: 1000;
+}
+
+.sort-modal.hidden {
+  display: none;
 }
 
 .sort-modal-content {
@@ -3774,11 +4139,21 @@ select.form-input:focus {
 .dashboard-container {
   max-width: 95%;
   margin: 20px auto;
-  background-color: #ffe4e8;
+  
   border-radius: 10px;
   padding: 20px;
   box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+  background: linear-gradient(
+      45deg,
+      #322294 0%,
+      #5D2193 50%,
+      #9730A3 100%
+    );
+    background-size: 100% 100%;
+  
 }
+
+
 
 h1, h2, h3 {
   margin-top: 0;
@@ -4081,6 +4456,48 @@ html, body {
     height: 160px;
   }
 }
+.social-media-icons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 10px;
+  margin-bottom: 15px;
+}
+
+.social-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #333;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.social-icon:hover {
+  color: #007bff; /* General hover color */
+}
+
+.instagram-icon:hover {
+  color: #e1306c; /* Instagram brand color */
+}
+
+.x-icon:hover {
+  color: #000000; /* Black for X brand */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .social-media-icons {
+    gap: 10px;
+    margin-top: 8px;
+    margin-bottom: 12px;
+  }
+
+  .social-icon {
+    font-size: 18px;
+  }
+}
 /********************************************
  * SUBSCRIPTION SECTION STYLES
  ********************************************/
@@ -4177,7 +4594,7 @@ html, body {
 .bundle-subscribe-button,
 .bundle-info-block {
   display: flex;
-  justify-content: space-between; /* Positions duration to left and price to right */
+  justify-content: space-between;
   align-items: center;
   width: 100%;
   background-color: #ff4655;
@@ -4216,7 +4633,7 @@ html, body {
 .bundle-duration {
   font-weight: bold;
   font-size: 1rem;
-  flex: 1; /* Takes available space on left */
+  flex: 1;
 }
 
 /* Bundle Price (right side) */
@@ -4224,15 +4641,15 @@ html, body {
   font-size: 1rem;
   font-weight: bold;
   text-align: right;
-  flex: 1; /* Takes available space on right */
+  flex: 1;
 }
 
 /* Discount Price Styling */
 .bundle-price.discount {
-  font-size: 0.95rem; /* Slightly smaller for discount text */
-  white-space: nowrap; /* Prevents wrapping */
-  overflow: hidden; /* Handles overflow */
-  text-overflow: ellipsis; /* Adds ellipsis if text is too long */
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Edit Bundle Button */
@@ -4272,6 +4689,11 @@ html, body {
 /* Delete Bundle Form Spacing */
 .delete-bundle-form {
   margin-top: 5px;
+}
+
+/* Inline Form for Unsubscribe */
+.inline-form {
+  display: inline;
 }
 
 /* Toggle Free Subscription Button */
@@ -4517,7 +4939,8 @@ html, body {
   text-align: center;
   font-size: 1rem;
 }
-/* hide the free subscription button entirely */
+
+/* Hide the free subscription button entirely */
 .free-subscribe-button {
   display: none !important;
 }
@@ -4672,6 +5095,7 @@ html, body {
 .dot.active {
   background-color: #ff69b4;
 }
+
 /* HIDE / SHOW */
 #lightbox.hidden {
   display: none;
@@ -4684,6 +5108,7 @@ html, body {
   justify-content: center;
   z-index: 9999;
   padding: 0;
+  background: transparent;
 }
 
 /* BACKDROP */
@@ -4691,6 +5116,8 @@ html, body {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.9);
+  opacity: 1;
+  transition: opacity 0.3s ease;
 }
 
 /* CONTENT BOX */
@@ -4702,6 +5129,8 @@ html, body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
+  transform: translateY(0);
+  transition: transform 0.3s ease;
 }
 
 /* CLOSE BUTTON */
@@ -4709,41 +5138,46 @@ html, body {
   position: absolute;
   top: 1rem;
   right: 1rem;
-  z-index: 10001; /* Increased to ensure visibility over other elements */
-  background: rgba(0, 0, 0, 0.7); /* Slightly darker for contrast */
+  z-index: 10001;
+  background: rgba(0, 0, 0, 0.7);
   border: none;
   color: white;
   font-size: 2.5rem;
   line-height: 1;
-  padding: 0.5rem 0.8rem; /* Increased padding for touch */
+  padding: 0.5rem 0.8rem;
   cursor: pointer;
   border-radius: 0.25rem;
-  transition: transform 0.2s ease; /* Smooth scaling on tap */
+  transition: transform 0.2s ease;
 }
 
 /* Mobile-specific adjustments */
 @media (max-width: 768px) {
   #lb-close {
-    top: 1.5rem; /* Move slightly down to avoid status bar/notch */
-    right: 1.5rem; /* Move slightly left for better reach */
-    font-size: 2rem; /* Slightly smaller for proportionality */
-    padding: 0.6rem 1rem; /* Larger touch area */
+    top: 1.5rem;
+    right: 1.5rem;
+    font-size: 2rem;
+    padding: 0.6rem 1rem;
     transform: scale(1);
   }
   #lb-close:active {
-    transform: scale(0.95); /* Visual feedback on tap */
+    transform: scale(0.95);
   }
 }
+
 /* SHARED MEDIA */
 .lb-media {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
   display: none;
-  user-select: none; /* Prevent text/image selection */
+  user-select: none;
   -webkit-user-select: none;
   -moz-user-select: none;
   -ms-user-select: none;
+}
+
+.lb-media.active {
+  display: block;
 }
 
 /* VIDEO — fill more height on mobile */
@@ -4770,9 +5204,9 @@ html, body {
 }
 
 #lb-vid {
-  -moz-appearance: none; /* Firefox */
+  -moz-appearance: none;
   appearance: none;
-  pointer-events: none; /* Prevent interaction with native controls */
+  pointer-events: none;
 }
 
 /* Ensure custom controls are interactive */
@@ -4784,10 +5218,14 @@ html, body {
   background: rgba(0, 0, 0, 0.5);
   padding: 10px;
   border-radius: 5px;
-  display: flex;
+  display: none;
   gap: 15px;
   z-index: 10001;
-  pointer-events: auto; /* Allow interaction with custom controls */
+  pointer-events: auto;
+}
+
+.custom-controls.active {
+  display: flex;
 }
 
 .control-btn {
@@ -4810,10 +5248,18 @@ html, body {
 }
 
 .progress-bar {
+  width: 100%;
   height: 100%;
-  background: white;
   border-radius: 5px;
-  width: 0%;
+}
+
+/* Closing animation */
+#lightbox.closing #lb-content {
+  transform: translateY(100vh);
+}
+
+#lightbox.closing #lb-backdrop {
+  opacity: 0;
 }
 
 /* Ensure fullscreenable elements are clickable */
@@ -4825,6 +5271,10 @@ html, body {
   -ms-user-select: none;
 }
 
+/* Body overflow control when lightbox is open */
+body.lightbox-open {
+  overflow: hidden;
+}
 
 
 /********************************************

@@ -1,49 +1,74 @@
-<!-- views/dashboard.ejs -->
-<div class="dashboard-container">
-  <h1>Dashboard</h1>
+<div class="del-dashboard-container">
+  <h1 class="del-dashboard-title">Dashboard</h1>
+<% if (role === 'creator') { %>
+<!-- CREATOR DASHBOARD -->
+<div class="del-balance-card">
+  <h2 class="del-balance-title">Available Balance</h2>
+  <div class="del-balance-amount">₦<span id="availableBalance"><%= totalEarnings %></span></div>
+  <button class="del-fund-wallet-btn">
+    <span class="del-wallet-icon">💰</span>
+    Withdraw Funds
+  </button>
+</div>
 
-  <% if (role === 'creator') { %>
-    <h2>Creator Dashboard</h2>
+<div class="del-stats-row">
+  <div class="del-stats-card">
+    <div class="del-amount">₦<%= totalSubscription %></div>
+    <div class="del-label">Total Subscription Revenue</div>
+    <div class="del-trend"><span class="del-trend-icon">↗</span> 0% Today</div>
+  </div>
+  
+  <div class="del-stats-card">
+    <div class="del-amount">₦<%= totalSpecial %></div>
+    <div class="del-label">Total Special Content Revenue</div>
+    <div class="del-trend"><span class="del-trend-icon">↗</span> 0% Today</div>
+  </div>
+  
+  <div class="del-stats-card">
+    <div class="del-amount">₦<%= totalTips %></div>
+    <div class="del-label">Total Tips Received</div>
+    <div class="del-trend"><span class="del-trend-icon">↗</span> 0% Today</div>
+  </div>
+  
+  <div class="del-stats-card del-total-card">
+    <div class="del-amount">₦<%= totalSubscription + totalSpecial + totalTips %></div>
+    <div class="del-label">Total Gross Revenue</div>
+    <div class="del-trend"><span class="del-trend-icon">↗</span> 0% Today</div>
+  </div>
+</div>
 
-    <!-- Aggregated Stats -->
-    <div class="stats-container">
-      <p class="stat-item">Total Subscription Revenue: ₦<%= totalSubscription %></p>
-      <p class="stat-item">Total Special Content Revenue: ₦<%= totalSpecial %></p>
-      <p class="stat-item">Total Tips Received: ₦<%= totalTips %></p>
-      <p class="stat-item" style="margin-top: 10px;">
-        <strong>Total Gross Revenue:</strong> ₦<%= totalSubscription + totalSpecial + totalTips %>
-      </p>
-    </div>
+<!-- Referral Link -->
+<div class="del-referral-link">
+  <a href="/referrals" class="del-referral-btn">View Referral Earnings</a>
+</div>
 
-    <!-- Real Available Balance -->
-    <p><strong>Your Available Balance:</strong> ₦<span id="availableBalance"><%= totalEarnings %></span></p>
+<!-- Banks Section -->
+<div class="del-section">
+  <h2 class="del-section-title">Your Saved Banks</h2>
+  
+  <div class="del-banks-list">
+    <% if (user.banks && user.banks.length > 0) { %>
+      <% user.banks.forEach((bank, idx) => { %>
+        <div class="del-bank-item">
+          <div class="del-bank-icon">🏦</div>
+          <div class="del-bank-details">
+            <div class="del-bank-name"><%= bank.bankName %></div>
+            <div class="del-account-number"><%= bank.accountNumber %></div>
+          </div>
+        </div>
+      <% }); %>
+    <% } else { %>
+      <p class="del-no-banks">No banks saved yet.</p>
+    <% } %>
+  </div>
 
-    <!-- Referral Link -->
-    <p><a href="/referrals">View Referral Earnings</a></p>
-
-    <!-- Saved Banks -->
-    <div class="saved-banks-section">
-      <h3>Your Saved Banks</h3>
-      <% if (user.banks && user.banks.length > 0) { %>
-        <ul>
-          <% user.banks.forEach((bank, idx) => { %>
-            <li>
-              <strong><%= bank.bankName %></strong> (Acct: <%= bank.accountNumber %>)
-              <!-- If you want a remove button, do it here -->
-            </li>
-          <% }); %>
-        </ul>
-      <% } else { %>
-        <p>No banks saved yet.</p>
-      <% } %>
-    </div>
-
-    <!-- Add Bank Form -->
-    <div class="bank-details-form">
-      <h3>Add a New Bank</h3>
-      <form id="add-bank-form">
-        <label for="bankName">Bank Name:</label>
-        <select id="bankName" name="bankName" required>
+  <!-- Add Bank Form -->
+  <div class="del-bank-form-container">
+    <h3 class="del-form-title">Add a New Bank</h3>
+    <form id="add-bank-form" class="del-bank-form">
+      <div class="del-form-group">
+        <label for="bankName" class="del-form-label">Bank Name:</label>
+        <select id="bankName" name="bankName" required class="del-form-input">
           <option value="">-- Select Bank --</option>
           <option value="Access Bank">Access Bank</option>
           <option value="ALAT by Wema">ALAT by Wema</option>
@@ -75,155 +100,122 @@
           <option value="Unity Bank">Unity Bank</option>
           <option value="Wema Bank">Wema Bank</option>
           <option value="Zenith Bank">Zenith Bank</option>
-          <!-- Add more if needed -->
         </select>
+      </div>
 
-        <label for="accountNumber">Account Number:</label>
-        <input type="text" id="accountNumber" name="accountNumber" placeholder="1234567890" required>
+      <div class="del-form-group">
+        <label for="accountNumber" class="del-form-label">Account Number:</label>
+        <input type="text" id="accountNumber" name="accountNumber" placeholder="1234567890" required class="del-form-input">
+      </div>
 
-        <button type="submit">Add Bank</button>
-      </form>
-      <p id="add-bank-msg"></p>
-    </div>
+      <button type="submit" class="del-form-submit">Add Bank</button>
+    </form>
+    <p id="add-bank-msg" class="del-form-message"></p>
+  </div>
+</div>
 
-    <!-- Withdraw Section -->
-    <div class="withdraw-section" style="margin-top: 30px;">
-      <h3>Withdraw</h3>
-      <p>Minimum withdrawable balance: ₦1000</p>
+<!-- Withdraw Section -->
+<div class="del-section">
+  <h2 class="del-section-title">Withdraw</h2>
+  <p class="del-withdraw-info">Minimum withdrawable balance: ₦1000</p>
 
-      <% if (user.banks && user.banks.length > 0) { %>
-        <label for="withdrawBank">Choose a Bank:</label>
-        <select id="withdrawBank">
+  <div class="del-withdraw-form">
+    <% if (user.banks && user.banks.length > 0) { %>
+      <div class="del-form-group">
+        <label for="withdrawBank" class="del-form-label">Choose a Bank:</label>
+        <select id="withdrawBank" class="del-form-input">
           <% user.banks.forEach((bank) => { %>
             <option value="<%= bank._id %>">
               <%= bank.bankName %> (Acct: <%= bank.accountNumber %>)
             </option>
           <% }); %>
         </select>
-      <% } else { %>
-        <p>You have no saved banks. Please add one first.</p>
-      <% } %>
+      </div>
 
-      <br><br>
+      <div class="del-form-group">
+        <label for="withdrawAmount" class="del-form-label">Withdrawal Amount (NGN):</label>
+        <input type="number" id="withdrawAmount" min="1000" step="100" class="del-form-input" />
+      </div>
 
-      <label for="withdrawAmount">Withdrawal Amount (NGN):</label>
-      <input type="number" id="withdrawAmount" min="1000" step="100" />
-
-      <button id="withdraw-btn" disabled>Withdraw Now</button>
-      <p id="withdraw-msg"></p>
-    </div>
-
-    <!-- Transaction History -->
-    <h3 class="transaction-history-title">Transaction History</h3>
-    <ul class="transactions-list">
-      <% transactions.forEach(tx => { %>
-        <li>
-          <div class="transaction-date">
-            Date: <%= tx.createdAt.toLocaleString() %>
-          </div>
-          <p>From (User): <%= tx.user?.username || 'Unknown' %></p>
-          <p>Type: <%= tx.type %></p>
-          <p class="transaction-amount">Amount: ₦<%= tx.amount %></p>
-          <% if (tx.type === 'special') { %>
-            <p>Post: <%= tx.post?.writeUp || '(No caption)' %></p>
-          <% } else { %>
-            <p>Subscription Bundle: <%= tx.subscriptionBundle?.description || 'No description' %></p>
-          <% } %>
-        </li>
-      <% }); %>
-    </ul>
-
-  <% } else { %>
-    <!-- USER DASHBOARD (non-creator) -->
-    <h2>User Dashboard</h2>
-    <div class="stats-container">
-      <p class="stat-item">Total Spent on Subscriptions: ₦<%= totalSubscription %></p>
-      <p class="stat-item">Total Spent on Special Content: ₦<%= totalSpecial %></p>
-      <p class="stat-item" style="margin-top: 10px;">
-        <strong>Total Spent:</strong> ₦<%= totalSubscription + totalSpecial %>
-      </p>
-    </div>
-
-    <h3 class="transaction-history-title">Transaction History</h3>
-    <ul class="transactions-list">
-      <% transactions.forEach(tx => { %>
-        <li>
-          <div class="transaction-date">
-            Date: <%= tx.createdAt.toLocaleString() %>
-          </div>
-          <p>To (Creator): <%= tx.creator?.username || 'Unknown' %></p>
-          <p>Type: <%= tx.type %></p>
-          <p class="transaction-amount">Amount: ₦<%= tx.amount %></p>
-          <% if (tx.type === 'special') { %>
-            <p>Post: <%= tx.post?.writeUp || '(No caption)' %></p>
-          <% } else { %>
-            <p>Subscription Bundle: <%= tx.subscriptionBundle?.description || 'No description' %></p>
-          <% } %>
-        </li>
-      <% }); %>
-    </ul>
-  <% } %>
+      <button id="withdraw-btn" class="del-withdraw-btn" disabled>Withdraw Now</button>
+      <p id="withdraw-msg" class="del-form-message"></p>
+    <% } else { %>
+      <p class="del-no-banks">You have no saved banks. Please add one first.</p>
+    <% } %>
+  </div>
 </div>
 
-<script>
-  // Enable or disable the Withdraw button based on availableBalance
-  const availableBalance = parseFloat(document.getElementById('availableBalance')?.innerText || 0);
-  const withdrawBtn = document.getElementById('withdraw-btn');
-  if (withdrawBtn && availableBalance >= 1000) {
-    withdrawBtn.disabled = false;
-  }
+<% } else { %>
+<!-- USER DASHBOARD (non-creator) -->
+<div class="del-stats-row">
+  <div class="del-stats-card">
+    <div class="del-amount">₦<%= totalSubscription %></div>
+    <div class="del-label">Total Spent on Subscriptions</div>
+    <div class="del-trend"><span class="del-trend-icon">↘</span> 0% Today</div>
+  </div>
+  
+  <div class="del-stats-card">
+    <div class="del-amount">₦<%= totalSpecial %></div>
+    <div class="del-label">Total Spent on Special Content</div>
+    <div class="del-trend"><span class="del-trend-icon">↘</span> 0% Today</div>
+  </div>
+  
+  <div class="del-stats-card del-total-card">
+    <div class="del-amount">₦<%= totalSubscription + totalSpecial %></div>
+    <div class="del-label">Total Spent</div>
+    <div class="del-trend"><span class="del-trend-icon">↘</span> 0% Today</div>
+  </div>
+</div>
+<% } %>
 
-  // Handle Add Bank Form
-  const addBankForm = document.getElementById('add-bank-form');
-  if (addBankForm) {
-    addBankForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const bankName = document.getElementById('bankName').value;
-      const accountNumber = document.getElementById('accountNumber').value;
+<!-- Transaction History Section -->
+<div class="del-section">
+  <div class="del-transactions-header">
+    <h2 class="del-section-title">Recent Transactions</h2>
+    <a href="#" class="del-see-all">See all <span class="del-arrow-icon">→</span></a>
+  </div>
 
-      try {
-        const res = await fetch('/dashboard/add-bank', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ bankName, accountNumber })
-        });
-        const data = await res.json();
-        document.getElementById('add-bank-msg').innerText = data.message || 'Error';
-
-        if (data.message === 'Bank added successfully!') {
-          setTimeout(() => location.reload(), 1500);
-        }
-      } catch (error) {
-        console.error('Error adding bank:', error);
-        document.getElementById('add-bank-msg').innerText = 'Error adding bank.';
-      }
-    });
-  }
-
-  // Handle Withdraw
-  if (withdrawBtn) {
-    withdrawBtn.addEventListener('click', async () => {
-      const bankSelect = document.getElementById('withdrawBank');
-      const bankId = bankSelect ? bankSelect.value : null;
-      const amountInput = document.getElementById('withdrawAmount');
-      const withdrawAmount = parseFloat(amountInput.value);
-
-      try {
-        const res = await fetch('/dashboard/withdraw', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: withdrawAmount, bankId })
-        });
-        const data = await res.json();
-        document.getElementById('withdraw-msg').innerText = data.message || 'Error';
-
-        if (data.message === 'Withdrawal successful!') {
-          setTimeout(() => location.reload(), 1500);
-        }
-      } catch (error) {
-        console.error('Error withdrawing:', error);
-        document.getElementById('withdraw-msg').innerText = 'Error withdrawing funds.';
-      }
-    });
-  }
-</script>
+  <div class="del-transactions-list">
+    <% if (transactions && transactions.length > 0) { %>
+      <% transactions.forEach(tx => { %>
+        <div class="del-transaction-item">
+          <div class="del-transaction-avatar">
+            <% if (role === 'creator') { %>
+              <img src="<%= tx.user?.profilePicture || '/images/default-profile.png' %>" alt="avatar" class="del-avatar-img">
+            <% } else { %>
+              <img src="<%= tx.creator?.profilePicture || '/images/default-profile.png' %>" alt="avatar" class="del-avatar-img">
+            <% } %>
+          </div>
+          
+          <div class="del-transaction-info">
+            <div class="del-transaction-user">
+              <% if (role === 'creator') { %>
+                <%= tx.user?.username || 'Unknown User' %>
+              <% } else { %>
+                <%= tx.creator?.username || 'Unknown Creator' %>
+              <% } %>
+            </div>
+            <div class="del-transaction-date">
+              <%= tx.createdAt.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) %> | 
+              <%= tx.createdAt.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) %>
+            </div>
+          </div>
+          
+          <div class="del-transaction-details">
+            <div class="del-transaction-type <%= tx.type.toLowerCase() %>">
+              <%= tx.type.charAt(0).toUpperCase() + tx.type.slice(1) %>
+            </div>
+            <div class="del-transaction-amount <%= role === 'creator' ? 'credit' : 'debit' %>">
+              <%= role === 'creator' ? '+' : '-' %> ₦<%= tx.amount %>
+            </div>
+          </div>
+        </div>
+      <% }); %>
+    <% } else { %>
+      <div class="del-no-transactions">No transactions found</div>
+    <% } %>
+  </div>
+</div>
+</div>
+<script src="/scripts/utils.js"></script>
+<script src="/js/dashboard.js" defer></script>

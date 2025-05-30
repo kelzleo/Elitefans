@@ -162,11 +162,12 @@ router.get('/edit', authCheck, (req, res) => {
 
 // POST route to handle profile edits and upload profile picture to Google Cloud Storage
 router.post('/edit', authCheck, uploadFields, async (req, res) => {
- 
   try {
     const updates = {
       profileName: req.body.profileName,
       bio: req.body.bio,
+      instagramUrl: req.body.instagramUrl || '',
+      twitterUrl: req.body.twitterUrl || '',
     };
 
     // Handle username update
@@ -245,13 +246,17 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
       updates.coverPhoto = `https://storage.googleapis.com/${profileBucket.name}/${coverBlobName}`;
     }
 
-    await User.findByIdAndUpdate(req.user._id, updates, { new: true });
+    // Update the user with validation
+    await User.findByIdAndUpdate(req.user._id, updates, { new: true, runValidators: true });
     req.flash('success_msg', 'Profile updated successfully!');
     res.redirect('/profile');
   } catch (err) {
     logger.error(`Error updating profile: ${err.message}`);
     if (err.code === 11000 && err.keyPattern && err.keyPattern.username) {
       req.flash('error_msg', 'This username is already taken.');
+    } else if (err.name === 'ValidationError') {
+      const messages = Object.values(err.errors).map(error => error.message);
+      req.flash('error_msg', messages.join(', '));
     } else {
       req.flash('error_msg', 'Error updating profile.');
     }
@@ -1138,6 +1143,9 @@ router.post(
   async (req, res) => {
     if (req.user.role !== 'creator') {
       logger.warn('Unauthorized content upload attempt by non-creator');
+      if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+        return res.status(403).json({ status: 'error', message: 'You do not have permission to upload content.' });
+      }
       return res.status(403).send('You do not have permission to upload content.');
     }
     try {
@@ -1151,11 +1159,17 @@ router.post(
       const hasVideos = req.files.contentVideos && req.files.contentVideos.length > 0;
       if (!writeUp && !hasImages && !hasVideos) {
         logger.warn('Attempted to upload empty post (no text or media)');
+        if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+          return res.status(400).json({ status: 'error', message: 'Please provide text or upload at least one image or video.' });
+        }
         req.flash('error_msg', 'Please provide text or upload at least one image or video.');
         return res.status(400).redirect('/profile');
       }
       if (isSpecial && (!unlockPrice || unlockPrice < 100)) {
         logger.warn(`Invalid unlock price for special content: ${unlockPrice}`);
+        if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+          return res.status(400).json({ status: 'error', message: 'Please provide a valid unlock price (minimum 100 NGN) for special content.' });
+        }
         req.flash('error_msg', 'Please provide a valid unlock price (minimum 100 NGN) for special content.');
         return res.status(400).redirect('/profile');
       }
@@ -1166,6 +1180,9 @@ router.post(
         (hasVideos ? req.files.contentVideos.length : 0);
       if (totalMediaFiles > 10) {
         logger.warn(`Upload exceeds maximum limit: ${totalMediaFiles} files`);
+        if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+          return res.status(400).json({ status: 'error', message: 'You can upload a maximum of 10 media files per post.' });
+        }
         req.flash('error_msg', 'You can upload a maximum of 10 media files per post.');
         return res.status(400).redirect('/profile');
       }
@@ -1174,6 +1191,9 @@ router.post(
       const user = await User.findById(req.user._id);
       if (category && !user.postCategories.includes(category)) {
         logger.warn(`Invalid category: ${category}`);
+        if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+          return res.status(400).json({ status: 'error', message: 'Invalid category selected.' });
+        }
         req.flash('error_msg', 'Invalid category selected.');
         return res.status(400).redirect('/profile');
       }
@@ -1193,7 +1213,7 @@ router.post(
       const mediaItems = [];
       let contentUrl = null;
       let previewUrl = null;
-      let posterUrl = null; // NEW: For single video posts
+      let posterUrl = null;
 
       if (hasImages) {
         for (const file of req.files.contentImages) {
@@ -1228,14 +1248,14 @@ router.post(
             type: 'video',
             contentType: file.mimetype,
             previewUrl: uploadResult.previewUrl,
-            posterUrl: uploadResult.posterUrl // NEW: Save posterUrl for videos
+            posterUrl: uploadResult.posterUrl
           });
         }
         postType = hasImages ? 'mixed' : 'video';
         if (!contentUrl) {
           contentUrl = mediaItems[0].url;
           previewUrl = mediaItems[0].previewUrl;
-          posterUrl = mediaItems[0].posterUrl; // NEW: Set posterUrl for single video
+          posterUrl = mediaItems[0].posterUrl;
         }
       }
 
@@ -1252,7 +1272,7 @@ router.post(
         unlockPrice: isSpecial ? unlockPrice : undefined,
         contentUrl,
         previewUrl,
-        posterUrl, // NEW: Save posterUrl for single video posts
+        posterUrl,
         taggedUsers,
         renderedWriteUp,
         category,
@@ -1306,10 +1326,26 @@ router.post(
         });
       }
 
+      // Return JSON for AJAX requests
+      if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+        return res.status(200).json({
+          status: 'success',
+          message: 'Content uploaded successfully',
+          redirect: '/profile'
+        });
+      }
+
+      // Fallback to redirect for non-AJAX requests
       req.flash('success_msg', 'Content uploaded successfully');
       res.redirect('/profile');
     } catch (err) {
       logger.error(`Error uploading content: ${err.message}, Stack: ${err.stack}`);
+      if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+        return res.status(500).json({
+          status: 'error',
+          message: 'Error uploading content'
+        });
+      }
       req.flash('error_msg', 'Error uploading content');
       res.status(500).redirect('/profile');
     }
@@ -1954,7 +1990,7 @@ router.post('/subscribe-free', authCheck, async (req, res) => {
       creatorId,
       subscriptionBundle: freeBundle._id,
       subscribedAt: new Date(),
-      subscriptionExpiry: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000),
+      subscriptionExpiry: new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000),
       status: 'active',
     };
     user.subscriptions.push(subscriptionData);

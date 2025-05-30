@@ -14,6 +14,11 @@ const logger = require('../logs/logger'); // Import Winston logger
 router.get('/', async (req, res) => {
   const { creator, ref } = req.query;
 
+  // If user is authenticated, redirect to /home
+  if (req.user) {
+    return res.redirect('/home');
+  }
+
   // Store creator in session.redirectTo if provided
   if (creator) {
     req.session.redirectTo = `/profile/${encodeURIComponent(creator)}`;
@@ -36,10 +41,11 @@ router.get('/', async (req, res) => {
     errorMessage: req.flash('error'),
     successMessage: req.flash('success'),
     creator: creator || req.session.creator || '',
-    ref: ref || req.session.referralId || ''
+    ref: ref || req.session.referralId || '',
+    isWelcomePage: true, // Explicitly set for clarity
+    currentUser: null // Ensure navigation bar doesn't render
   });
 });
-
 router.post('/signup', async (req, res) => {
   const { username, email, password, creator } = req.body;
   const queryCreator = req.query.creator;

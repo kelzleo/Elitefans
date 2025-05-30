@@ -4,6 +4,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- CSRF token for forms -->
+  <meta name="csrf-token" content="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>">
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -79,32 +81,8 @@
     </aside>
   <% } %>
 
-  <% if (currentUser) { %>
-    
-    <script>
-      document.addEventListener('DOMContentLoaded', () => {
-        const profileNavTrigger = document.querySelector('.profile-nav-trigger');
-        const profileMenu = document.getElementById('profileMenu');
-    
-        // Toggle menu on icon click (works for both mobile and desktop)
-        profileNavTrigger.addEventListener('click', () => {
-          profileMenu.classList.toggle('open');
-        });
-    
-        // Close menu if clicking outside of it (works for both mobile and desktop)
-        document.addEventListener('click', (event) => {
-          if (
-            profileMenu.classList.contains('open') &&
-            !profileMenu.contains(event.target) &&
-            !profileNavTrigger.contains(event.target)
-          ) {
-            profileMenu.classList.remove('open');
-          }
-        });
-      });
-    </script>
-  <% } %>
-  
-
+  <!-- Load fetchWithCsrf and other scripts -->
+  <script src="/scripts/utils.js"></script>
+  <script src="/js/layout.js"></script>
 </body>
 </html>
