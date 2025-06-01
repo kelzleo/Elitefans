@@ -60,16 +60,31 @@
           const slideCreators = featuredCreators.slice(i, i + cardsPerSlide);
       %>
         <div class="creator-slide">
-          <% slideCreators.forEach((creator, index) => { %>
-            <% let bgImage = creator.coverPhoto ? `${creator.coverPhoto}` : '/Uploads/default-cover.jpg'; %>
+          <% slideCreators.forEach((creator, index) => { 
+               // Determine cover photo URL (falls back to default)
+               let coverUrl = creator.coverPhoto
+                 ? creator.coverPhoto
+                 : '/Uploads/default-cover.jpg';
+               // Determine profile picture URL
+               let profileUrl = creator.profilePicture
+                 ? creator.profilePicture
+                 : '/Uploads/default-profile-picture.jpg';
+          %>
             <div class="featured-creator-card" data-index="<%= i + index %>">
-              <div class="creator-card-background" style="background-image: url('<%= bgImage %>');">
+              <div class="creator-card-background">
+                <!-- Cover photo as an <img>, not inline style -->
+                <img
+                  class="cover-photo"
+                  src="<%= coverUrl %>"
+                  alt="Cover for <%= creator.username %>"
+                  loading="lazy"
+                />
                 <div class="subscriber-count">
                   <p><%= creator.subscriberCount %> subscriber(s)</p>
                 </div>
                 <div class="profile-picture-container">
                   <img
-                    src="<%= creator.profilePicture || '/Uploads/default-profile-picture.jpg' %>"
+                    src="<%= profileUrl %>"
                     alt="<%= creator.username %> profile"
                     class="profile-picture"
                   />
@@ -88,7 +103,7 @@
         </div>
       <% } %>
     </div>
-    <!-- Add dots container -->
+    <!-- Slider dots -->
     <div class="slider-dots">
       <% for (let i = 0; i < Math.ceil(featuredCreators.length / 4); i++) { %>
         <span class="dot" data-index="<%= i %>"></span>
@@ -96,6 +111,7 @@
     </div>
   </div>
 <% } %>
+
 <!-- Feed: Show Subscribed Posts -->
 <div class="feed-container">
   <% if (posts && posts.length > 0) { %>
@@ -348,8 +364,7 @@
       </form>
     </div>
   </div>
- 
+  <script src="/scripts/utils.js"></script>
+  <script src="/js/home.js" defer>
+  </script>
 </div>
-
- <script src="/scripts/utils.js"></script>
-  <script src="/js/home.js" defer></script>
