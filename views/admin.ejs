@@ -1,43 +1,45 @@
-<h1>Admin Dashboard</h1>
+<h1 class="ad-heading">Admin Dashboard</h1>
 
-<h2>Pending Creator Requests</h2>
+<h2 class="ad-subheading">Pending Creator Requests</h2>
 <% if (creatorRequests && creatorRequests.pending && creatorRequests.pending.length > 0) { %>
-    <ul>
-        <% creatorRequests.pending.forEach(request => { %>
-            <li style="margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
-                <a href="/admin/creator-request/pending/<%= request._id %>">
-                  <% if (request.user) { %>
-                    <strong>User:</strong> <%= request.user.username %> (<%= request.firstName %> <%= request.lastName %>)
-                  <% } else { %>
-                    <strong>User:</strong> Unknown User
-                  <% } %>
-                </a>
-                <% if (request.user) { %>
-                  (<%= request.user.email %>)
-                <% } %>
-                – Requested on <%= new Date(request.requestedAt).toLocaleString() %>
-            </li>
-        <% }) %>
-    </ul>
+  <ul class="ad-list">
+    <% creatorRequests.pending.forEach(request => { %>
+      <li class="ad-list-item">
+        <a href="/admin/creator-request/pending/<%= request._id %>" class="ad-link">
+          <% if (request.user) { %>
+            <strong>User:</strong> <%= request.user.username %> (<%= request.firstName %> <%= request.lastName %>)
+          <% } else { %>
+            <strong>User:</strong> Unknown User
+          <% } %>
+        </a>
+        <% if (request.user) { %>
+          (<%= request.user.email %>)
+        <% } %>
+        – Requested on <%= new Date(request.requestedAt).toLocaleString() %>
+      </li>
+    <% }) %>
+  </ul>
 <% } else { %>
-    <p>No pending creator requests at the moment.</p>
+  <p class="ad-info">No pending creator requests at the moment.</p>
 <% } %>
 
-<h2>Approved Creators</h2>
+<h2 class="ad-subheading">Approved Creators</h2>
 <% if (creatorRequests && creatorRequests.approved && creatorRequests.approved.length > 0) { %>
-    <ul>
-        <% creatorRequests.approved.forEach(creator => { %>
-            <li style="margin-bottom: 15px; border-bottom: 1px solid #ccc; padding-bottom: 10px;">
-                <a href="/admin/creator-request/approved/<%= creator._id %>">
-                  <strong>User:</strong> <%= creator.username %>
-                </a> (<%= creator.email %>)
-            </li>
-        <% }) %>
-    </ul>
+  <ul class="ad-list">
+    <% creatorRequests.approved.forEach(creator => { %>
+      <li class="ad-list-item">
+        <a href="/admin/creator-request/approved/<%= creator._id %>" class="ad-link">
+          <strong>User:</strong> <%= creator.username %>
+        </a> (<%= creator.email %>)
+      </li>
+    <% }) %>
+  </ul>
 <% } else { %>
-    <p>No approved creators at the moment.</p>
+  <p class="ad-info">No approved creators at the moment.</p>
 <% } %>
 
-<a href="/admin/delete-logs">View Post Deletion Logs</a><br>
-<a href="/admin/reported-posts">View Reported Posts</a><br>
-<a href="/profile">Back to Profile</a>
+<div class="ad-links">
+  <a href="/admin/delete-logs" class="ad-link">View Post Deletion Logs</a><br>
+  <a href="/admin/reported-posts" class="ad-link">View Reported Posts</a><br>
+  <a href="/profile" class="ad-link">Back to Profile</a>
+</div>

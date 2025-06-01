@@ -26,7 +26,11 @@ function filterChats(filter) {
     if (filter === 'online' && !isOnline) shouldShow = false;
     if (filter === 'highest-tips' && tipAmount === 0) shouldShow = false;
 
-    item.style.display = shouldShow ? 'block' : 'none';
+    if (shouldShow) {
+      item.classList.remove('hidden');
+    } else {
+      item.classList.add('hidden');
+    }
   });
 
   if (filter === 'a-z' || filter === 'highest-tips') {
@@ -56,7 +60,11 @@ function searchChats() {
   const chatItems = document.querySelectorAll('.chat-item');
   chatItems.forEach(item => {
     const username = item.getAttribute('data-username')?.toLowerCase() || '';
-    item.style.display = username.includes(searchTerm) ? 'block' : 'none';
+    if (username.includes(searchTerm)) {
+      item.classList.remove('hidden');
+    } else {
+      item.classList.add('hidden');
+    }
   });
 }
 
@@ -65,6 +73,17 @@ document.getElementById('searchInput')?.addEventListener('input', () => {
   clearTimeout(window.searchChatsTimeout);
   window.searchChatsTimeout = setTimeout(searchChats, 300);
 });
+
+// Filter dropdown event listener
+const chatFilter = document.getElementById('chatFilter');
+if (chatFilter) {
+  chatFilter.addEventListener('change', () => {
+    filterChats(chatFilter.value);
+    if (isDevEnv) console.log('Filter applied:', chatFilter.value);
+  });
+} else {
+  console.error('chatFilter element not found');
+}
 
 // --- Debug FetchWithCsrf Availability ---
 if (isDevEnv && typeof fetchWithCsrf !== 'function') {

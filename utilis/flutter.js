@@ -353,12 +353,47 @@ async function initializeTipPayment(userId, creatorId, postId, amount, message =
     throw error;
   }
 }
-
+/**
+ * Resolves bank account details using Flutterwave's API to retrieve the account holder's name.
+ *
+ * @param {string} bankCode - The bank code (e.g., '044' for Access Bank).
+ * @param {string} accountNumber - The bank account number.
+ * @returns {Promise<string>} - The account holder's name.
+ * @throws {Error} - If the resolution fails.
+ */
+async function resolveBankAccount(bankCode, accountNumber) {
+  try {
+    const url = 'https://api.flutterwave.com/v3/accounts/resolve';
+    const payload = {
+      account_number: accountNumber,
+      account_bank: bankCode
+    };
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.FLUTTERWAVE_SECRET_KEY}`
+      },
+      body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (data.status === 'success') {
+      return data.data.account_name;
+    } else {
+      logger.error(`Failed to resolve account: ${data.message || 'Unknown error'}`);
+      throw new Error(data.message || 'Failed to resolve account');
+    }
+  } catch (error) {
+    logger.error(`Error resolving bank account: ${error.message}`);
+    throw error;
+  }
+}
 module.exports = {
   verifyBVNInfo,
   initializePayment,
   initializeSpecialPayment,
   verifyPayment,
   transferToBank,
-  initializeTipPayment
+  initializeTipPayment,
+  resolveBankAccount
 };

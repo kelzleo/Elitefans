@@ -4,7 +4,7 @@
     <h2>Chat</h2>
     <div class="chat-list-controls">
       <!-- Dropdown Filter -->
-      <select id="chatFilter" onchange="filterChats(this.value)">
+      <select id="chatFilter">
         <option value="all">All Chats</option>
         <option value="unread">Unread</option>
         <option value="a-z">A-Z</option>
@@ -86,7 +86,4 @@
 <!-- Client-side JavaScript for Filtering, Searching, and Heartbeat -->
 <script src="/scripts/utils.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-
-<script src="/js/chatlist.js" defer>
-
-</script>
+<script src="/js/chatlist.js" defer></script>

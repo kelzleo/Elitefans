@@ -103,11 +103,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } catch (err) {
       console.error('Failed to initialize EmojiMart:', err);
-      const emojiToggle = document.getElementById('emojiToggle');
       if (emojiToggle) {
+        emojiToggle.classList.add('disabled');
         emojiToggle.disabled = true;
-        emojiToggle.style.opacity = '0.5';
-        emojiToggle.style.cursor = 'not-allowed';
         emojiToggle.title = 'Emoji picker unavailable';
         if (isDevEnv) console.log('Emoji button disabled due to initialization failure');
       }
@@ -123,8 +121,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (isDevEnv) console.log('Emoji toggle clicked');
       const picker = document.getElementById('emojiPicker');
       if (picker) {
-        picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
-        if (isDevEnv) console.log('Emoji picker toggled to:', picker.style.display);
+        picker.classList.toggle('active');
+        picker.classList.toggle('hidden');
+        if (isDevEnv) console.log('Emoji picker toggled to:', picker.classList.contains('active') ? 'active' : 'hidden');
       } else {
         console.error('emojiPicker element not found during toggle');
       }
@@ -309,7 +308,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (message.media.type === 'image') {
         messageContent += `<img src="${mediaUrl}" alt="Chat Image" class="chat-media fullscreenable" data-fullscreen-url="${mediaUrl}" onerror="this.src='/images/fallback-image.png'; this.alt='Failed to load media';">`;
       } else if (message.media.type === 'video') {
-        messageContent += `<video src="${mediaUrl}" controls class="chat-media fullscreenable" data-fullscreen-url="${mediaUrl}" onerror="this.nextSibling.style.display='block';"><p style="display: none;">Failed to load video</p></video>`;
+        messageContent += `<video src="${mediaUrl}" class="chat-media fullscreenable" data-fullscreen-url="${mediaUrl}" onerror="this.nextSibling.classList.remove('hidden');"><p class="video-fallback hidden">Failed to load video</p></video>`;
       }
     }
     if (message.text) {
@@ -344,9 +343,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (isDevEnv) console.log('Message appended to DOM:', message);
 
     // Force a DOM repaint to ensure visibility
-    chatWindow.style.display = 'none';
+    chatWindow.classList.add('hidden');
     chatWindow.offsetHeight; // Trigger reflow
-    chatWindow.style.display = 'flex';
+    chatWindow.classList.remove('hidden');
+    chatWindow.classList.add('active');
   }
 
   // Handle form submission
@@ -418,238 +418,233 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Select all required elements
-const lightbox = document.getElementById('lightbox');
-const lbBackdrop = document.getElementById('lb-backdrop');
-const lbContent = document.getElementById('lb-content');
-const lbClose = document.getElementById('lb-close');
-const lbImg = document.getElementById('lb-img');
-const lbVid = document.getElementById('lb-vid');
-const customControls = document.getElementById('custom-controls');
-const playPauseBtn = document.getElementById('play-pause');
-const progressContainer = document.getElementById('progress-container');
-const progressBar = document.getElementById('progress-bar');
-const muteUnmuteBtn = document.getElementById('mute-unmute');
+  const lightbox = document.getElementById('lightbox');
+  const lbBackdrop = document.getElementById('lb-backdrop');
+  const lbContent = document.getElementById('lb-content');
+  const lbClose = document.getElementById('lb-close');
+  const lbImg = document.getElementById('lb-img');
+  const lbVid = document.getElementById('lb-vid');
+  const customControls = document.getElementById('custom-controls');
+  const playPauseBtn = document.getElementById('play-pause');
+  const progressContainer = document.getElementById('progress-container');
+  const progressBar = document.getElementById('progress-bar');
+  const muteUnmuteBtn = document.getElementById('mute-unmute');
 
-// Check if all required elements exist
-if (!lightbox || !lbBackdrop || !lbContent || !lbClose || !lbImg || !lbVid || !customControls || !playPauseBtn || !progressContainer || !progressBar || !muteUnmuteBtn) {
-  if (isDevEnv) {
-    console.error('One or more lightbox elements are missing:', {
-      lightbox, lbBackdrop, lbContent, lbClose, lbImg, lbVid, customControls, playPauseBtn, progressContainer, progressBar, muteUnmuteBtn
-    });
-  }
-  return;
-}
-
-// Prevent right-click context menu on the entire lightbox
-lightbox.addEventListener('contextmenu', e => {
-  e.preventDefault();
-  return false;
-});
-
-// Prevent double-click to avoid triggering native fullscreen
-lightbox.addEventListener('dblclick', e => {
-  e.preventDefault();
-  e.stopPropagation();
-});
-
-// Open lightbox function
-function openLightbox(src, isVideo, time = 0) {
-  if (isDevEnv) console.log('Opening lightbox:', { src, isVideo, time });
-
-  // Reset active states
-  lbImg.classList.remove('active');
-  lbVid.classList.remove('active');
-  customControls.classList.remove('active');
-
-  if (isVideo) {
-    lbVid.src = src;
-    lbVid.currentTime = time;
-    lbVid.classList.add('active');
-    customControls.classList.add('active');
-
-    // Remove native controls and add security attributes
-    lbVid.removeAttribute('controls');
-    lbVid.setAttribute('controlsList', 'nodownload noremoteplayback');
-    lbVid.setAttribute('disablePictureInPicture', '');
-
-    // Prevent context menu on video
-    lbVid.addEventListener('contextmenu', preventContextMenu);
-
-    // Initialize video state
-    updatePlayPauseButton();
-    setupVideoListeners();
-
-    // Attempt auto-play
-    lbVid.play().catch(e => {
-      if (isDevEnv) console.log('Autoplay prevented:', e);
-      updatePlayPauseButton();
-    });
-  } else {
-    lbVid.pause();
-    lbVid.removeAttribute('src');
-    lbImg.src = src;
-    lbImg.classList.add('active');
-  }
-
-  lightbox.classList.remove('hidden');
-  document.body.classList.add('lightbox-open');
-
-  // Prevent native fullscreen
-  document.addEventListener('fullscreenchange', preventNativeFullscreen);
-}
-
-// Prevent context menu (factored out for reusability)
-function preventContextMenu(e) {
-  e.preventDefault();
-  return false;
-}
-
-// Setup video event listeners
-function setupVideoListeners() {
-  lbVid.addEventListener('timeupdate', updateProgressBar);
-  lbVid.addEventListener('play', updatePlayPauseButton);
-  lbVid.addEventListener('pause', updatePlayPauseButton);
-  lbVid.addEventListener('volumechange', updateMuteButton);
-}
-
-// Update progress bar
-function updateProgressBar() {
-  const percentage = (lbVid.currentTime / lbVid.duration) * 100;
-  progressBar.value = percentage;
-}
-
-// Update play/pause button text
-function updatePlayPauseButton() {
-  playPauseBtn.textContent = lbVid.paused ? '▶' : '⏸';
-}
-
-// Update mute/unmute button text
-function updateMuteButton() {
-  muteUnmuteBtn.textContent = lbVid.muted ? '🔇' : '🔊';
-}
-
-// Play/Pause button click handler
-playPauseBtn.addEventListener('click', () => {
-  if (lbVid.paused) {
-    lbVid.play();
-  } else {
-    lbVid.pause();
-  }
-  updatePlayPauseButton();
-});
-
-// Progress bar click handler
-progressContainer.addEventListener('click', (e) => {
-  const rect = progressContainer.getBoundingClientRect();
-  const pos = (e.clientX - rect.left) / rect.width;
-  lbVid.currentTime = pos * lbVid.duration;
-});
-
-// Mute/Unmute button click handler
-muteUnmuteBtn.addEventListener('click', () => {
-  lbVid.muted = !lbVid.muted;
-  updateMuteButton();
-});
-
-// Prevent native fullscreen mode
-function preventNativeFullscreen() {
-  if (document.fullscreenElement) {
-    document.exitFullscreen();
-    if (isDevEnv) console.log('Blocked native fullscreen attempt');
-  }
-}
-
-// Attach click handlers to fullscreenable media
-document.querySelectorAll('.fullscreenable').forEach(el => {
-  el.addEventListener('click', e => {
-    e.preventDefault();
-    e.stopPropagation();
-    const src = el.dataset.fullscreenSrc || el.src || el.currentSrc;
-    if (!src) {
-      if (isDevEnv) console.warn('No src found for fullscreenable element:', el);
-      return;
+  // Check if all required elements exist
+  if (!lightbox || !lbBackdrop || !lbContent || !lbClose || !lbImg || !lbVid || !customControls || !playPauseBtn || !progressContainer || !progressBar || !muteUnmuteBtn) {
+    if (isDevEnv) {
+      console.error('One or more lightbox elements are missing:', {
+        lightbox, lbBackdrop, lbContent, lbClose, lbImg, lbVid, customControls, playPauseBtn, progressContainer, progressBar, muteUnmuteBtn
+      });
     }
-    const isVideo = el.tagName.toLowerCase() === 'video';
-    const time = isVideo ? el.currentTime : 0;
-    if (isDevEnv) console.log('Fullscreenable clicked:', { src, isVideo, time });
-    openLightbox(src, isVideo, time);
+    return;
+  }
+
+  // Prevent right-click context menu on the entire lightbox
+  lightbox.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    return false;
   });
 
-  // Prevent double-click and context menu on media
-  el.addEventListener('dblclick', e => {
+  // Prevent double-click to avoid triggering native fullscreen
+  lightbox.addEventListener('dblclick', e => {
     e.preventDefault();
     e.stopPropagation();
   });
-  el.addEventListener('contextmenu', preventContextMenu);
-});
 
-// Close lightbox function
-function close() {
-  lightbox.classList.add('hidden');
-  lbVid.pause();
-  lbVid.removeAttribute('src');
-  lbImg.removeAttribute('src');
-  document.body.classList.remove('lightbox-open');
-  document.removeEventListener('fullscreenchange', preventNativeFullscreen);
+  // Open lightbox function
+  function openLightbox(src, isVideo, time = 0) {
+    if (isDevEnv) console.log('Opening lightbox:', { src, isVideo, time });
 
-  // Clean up video event listeners
-  lbVid.removeEventListener('timeupdate', updateProgressBar);
-  lbVid.removeEventListener('play', updatePlayPauseButton);
-  lbVid.removeEventListener('pause', updatePlayPauseButton);
-  lbVid.removeEventListener('volumechange', updateMuteButton);
-  lbVid.removeEventListener('contextmenu', preventContextMenu);
-}
+    // Reset active states
+    lbImg.classList.remove('active');
+    lbVid.classList.remove('active');
+    customControls.classList.remove('active');
 
-// Close event handlers
-lbClose.addEventListener('click', close);
-lbBackdrop.addEventListener('click', close);
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') close();
-});
+    if (isVideo) {
+      lbVid.src = src;
+      lbVid.currentTime = time;
+      lbVid.classList.add('active');
+      customControls.classList.add('active');
 
-// Prevent keyboard shortcuts in lightbox
-lightbox.addEventListener('keydown', e => {
-  if (e.ctrlKey || e.metaKey) {
+      // Remove native controls and add security attributes
+      lbVid.removeAttribute('controls');
+      lbVid.setAttribute('controlsList', 'nodownload noremoteplayback');
+      lbVid.setAttribute('disablePictureInPicture', '');
+
+      // Prevent context menu on video
+      lbVid.addEventListener('contextmenu', preventContextMenu);
+
+      // Initialize video state
+      updatePlayPauseButton();
+      setupVideoListeners();
+
+      // Attempt auto-play
+      lbVid.play().catch(e => {
+        if (isDevEnv) console.log('Autoplay prevented:', e);
+        updatePlayPauseButton();
+      });
+    } else {
+      lbVid.pause();
+      lbVid.removeAttribute('src');
+      lbImg.src = src;
+      lbImg.classList.add('active');
+    }
+
+    lightbox.classList.remove('hidden');
+    document.body.classList.add('lightbox-open');
+
+    // Prevent native fullscreen
+    document.addEventListener('fullscreenchange', preventNativeFullscreen);
+  }
+
+  // Prevent context menu (factored out for reusability)
+  function preventContextMenu(e) {
     e.preventDefault();
     return false;
   }
-});
 
-// Drag-to-close functionality for mobile
-let touchStartY = 0;
-let touchCurrentY = 0;
-let isDragging = false;
-const dragThreshold = window.innerHeight * 0.3; // Close if dragged 30% of screen height
-
-lbContent.addEventListener('touchstart', e => {
-  if (e.target.closest('#custom-controls') || e.target.closest('#lb-close')) return;
-  touchStartY = e.touches[0].clientY;
-  isDragging = true;
-});
-
-lbContent.addEventListener('touchmove', e => {
-  if (!isDragging) return;
-  touchCurrentY = e.touches[0].clientY;
-});
-
-lbContent.addEventListener('touchend', e => {
-  if (!isDragging) return;
-  isDragging = false;
-  const deltaY = touchCurrentY - touchStartY;
-  if (deltaY > dragThreshold) {
-    lightbox.classList.add('closing');
-    setTimeout(() => {
-      close();
-      lightbox.classList.remove('closing');
-    }, 300);
+  // Setup video event listeners
+  function setupVideoListeners() {
+    lbVid.addEventListener('timeupdate', updateProgressBar);
+    lbVid.addEventListener('play', updatePlayPauseButton);
+    lbVid.addEventListener('pause', updatePlayPauseButton);
+    lbVid.addEventListener('volumechange', updateMuteButton);
   }
-});
 
-// Debug: Log initialization
-if (isDevEnv) console.log('Lightbox script initialized');
-
-  // --- Debug FetchWithCsrf Availability ---
-  if (isDevEnv && typeof fetchWithCsrf !== 'function') {
-    console.error('fetchWithCsrf is not defined. Ensure utils.js is loaded before chat.js');
+  // Update progress bar
+  function updateProgressBar() {
+    const percentage = (lbVid.currentTime / lbVid.duration) * 100;
+    progressBar.style.width = `${percentage}%`; // Note: This is inline but necessary for dynamic progress
   }
+
+  // Update play/pause button text
+  function updatePlayPauseButton() {
+    playPauseBtn.textContent = lbVid.paused ? '▶' : '⏸';
+  }
+
+  // Update mute/unmute button text
+  function updateMuteButton() {
+    muteUnmuteBtn.textContent = lbVid.muted ? '🔇' : '🔊';
+  }
+
+  // Play/Pause button click handler
+  playPauseBtn.addEventListener('click', () => {
+    if (lbVid.paused) {
+      lbVid.play();
+    } else {
+      lbVid.pause();
+    }
+    updatePlayPauseButton();
+  });
+
+  // Progress bar click handler
+  progressContainer.addEventListener('click', (e) => {
+    const rect = progressContainer.getBoundingClientRect();
+    const pos = (e.clientX - rect.left) / rect.width;
+    lbVid.currentTime = pos * lbVid.duration;
+  });
+
+  // Mute/Unmute button click handler
+  muteUnmuteBtn.addEventListener('click', () => {
+    lbVid.muted = !lbVid.muted;
+    updateMuteButton();
+  });
+
+  // Prevent native fullscreen mode
+  function preventNativeFullscreen() {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+      if (isDevEnv) console.log('Blocked native fullscreen attempt');
+    }
+  }
+
+  // Attach click handlers to fullscreenable media
+  document.querySelectorAll('.fullscreenable').forEach(el => {
+    el.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      const src = el.dataset.fullscreenUrl || el.src || el.currentSrc;
+      if (!src) {
+        if (isDevEnv) console.warn('No src found for fullscreenable element:', el);
+        return;
+      }
+      const isVideo = el.tagName.toLowerCase() === 'video';
+      const time = isVideo ? el.currentTime : 0;
+      if (isDevEnv) console.log('Fullscreenable clicked:', { src, isVideo, time });
+      openLightbox(src, isVideo, time);
+    });
+
+    // Prevent double-click and context menu on media
+    el.addEventListener('dblclick', e => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+    el.addEventListener('contextmenu', preventContextMenu);
+  });
+
+  // Close lightbox function
+  function close() {
+    lightbox.classList.add('hidden');
+    lbVid.pause();
+    lbVid.removeAttribute('src');
+    lbImg.removeAttribute('src');
+    document.body.classList.remove('lightbox-open');
+    document.removeEventListener('fullscreenchange', preventNativeFullscreen);
+
+    // Clean up video event listeners
+    lbVid.removeEventListener('timeupdate', updateProgressBar);
+    lbVid.removeEventListener('play', updatePlayPauseButton);
+    lbVid.removeEventListener('pause', updatePlayPauseButton);
+    lbVid.removeEventListener('volumechange', updateMuteButton);
+    lbVid.removeEventListener('contextmenu', preventContextMenu);
+  }
+
+  // Close event handlers
+  lbClose.addEventListener('click', close);
+  lbBackdrop.addEventListener('click', close);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') close();
+  });
+
+  // Prevent keyboard shortcuts in lightbox
+  lightbox.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      return false;
+    }
+  });
+
+  // Drag-to-close functionality for mobile
+  let touchStartY = 0;
+  let touchCurrentY = 0;
+  let isDragging = false;
+  const dragThreshold = window.innerHeight * 0.3; // Close if dragged 30% of screen height
+
+  lbContent.addEventListener('touchstart', e => {
+    if (e.target.closest('#custom-controls') || e.target.closest('#lb-close')) return;
+    touchStartY = e.touches[0].clientY;
+    isDragging = true;
+  });
+
+  lbContent.addEventListener('touchmove', e => {
+    if (!isDragging) return;
+    touchCurrentY = e.touches[0].clientY;
+  });
+
+  lbContent.addEventListener('touchend', e => {
+    if (!isDragging) return;
+    isDragging = false;
+    const deltaY = touchCurrentY - touchStartY;
+    if (deltaY > dragThreshold) {
+      lightbox.classList.add('closing');
+      setTimeout(() => {
+        close();
+        lightbox.classList.remove('closing');
+      }, 300);
+    }
+  });
+
+  // Debug: Log initialization
+  if (isDevEnv) console.log('Lightbox script initialized');
 });

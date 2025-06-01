@@ -143,6 +143,7 @@ const userSchema = new mongoose.Schema({
       _id: { type: mongoose.Schema.Types.ObjectId, default: () => new mongoose.Types.ObjectId() },
       bankName: { type: String, required: true },
       accountNumber: { type: String, required: true },
+       accountHolderName: { type: String },
     }
   ],
   bookmarks: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Post' }],

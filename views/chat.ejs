@@ -58,7 +58,6 @@
           }
         %>
         <div class="message-container <%= message.sender.toString() === currentUser._id.toString() ? 'sent' : 'received' %>">
-          <!-- Show profile picture for both sent and received messages -->
           <img src="<%= message.sender.toString() === currentUser._id.toString() ? (currentUser.profilePicture || '/images/default-profile.png') : (creator && creator.profilePicture ? creator.profilePicture : '/images/default-profile.png') %>" alt="Profile Picture" class="message-profile-pic">
           <div class="message-wrapper">
             <div class="message">
@@ -67,6 +66,7 @@
                   <img src="" data-url="<%= message.media.url %>" alt="Chat Image" class="chat-media fullscreenable" data-fullscreen-url="">
                 <% } else if (message.media.type === 'video') { %>
                   <video src="" data-url="<%= message.media.url %>" controls class="chat-media fullscreenable" data-fullscreen-url=""></video>
+                  <p class="video-fallback hidden">Failed to load video</p>
                 <% } %>
               <% } %>
               <% if (message.text) { %>
@@ -82,7 +82,6 @@
             <div class="info">
               <span class="time"><%= new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) %></span>
               <% if (message.sender.toString() === currentUser._id.toString()) { %>
-                <!-- Update the read status display to use readBy array -->
                 <span class="status"><%= message.readBy && message.readBy.length > 0 ? 'Read' : 'Sent' %></span>
               <% } %>
             </div>
@@ -99,7 +98,6 @@
     <div class="message-input-wrapper">
       <label for="mediaInput" class="input-icon media-icon"><i class="fa fa-image"></i></label>
       <input type="file" id="mediaInput" accept="image/*,video/*" style="display: none;">
-      <!-- Add Tip Icon -->
       <button type="button" class="input-icon tip-icon tip-chat-button" data-creator-id="<%= creator._id %>" title="Tip <%= creator.username %>">
         <i class="fa fa-gift"></i>
       </button>
@@ -108,13 +106,13 @@
       <button type="button" class="input-icon smiley-icon" id="emojiToggle" title="Add emoji">
         <i class="fa-solid fa-face-smile"></i>
       </button>
-      <div id="emojiPicker" style="display: none; position: absolute; bottom: 60px; left: 10px;"></div>
+      <div id="emojiPicker" class="emoji-picker hidden"></div>
       <button type="submit" class="send-button"><i class="fa fa-paper-plane"></i></button>
     </div>
   </form>
 
   <!-- Tip Modal (Mirrors profile.ejs) -->
-  <div id="tipModal" class="tip-modal hidden">
+  <div id="tipModal" class="tip-modal">
     <div class="tip-modal-content">
       <span id="closeTipModal" class="close-tip-modal">×</span>
       <h3>Send A Tip to <%= creator.username %></h3>
@@ -159,5 +157,4 @@
 <!-- Socket.io and Chat Logic -->
 <script src="/scripts/utils.js"></script>
 <script src="/socket.io/socket.io.js"></script>
-<script src="/js/chat.js" defer>
-</script>
+<script src="/js/chat.js" defer></script>

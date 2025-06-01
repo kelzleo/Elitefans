@@ -1,3 +1,4 @@
+// js/request-creator.js
 const openCameraModalButton = document.getElementById('openCameraModal');
 const capturedPhotoPreview = document.getElementById('capturedPhotoPreview');
 const capturedPhoto = document.getElementById('capturedPhoto');
@@ -15,12 +16,10 @@ const submitButton = document.getElementById('submitButton');
 const loadingMessage = document.getElementById('loadingMessage');
 const photoMessage = document.getElementById('photoMessage');
 
-const isDevEnv = process.env.NODE_ENV === 'development';
-
 let stream;
 
 function openCameraModalFunc() {
-  cameraModal.style.display = 'flex';
+  cameraModal.classList.add('rc-modal-open');
   if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(function(mediaStream) {
@@ -30,16 +29,16 @@ function openCameraModalFunc() {
       })
       .catch(function(err) {
         alert("Unable to access the camera. Please check your browser settings.");
-        if (isDevEnv) console.error('Camera access error:', err);
+        console.error('Camera access error:', err);
       });
   } else {
     alert("Your browser does not support webcam access.");
-    if (isDevEnv) console.warn('Browser does not support getUserMedia');
+    console.warn('Browser does not support getUserMedia');
   }
 }
 
 function closeCameraModalFunc() {
-  cameraModal.style.display = 'none';
+  cameraModal.classList.remove('rc-modal-open');
   if (stream) {
     stream.getTracks().forEach(track => track.stop());
     stream = null;
@@ -47,45 +46,39 @@ function closeCameraModalFunc() {
 }
 
 async function estimateAge(photoData) {
-  loadingMessage.style.display = 'block';
-  photoMessage.style.display = 'block';
+  loadingMessage.classList.remove('rc-hidden');
+  photoMessage.classList.remove('rc-hidden');
   photoMessage.textContent = 'Processing photo...';
+  photoMessage.classList.remove('rc-photo-message-error');
 
   try {
-    if (typeof fetchWithCsrf !== 'function') {
-      throw new Error('fetchWithCsrf is not defined');
-    }
-    if (isDevEnv) console.log('Captured photo data:', photoData.substring(0, 50));
+    console.log('Sending photo data to /request-creator/estimate-age');
     const response = await fetchWithCsrf('/request-creator/estimate-age', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ photoData })
     });
     const result = await response.json();
     if (result.success) {
       estimatedAgeInput.value = result.age;
       photoMessage.textContent = 'Photo captured successfully.';
+      submitButton.classList.add('rc-submit-button-enabled');
       submitButton.disabled = false;
-      submitButton.style.backgroundColor = '#f00';
-      submitButton.style.cursor = 'pointer';
     } else {
       estimatedAgeInput.value = '';
-      photoMessage.style.color = 'red';
+      photoMessage.classList.add('rc-photo-message-error');
       photoMessage.textContent = result.message || 'Failed to process photo. Please try again with a clear face.';
+      submitButton.classList.remove('rc-submit-button-enabled');
       submitButton.disabled = true;
-      submitButton.style.backgroundColor = '#ccc';
-      submitButton.style.cursor = 'not-allowed';
     }
   } catch (err) {
-    if (isDevEnv) console.error('Client-side error:', err);
+    console.error('Client-side error in estimateAge:', err);
     estimatedAgeInput.value = '';
-    photoMessage.style.color = 'red';
+    photoMessage.classList.add('rc-photo-message-error');
     photoMessage.textContent = 'Failed to process photo. Please check your connection and try again.';
+    submitButton.classList.remove('rc-submit-button-enabled');
     submitButton.disabled = true;
-    submitButton.style.backgroundColor = '#ccc';
-    submitButton.style.cursor = 'not-allowed';
   }
-  loadingMessage.style.display = 'none';
+  loadingMessage.classList.add('rc-hidden');
 }
 
 openCameraModalButton.addEventListener('click', openCameraModalFunc);
@@ -100,40 +93,63 @@ captureButtonModal.addEventListener('click', async function() {
   const dataURL = canvas.toDataURL('image/jpeg', 0.6);
   passportPhotoDataInput.value = dataURL;
   capturedPhoto.src = dataURL;
-  capturedPhotoPreview.style.display = 'block';
+  capturedPhotoPreview.classList.remove('rc-hidden');
   closeCameraModalFunc();
   await estimateAge(dataURL);
 });
 
 retakeButton.addEventListener('click', function() {
   openCameraModalFunc();
-  capturedPhotoPreview.style.display = 'none';
-  photoMessage.style.display = 'none';
+  capturedPhotoPreview.classList.add('rc-hidden');
+  photoMessage.classList.add('rc-hidden');
   estimatedAgeInput.value = '';
+  submitButton.classList.remove('rc-submit-button-enabled');
   submitButton.disabled = true;
-  submitButton.style.backgroundColor = '#ccc';
-  submitButton.style.cursor = 'not-allowed';
 });
 
-form.addEventListener('submit', function(e) {
+form.addEventListener('submit', async function(e) {
+  e.preventDefault(); // Prevent default HTML form submission
+  console.log('Form submission triggered');
+  console.log('BVN:', bvnInput.value);
+  console.log('First Name:', form.querySelector('#firstName').value);
+  console.log('Last Name:', form.querySelector('#lastName').value);
+  console.log('Passport Photo Data:', passportPhotoDataInput.value);
+  console.log('Estimated Age:', estimatedAgeInput.value);
+
   if (!/^\d{11}$/.test(bvnInput.value)) {
-    e.preventDefault();
-    bvnError.style.display = 'block';
+    bvnError.classList.remove('rc-hidden');
     return;
   }
-  if (!estimatedAgeInput.value) {
-    e.preventDefault();
-    photoMessage.style.display = 'block';
-    photoMessage.style.color = 'red';
-    photoMessage.textContent = 'Photo must be processed successfully.';
+  if (!passportPhotoDataInput.value || !estimatedAgeInput.value) {
+    photoMessage.classList.remove('rc-hidden');
+    photoMessage.classList.add('rc-photo-message-error');
+    photoMessage.textContent = 'Photo must be captured and processed successfully.';
     return;
   }
-  bvnError.style.display = 'none';
+  bvnError.classList.add('rc-hidden');
   submitButton.disabled = true;
-  loadingMessage.style.display = 'block';
-});
+  loadingMessage.classList.remove('rc-hidden');
 
-// --- Debug FetchWithCsrf Availability ---
-if (isDevEnv && typeof fetchWithCsrf !== 'function') {
-  console.error('fetchWithCsrf is not defined. Ensure utils.js is loaded before request-creator.js');
-}
+  try {
+    const formData = new FormData(form);
+    console.log('Submitting form to /request-creator with CSRF token');
+    const response = await fetchWithCsrf('/request-creator', {
+      method: 'POST',
+      body: formData
+    });
+    const result = await response.json();
+    if (result.success) {
+      alert('Creator request submitted successfully!');
+      window.location.href = '/'; // Changed from '/success' to '/'
+    } else {
+      alert(`Submission failed: ${result.message || 'Unknown error'}`);
+      submitButton.disabled = false;
+      loadingMessage.classList.add('rc-hidden');
+    }
+  } catch (err) {
+    console.error('Form submission error:', err);
+    alert(`Submission failed: ${err.message || 'Network or server error'}`);
+    submitButton.disabled = false;
+    loadingMessage.classList.add('rc-hidden');
+  }
+});

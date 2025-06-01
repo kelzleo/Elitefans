@@ -23,7 +23,7 @@ const authCheck = (req, res, next) => {
 // Render the "Request to Become a Creator" page
 router.get('/', authCheck, async (req, res) => {
   try {
-    const existingRequest = await CreatorRequest.findOne({ user: req.user.id, status: 'pending' });
+    const existingRequest = await CreatorRequest.findOne({ user: req.user._id, status: 'pending' });
     const requestPending = !!existingRequest;
     res.render('request-creator', { user: req.user, requestPending });
   } catch (err) {
@@ -195,37 +195,36 @@ router.post('/', authCheck, upload.none(), async (req, res) => {
     // Validate inputs
     if (!bvn || !/^\d{11}$/.test(bvn)) {
       logger.warn('Invalid BVN in creator request');
-      throw new Error('BVN must be an 11-digit number.');
+      return res.status(400).json({ success: false, message: 'BVN must be an 11-digit number.' });
     }
     if (!firstName || !lastName || !passportPhotoData || !estimatedAge) {
       logger.warn('Missing required fields in creator request');
-      throw new Error('All fields are required, and photo must be processed successfully.');
+      return res.status(400).json({ success: false, message: 'All fields are required, and photo must be processed successfully.' });
     }
 
     // Check for existing pending request
-    const existingRequest = await CreatorRequest.findOne({ user: req.user.id, status: 'pending' });
+    const existingRequest = await CreatorRequest.findOne({ user: req.user._id, status: 'pending' });
     if (existingRequest) {
       logger.warn('Existing pending creator request found');
-      req.flash('error_msg', 'You have already submitted a creator request. Approval could take 24–72 hours.');
-      return res.redirect('/request-creator');
+      return res.status(400).json({ success: false, message: 'You have already submitted a creator request. Approval could take 24–72 hours.' });
     }
 
-    // Process passport photo
+    // Process passport photo (unchanged logic, included for context)
     const matches = passportPhotoData.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
     if (!matches || matches.length !== 3) {
       logger.warn('Invalid image data in creator request');
-      throw new Error('Invalid image data. Please try capturing your photo again.');
+      return res.status(400).json({ success: false, message: 'Invalid image data. Please try capturing your photo again.' });
     }
     const mimeType = matches[1];
     const base64Data = matches[2];
     const buffer = Buffer.from(base64Data, 'base64');
 
-    const fileName = `${req.user.id}-${Date.now()}-passport.jpg`;
+    const fileName = `${req.user._id}-${Date.now()}-passport.jpg`;
     const storedFileName = await uploadToCreatorRequestsBucket(buffer, fileName, mimeType);
 
     // Create a new CreatorRequest document
     const newRequest = new CreatorRequest({
-      user: req.user.id,
+      user: req.user._id, // Changed from req.user.id
       bvn,
       firstName,
       lastName,
@@ -236,18 +235,16 @@ router.post('/', authCheck, upload.none(), async (req, res) => {
     await newRequest.save();
 
     // Update user record
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user._id); // Changed from req.user.id
     if (user && !user.requestToBeCreator) {
       user.requestToBeCreator = true;
       await user.save();
     }
 
-    req.flash('success_msg', 'Your creator request has been submitted successfully! Approval could take 24–72 hours.');
-    res.redirect('/request-creator');
+    return res.json({ success: true, message: 'Your creator request has been submitted successfully! Approval could take 24–72 hours.' });
   } catch (err) {
     logger.error(`Error submitting creator request: ${err.message}`);
-    req.flash('error_msg', err.message || 'An error occurred. Please try again.');
-    res.redirect('/request-creator');
+    return res.status(400).json({ success: false, message: err.message || 'An error occurred. Please try again.' });
   }
 });
 

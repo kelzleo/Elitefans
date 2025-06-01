@@ -17,6 +17,7 @@ const User = require('./models/users');
 const multer = require('multer');
 const logger = require('./logs/logger'); // Import Winston logger
 const csurf = require('csurf'); // Added for CSRF protection
+const helmet = require('helmet');
 
 // Import configuration and keys
 const keys = require('./config/keys');
@@ -56,6 +57,14 @@ const app = express();
 // Trust the first proxy for secure cookies on Render
 app.set('trust proxy', 1);
 
+// NEW: Enforce HTTPS in production
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === 'production' && !req.secure) {
+    return res.redirect(`https://${req.headers.host}${req.url}`);
+  }
+  next();
+});
+
 // MongoDB connection
 mongoose
   .connect(process.env.MONGO_URI, {
@@ -87,6 +96,46 @@ app.set('view engine', 'ejs');
 app.use(express.static('public'));
 app.use(express.urlencoded({ extended: true, limit: '5mb' }));
 app.use(express.json({ limit: '5mb' }));
+
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: [
+          "'self'",
+          "https://cdn.jsdelivr.net",
+          "https://cdnjs.cloudflare.com"
+        ],
+        styleSrc: [
+          "'self'",
+          "https://fonts.googleapis.com",
+          "https://cdnjs.cloudflare.com"
+        ],
+        fontSrc: [
+          "'self'",
+          "https://fonts.gstatic.com",
+          "https://cdnjs.cloudflare.com"  // For Font Awesome fonts
+        ],
+        imgSrc: [
+          "'self'",
+          "data:",
+          "blob:",
+          "https://cdn.jsdelivr.net",
+          "https://cdnjs.cloudflare.com",
+          "https://storage.googleapis.com"  // For Google Cloud Storage
+        ],
+        connectSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        frameAncestors: ["'none'"],
+        upgradeInsecureRequests: [],
+      }
+    },
+    referrerPolicy: { policy: "no-referrer" },
+    crossOriginEmbedderPolicy: false
+  })
+);
 
 // Session middleware with secure cookie in production (HTTPS enforced)
 const sessionMiddleware = session({

@@ -1,17 +1,16 @@
-<!-- views/request-creator.ejs -->
-<div class="request-creator-container" style="max-width: 600px; margin: auto; padding: 20px;">
+<div class="rc-request-creator-container">
   <h1>Request to Become a Creator</h1>
   
   <% if (requestPending) { %>
-    <p>Your creator request is currently being processed. Approval could take 24–72 hours.</p>
+    <p class="rc-info-text">Your creator request is currently being processed. Approval could take 24–72 hours.</p>
   <% } else { %>
-    <p>Please fill in the details below. Your sensitive information will only be visible to our admin team.</p>
-    <p style="font-size: 0.9em; color: #666;">Your photo is processed to verify eligibility, and BVN is deleted after admin review.</p>
+    <p class="rc-info-text">Please fill in the details below. Your sensitive information will only be visible to our admin team.</p>
+    <p class="rc-info-text">Your photo is processed to verify eligibility, and BVN is deleted after admin review.</p>
   
-    <form id="creatorRequestForm" action="/request-creator" method="POST" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 15px;">
+    <form id="creatorRequestForm" class="rc-form" action="/request-creator" method="POST" enctype="multipart/form-data">
       <!-- BVN -->
       <div>
-        <label for="bvn" style="display: block; margin-bottom: 5px;">BVN</label>
+        <label for="bvn" class="rc-label">BVN</label>
         <input 
           type="text" 
           id="bvn" 
@@ -19,71 +18,67 @@
           placeholder="Enter your 11-digit BVN" 
           required 
           pattern="\d{11}"
-          style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+          class="rc-input"
         />
-        <p id="bvnError" style="color: red; font-size: 0.9em; display: none;">BVN must be an 11-digit number.</p>
+        <p id="bvnError" class="rc-error rc-hidden">BVN must be an 11-digit number.</p>
       </div>
 
       <!-- First Name -->
       <div>
-        <label for="firstName" style="display: block; margin-bottom: 5px;">First Name</label>
+        <label for="firstName" class="rc-label">First Name</label>
         <input 
           type="text" 
           id="firstName" 
           name="firstName" 
           placeholder="Enter your first name" 
           required 
-          style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+          class="rc-input"
         />
       </div>
 
       <!-- Last Name -->
       <div>
-        <label for="lastName" style="display: block; margin-bottom: 5px;">Last Name</label>
+        <label for="lastName" class="rc-label">Last Name</label>
         <input 
           type="text" 
           id="lastName" 
           name="lastName" 
           placeholder="Enter your last name" 
           required 
-          style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;"
+          class="rc-input"
         />
       </div>
 
       <!-- Passport Photograph -->
       <div>
-        <label style="display: block; margin-bottom: 5px;">Passport Photograph</label>
-        <button type="button" id="openCameraModal" style="padding: 10px 20px;">Open Camera</button>
-        <div id="capturedPhotoPreview" style="margin-top: 10px; display: none;">
-          <img id="capturedPhoto" src="" alt="Captured Photo" style="max-width: 100%; border: 1px solid #ccc;"/>
-          <button type="button" id="retakeButton" style="margin-top: 10px; padding: 10px 20px;">Retake Photo</button>
+        <label class="rc-label">Passport Photograph</label>
+        <button type="button" id="openCameraModal" class="rc-button">Open Camera</button>
+        <div id="capturedPhotoPreview" class="rc-photo-preview rc-hidden">
+          <img id="capturedPhoto" src="" alt="Captured Photo" class="rc-captured-photo"/>
+          <button type="button" id="retakeButton" class="rc-button">Retake Photo</button>
         </div>
         <input type="hidden" name="passportPhotoData" id="passportPhotoData" />
         <input type="hidden" name="estimatedAge" id="estimatedAge" />
-        <p style="font-size: 0.9em; color: #666;">Capture a clear, passport-style photograph using your device camera.</p>
-        <p id="photoMessage" style="font-size: 0.9em; display: none; color: #666;"></p>
+        <p class="rc-info-text">Capture a clear, passport-style photograph using your device camera.</p>
+        <p id="photoMessage" class="rc-photo-message rc-hidden"></p>
       </div>
 
       <!-- Submit Button -->
-      <button type="submit" id="submitButton" disabled style="padding: 10px 20px; background-color: #ccc; color: #fff; border: none; border-radius: 4px; cursor: not-allowed;">
-        Submit Creator Request
-      </button>
-      <p id="loadingMessage" style="display: none; color: #666;">Processing your photo, please wait...</p>
+      <button type="submit" id="submitButton" class="rc-submit-button" disabled>Submit Creator Request</button>
+      <p id="loadingMessage" class="rc-loading-message rc-hidden">Processing your photo, please wait...</p>
     </form>
   <% } %>
 </div>
 
 <!-- Modal for Camera Capture -->
-<div id="cameraModal" style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 9999;">
-  <div style="background: #fff; padding: 20px; border-radius: 8px; text-align: center; width: 90%; max-width: 800px;">
+<div id="cameraModal" class="rc-modal">
+  <div class="rc-modal-content">
     <h2>Camera Capture</h2>
-    <video id="modalVideo" autoplay playsinline style="width: 100%; max-height: 70vh; border: 1px solid #ccc;"></video>
+    <video id="modalVideo" autoplay playsinline class="rc-video"></video>
     <br/>
-    <button type="button" id="captureButtonModal" style="padding: 10px 20px; margin-top: 10px;">Capture Photo</button>
-    <button type="button" id="closeCameraModal" style="padding: 10px 20px; margin-top: 10px;">Cancel</button>
+    <button type="button" id="captureButtonModal" class="rc-button">Capture Photo</button>
+    <button type="button" id="closeCameraModal" class="rc-button">Cancel</button>
   </div>
 </div>
 <script src="/scripts/utils.js"></script>
-<script src="/js/request-creator.js" defer>
-  
-</script>
+<script src="/js/request-creator.js" defer></script>

@@ -1,33 +1,38 @@
 <!-- views/adminRequestDetails.ejs -->
-<h1>Creator Request Details</h1>
-<div style="border: 1px solid #ccc; padding: 15px; border-radius: 5px; margin-bottom: 15px;">
+<h1 class="add-heading">Creator Request Details</h1>
+
+<div class="add-card">
   <p><strong>User:</strong> <%= request.user.username %> (<%= request.user.email %>)</p>
   <p><strong>Name:</strong> <%= request.firstName %> <%= request.lastName %></p>
   <p><strong>BVN:</strong> <%= request.bvn ? request.bvn : 'N/A' %></p>
   <p><strong>Estimated Age:</strong> <%= request.estimatedAge ? request.estimatedAge : 'Not detected' %></p>
   <p><strong>Requested At:</strong> <%= request.requestedAt.toLocaleString() %></p>
+
   <p>
     <strong>Passport Photo:</strong>
     <% if (signedUrl) { %>
-      <a href="<%= signedUrl %>" target="_blank">View Photo</a>
+      <a href="<%= signedUrl %>" target="_blank" class="add-link">View Photo</a>
     <% } else { %>
       N/A
     <% } %>
   </p>
+
   <p>
     <strong>User Profile:</strong>
-    <a href="/profile/view/<%= request.user._id %>" target="_blank">View Profile</a>
+    <a href="/profile/view/<%= request.user._id %>" target="_blank" class="add-link">View Profile</a>
   </p>
+
   <p><strong>Note:</strong> Estimated age is from an automated system. Verify photo authenticity. BVN will be deleted after action.</p>
 </div>
 
-<div>
-  <form action="/admin/approve/<%= request._id %>" method="POST" style="display:inline; margin-right: 10px;">
-    <button type="submit">Approve</button>
+<div class="add-actions">
+  <form action="/admin/approve/<%= request._id %>" method="POST" class="add-action-form">
+    <button type="submit" class="add-btn add-btn-approve">Approve</button>
   </form>
-  <form action="/admin/reject/<%= request._id %>" method="POST" style="display:inline;">
-    <button type="submit">Reject</button>
+
+  <form action="/admin/reject/<%= request._id %>" method="POST" class="add-action-form">
+    <button type="submit" class="add-btn add-btn-reject">Reject</button>
   </form>
 </div>
 
-<a href="/admin/creator-requests">Back to Dashboard</a>
+<a href="/admin/creator-requests" class="add-link">Back to Dashboard</a>

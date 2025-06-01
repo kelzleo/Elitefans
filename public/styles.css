@@ -498,30 +498,138 @@ body {
 /********************************************
  * REQUEST CREATOR PAGE
  ********************************************/
-.request-creator-container {
+ /* css/request-creator.css */
+.rc-request-creator-container {
   max-width: 600px;
   margin: 0 auto;
-  padding: 20px 20px 100px; /* Match wrapper for mobile */
+  padding: 20px 20px 100px;
   box-sizing: border-box;
 }
 
-.request-creator-container form {
+.rc-info-text {
+  font-size: 0.9em;
+  color: #666;
+}
+
+.rc-form {
   display: flex;
   flex-direction: column;
   gap: 15px;
   padding-bottom: 20px;
 }
 
-.request-creator-container button[type="submit"] {
-  margin-bottom: 20px;
+.rc-label {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.rc-input {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.rc-error {
+  color: red;
+  font-size: 0.9em;
+}
+
+.rc-button {
   padding: 10px 20px;
-  background-color: #f00;
+   background: linear-gradient(
+      45deg,
+      #322294 0%,
+      #5D2193 50%,
+      #9730A3 100%
+    );
   color: #fff;
   border: none;
   border-radius: 4px;
   cursor: pointer;
 }
 
+.rc-photo-preview {
+  margin-top: 10px;
+}
+
+.rc-captured-photo {
+  max-width: 100%;
+  border: 1px solid #ccc;
+}
+
+.rc-photo-message {
+  font-size: 0.9em;
+  color: #666;
+}
+
+.rc-photo-message-error {
+  color: red;
+}
+
+.rc-submit-button {
+  padding: 10px 20px;
+   background: linear-gradient(
+      45deg,
+      #322294 0%,
+      #5D2193 50%,
+      #9730A3 100%
+    );
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: not-allowed;
+}
+
+.rc-submit-button-enabled {
+  background: linear-gradient(
+      45deg,
+      #322294 0%,
+      #5D2193 50%,
+      #9730A3 100%
+    );
+  cursor: pointer;
+}
+
+.rc-loading-message {
+  color: #666;
+}
+
+.rc-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.8);
+  justify-content: center;
+  align-items: center;
+  z-index: 9999;
+  display: none;
+}
+
+.rc-modal-open {
+  display: flex;
+}
+
+.rc-modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+  width: 90%;
+  max-width: 800px;
+}
+
+.rc-video {
+  width: 100%;
+  max-height: 70vh;
+  border: 1px solid #ccc;
+}
+
+.rc-hidden {
+  display: none;
+}
 /********************************************
  * EDIT PROFILE PAGE
  ********************************************/
@@ -1658,7 +1766,161 @@ header.wel-logo-header {
   .sel-signup-page .sel-button-signup { padding: 14px; font-size: 16px; }
 }
 
+.ad-heading {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
 
+.ad-subheading {
+  font-size: 1.5rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.ad-list {
+  list-style-type: none;
+  padding-left: 0;
+}
+
+.ad-list-item {
+  margin-bottom: 15px;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 10px;
+}
+
+.ad-link {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.ad-link:hover {
+  text-decoration: underline;
+}
+
+.ad-info {
+  font-style: italic;
+  color: #666;
+}
+
+.ad-links {
+  margin-top: 2rem;
+}
+
+.adc-heading {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.adc-subheading {
+  font-size: 1.5rem;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+}
+
+.adc-card {
+  border: 1px solid #ccc;
+  padding: 15px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+  background-color: #f9f9f9;
+}
+
+.adc-link {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.adc-link:hover {
+  text-decoration: underline;
+}
+.adr-heading {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+.adr-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.adr-list-item {
+  margin-bottom: 15px;
+  border-bottom: 1px solid #ccc;
+  padding-bottom: 10px;
+  background-color: #f9f9f9;
+  padding-left: 10px;
+}
+
+.adr-link {
+  color: #007bff;
+  text-decoration: none;
+}
+
+.adr-link:hover {
+  text-decoration: underline;
+}
+
+.adr-empty {
+  font-style: italic;
+  color: #555;
+}
+/* Headings */
+.add-heading {
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+
+/* Card wrapper */
+.add-card {
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  padding: 15px;
+  margin-bottom: 15px;
+  background-color: #f9f9f9;
+}
+
+/* Links */
+.add-link {
+  color: #007bff;
+  text-decoration: none;
+}
+.add-link:hover {
+  text-decoration: underline;
+}
+
+/* Action section */
+.add-actions {
+  margin-top: 1rem;
+}
+
+/* Inline forms for buttons */
+.add-action-form {
+  display: inline-block;
+  margin-right: 10px;
+}
+
+/* Buttons */
+.add-btn {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.add-btn:hover {
+  opacity: 0.9;
+}
+
+.add-btn-approve {
+  background-color: #28a745;   /* green */
+  color: #fff;
+}
+
+.add-btn-reject {
+  background-color: #dc3545;   /* red */
+  color: #fff;
+}
 
 /********************************************
  * PROFILE PAGE
@@ -3929,6 +4191,59 @@ select.form-input:focus {
     height: 45px;
   }
 }
+/********************************************
+ * EMOJI PICKER
+ ********************************************/
+ .emoji-picker {
+  position: absolute;
+  bottom: 60px;
+  left: 10px;
+  z-index: 1000;
+  min-width: 250px;
+  background: white;
+  border-radius: 5px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.emoji-picker.hidden {
+  display: none;
+}
+
+.emoji-picker.active {
+  display: block;
+}
+
+/********************************************
+ * VIDEO FALLBACK
+ ********************************************/
+.video-fallback {
+  display: none;
+  margin: 5px 0;
+  color: #888;
+}
+
+.video-fallback.hidden {
+  display: none;
+}
+
+/********************************************
+ * CHAT WINDOW
+ ********************************************/
+.chat-window.hidden {
+  display: none;
+}
+
+.chat-window.active {
+  display: flex;
+}
+
+/********************************************
+ * EMOJI TOGGLE DISABLED
+ ********************************************/
+.smiley-icon.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 /********************************************
  * CHAT LIST
@@ -4124,7 +4439,16 @@ select.form-input:focus {
     width: 100%;
   }
 }
+/********************************************
+ * CHAT ITEM VISIBILITY
+ ********************************************/
+ .chat-item {
+  display: block; /* Default state */
+}
 
+.chat-item.hidden {
+  display: none;
+}
 /* Scope home page search to prevent interference */
 .search-section .search-container {
   position: absolute;
@@ -4136,6 +4460,7 @@ select.form-input:focus {
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   z-index: 1000;
 }
+
 .dashboard-container {
   max-width: 95%;
   margin: 20px auto;

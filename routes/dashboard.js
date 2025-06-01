@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Transaction = require('../models/Transaction');
 const User = require('../models/users');
-const { transferToBank } = require('../utilis/flutter');
+const { transferToBank, resolveBankAccount } = require('../utilis/flutter');
 const logger = require('../logs/logger'); // Import Winston logger at top
 
 function authCheck(req, res, next) {
@@ -93,10 +93,27 @@ router.post('/add-bank', authCheck, async (req, res) => {
       return res.status(400).json({ message: 'Please provide bank name and account number.' });
     }
 
-    currentUser.banks.push({ bankName, accountNumber });
+    // Get the bank code from the bank name
+    const bankCode = mapBankNameToCode(bankName);
+    if (!bankCode) {
+      logger.warn('Invalid bank name in add-bank');
+      return res.status(400).json({ message: 'Invalid bank name.' });
+    }
+
+    // Resolve the account holder's name using Flutterwave
+    let accountHolderName;
+    try {
+      accountHolderName = await resolveBankAccount(bankCode, accountNumber);
+    } catch (error) {
+      logger.error(`Error resolving bank account: ${error.message}`);
+      return res.status(400).json({ message: 'Unable to verify bank account. Please check your details.' });
+    }
+
+    // Save bank details including the account holder's name
+    currentUser.banks.push({ bankName, accountNumber, accountHolderName });
     await currentUser.save();
 
-    res.json({ message: 'Bank added successfully!' });
+    res.json({ message: 'Bank added successfully!', success: true }); // Added success: true for consistency with client-side code
   } catch (error) {
     logger.error(`Error adding bank: ${error.message}`);
     res.status(500).json({ message: 'Error adding bank.' });

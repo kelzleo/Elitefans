@@ -46,21 +46,22 @@
 <div class="del-section">
   <h2 class="del-section-title">Your Saved Banks</h2>
   
-  <div class="del-banks-list">
-    <% if (user.banks && user.banks.length > 0) { %>
-      <% user.banks.forEach((bank, idx) => { %>
-        <div class="del-bank-item">
-          <div class="del-bank-icon">🏦</div>
-          <div class="del-bank-details">
-            <div class="del-bank-name"><%= bank.bankName %></div>
-            <div class="del-account-number"><%= bank.accountNumber %></div>
-          </div>
+ <div class="del-banks-list">
+  <% if (user.banks && user.banks.length > 0) { %>
+    <% user.banks.forEach((bank, idx) => { %>
+      <div class="del-bank-item">
+        <div class="del-bank-icon">🏦</div>
+        <div class="del-bank-details">
+          <div class="del-bank-name"><%= bank.bankName %></div>
+          <div class="del-account-number"><%= bank.accountNumber %></div>
+          <div class="del-account-holder"><%= bank.accountHolderName %></div> <!-- Added line -->
         </div>
-      <% }); %>
-    <% } else { %>
-      <p class="del-no-banks">No banks saved yet.</p>
-    <% } %>
-  </div>
+      </div>
+    <% }); %>
+  <% } else { %>
+    <p class="del-no-banks">No banks saved yet.</p>
+  <% } %>
+</div>
 
   <!-- Add Bank Form -->
   <div class="del-bank-form-container">
@@ -122,15 +123,15 @@
   <div class="del-withdraw-form">
     <% if (user.banks && user.banks.length > 0) { %>
       <div class="del-form-group">
-        <label for="withdrawBank" class="del-form-label">Choose a Bank:</label>
-        <select id="withdrawBank" class="del-form-input">
-          <% user.banks.forEach((bank) => { %>
-            <option value="<%= bank._id %>">
-              <%= bank.bankName %> (Acct: <%= bank.accountNumber %>)
-            </option>
-          <% }); %>
-        </select>
-      </div>
+  <label for="withdrawBank" class="del-form-label">Choose a Bank:</label>
+  <select id="withdrawBank" class="del-form-input">
+    <% user.banks.forEach((bank) => { %>
+      <option value="<%= bank._id %>">
+        <%= bank.bankName %> (Acct: <%= bank.accountNumber %> - <%= bank.accountHolderName %>)
+      </option>
+    <% }); %>
+  </select>
+</div>
 
       <div class="del-form-group">
         <label for="withdrawAmount" class="del-form-label">Withdrawal Amount (NGN):</label>
