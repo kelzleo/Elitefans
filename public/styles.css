@@ -5437,6 +5437,62 @@ html, body {
   background-color: #ff69b4;
 }
 
+/* Lazy loading placeholder state */
+.lazy-loading {
+  background-color: #e0e0e0; /* Placeholder background */
+  opacity: 0.5; /* Subtle fade effect */
+  position: relative; /* For pseudo-element positioning */
+}
+
+/* Optional loading indicator */
+.lazy-loading::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 24px;
+  height: 24px;
+  border: 3px solid #ffffff;
+  border-top: 3px solid #333333;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  transform: translate(-50%, -50%);
+}
+
+/* Loaded state */
+.lazy-loaded {
+  opacity: 1; /* Fully visible */
+  background-color: transparent; /* Remove placeholder */
+}
+
+/* Spinner animation */
+@keyframes spin {
+  0% { transform: translate(-50%, -50%) rotate(0deg); }
+  100% { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+/* Ensure media elements have consistent sizing */
+.post-image.lazy, .post-video.lazy {
+  width: 100%; /* Adjust as per your design */
+  height: auto; /* Maintain aspect ratio */
+  object-fit: cover; /* Optional: adjust media fit */
+}
+.lightbox-error {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(255, 0, 0, 0.9);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  z-index: 1001;
+  font-size: 14px;
+}
+
+.lightbox-open {
+  overflow: hidden;
+}
 /* HIDE / SHOW */
 #lightbox.hidden {
   display: none;

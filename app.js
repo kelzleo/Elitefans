@@ -15,9 +15,13 @@ const http = require('http');
 const socketIo = require('socket.io');
 const User = require('./models/users');
 const multer = require('multer');
-const logger = require('./logs/logger'); // Import Winston logger
-const csurf = require('csurf'); // Added for CSRF protection
+const logger = require('./logs/logger');
+const csurf = require('csurf');
 const helmet = require('helmet');
+const { body, param,  validationResult } = require('express-validator'); // Added express-validator
+
+const SignedUrlSession = require('./models/signedUrlSession');
+const axios = require('axios'); // Add this import
 
 // Import configuration and keys
 const keys = require('./config/keys');
@@ -39,7 +43,6 @@ const chatBroadcastRoutes = require('./routes/chatBroadcast');
 const chatRoutes = require('./routes/chat');
 const chatListRoutes = require('./routes/chatList');
 const notificationsRoute = require('./routes/notifications');
-
 const dashboardRoutes = require('./routes/dashboard');
 const bookmarksRoutes = require('./routes/bookmarks');
 const referralsRoutes = require('./routes/referrals');
@@ -57,7 +60,7 @@ const app = express();
 // Trust the first proxy for secure cookies on Render
 app.set('trust proxy', 1);
 
-// NEW: Enforce HTTPS in production
+// Enforce HTTPS in production
 app.use((req, res, next) => {
   if (process.env.NODE_ENV === 'production' && !req.secure) {
     return res.redirect(`https://${req.headers.host}${req.url}`);
@@ -115,7 +118,7 @@ app.use(
         fontSrc: [
           "'self'",
           "https://fonts.gstatic.com",
-          "https://cdnjs.cloudflare.com"  // For Font Awesome fonts
+          "https://cdnjs.cloudflare.com"
         ],
         imgSrc: [
           "'self'",
@@ -123,7 +126,7 @@ app.use(
           "blob:",
           "https://cdn.jsdelivr.net",
           "https://cdnjs.cloudflare.com",
-          "https://storage.googleapis.com"  // For Google Cloud Storage
+          "https://storage.googleapis.com"
         ],
         connectSrc: ["'self'"],
         objectSrc: ["'none'"],
@@ -137,9 +140,9 @@ app.use(
   })
 );
 
-// Session middleware with secure cookie in production (HTTPS enforced)
+// Session middleware with secure cookie in production
 const sessionMiddleware = session({
-  secret: process.env.COOKIE_KEY, // Removed fallback
+  secret: process.env.COOKIE_KEY,
   resave: false,
   saveUninitialized: false,
   store: MongoStore.create({
@@ -226,42 +229,149 @@ app.locals.formatRelativeTime = (date) => {
 };
 
 // Route to store redirect URL in session
-app.post('/store-redirect', (req, res) => {
+app.post('/store-redirect', [
+  body('redirectTo')
+    .notEmpty().withMessage('Redirect URL is required')
+    .isString().withMessage('Redirect URL must be a string')
+    .matches(/^\/profile\//).withMessage('Redirect URL must start with /profile/')
+    .trim()
+    .escape()
+], (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in POST /store-redirect: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   const { redirectTo } = req.body;
-  if (redirectTo && typeof redirectTo === 'string') {
-    if (!redirectTo.startsWith('/profile/')) {
-      logger.error(`Invalid redirectTo format: ${redirectTo}`);
-      return res.status(400).json({ status: 'error', message: 'Redirect URL must be a profile URL' });
+  req.session.redirectTo = redirectTo;
+  req.session.save(err => {
+    if (err) {
+      logger.error(`Error saving session in /store-redirect: ${err.message}`);
+      return res.status(500).json({ status: 'error', message: 'Failed to save session' });
     }
-    req.session.redirectTo = redirectTo;
-    req.session.save(err => {
-      if (err) {
-        logger.error(`Error saving session in /store-redirect: ${err.message}`);
-        return res.status(500).json({ status: 'error', message: 'Failed to save session' });
+    res.status(200).json({ status: 'success' });
+  });
+});
+app.get('/media/:sessionId', [
+  // Validate sessionId as a URL parameter and ensure it's a valid MongoDB ObjectId
+  param('sessionId').isMongoId().withMessage('Invalid session ID')
+], async (req, res) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+    const { sessionId } = req.params;
+    const userId = req.user._id;
+
+    const session = await SignedUrlSession.findOne({ _id: sessionId, userId });
+    if (!session) {
+      logger.warn(`Invalid or unauthorized media access by user ${userId} for session ${sessionId}`);
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (new Date() > session.expiresAt) {
+      logger.warn(`Expired media access by user ${userId} for session ${sessionId}`);
+      await SignedUrlSession.deleteOne({ _id: sessionId });
+      return res.status(403).json({ error: 'Access expired' });
+    }
+
+    const method = req.method.toLowerCase();
+    if (method !== 'head' && method !== 'get') {
+      return res.status(405).send('Method not allowed');
+    }
+
+    // Fetch stream from storage
+    const axiosConfig = {
+      method,
+      url: session.signedUrl,
+      responseType: method === 'get' ? 'stream' : undefined,
+      timeout: 120000,
+      headers: { 'Connection': 'keep-alive' },
+    };
+    if (method === 'get' && req.headers.range) {
+      axiosConfig.headers.Range = req.headers.range;
+      res.set('Accept-Ranges', 'bytes');
+    }
+    const axiosResponse = await axios(axiosConfig);
+
+    // Build response headers
+    const headers = {
+      'Content-Type': axiosResponse.headers['content-type'] || 'application/octet-stream',
+      'Cache-Control': 'private, no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
+      'Expires': '0',
+      'Connection': 'keep-alive'
+    };
+    if (method === 'get') {
+      if (req.headers.range && axiosResponse.headers['content-range']) {
+        headers['Content-Range'] = axiosResponse.headers['content-range'];
+        headers['Content-Length'] = axiosResponse.headers['content-length'];
+        res.status(206);
+      } else {
+        headers['Content-Length'] = axiosResponse.headers['content-length'];
+        res.status(200);
       }
-      res.status(200).json({ status: 'success' });
+    }
+    res.set(headers);
+
+    if (method === 'head') {
+      return res.status(axiosResponse.status).end();
+    }
+
+    // --- NEW: suppress benign aborts ---
+    let completed = false;
+    res.on('finish', () => { completed = true; });
+
+    axiosResponse.data.pipe(res);
+
+    axiosResponse.data.on('error', err => {
+      // only log if the response didn't finish normally
+      if (!completed) {
+        if (err.code === 'ECONNABORTED' || err.message.includes('aborted')) {
+          logger.info(`Stream aborted by client for session ${sessionId}: ${err.message}`);
+        } else {
+          logger.error(`Stream error for session ${sessionId}: ${err.message}`);
+          if (!res.headersSent) {
+            res.status(500).json({ error: 'Stream error' });
+          }
+        }
+      }
     });
-  } else {
-    logger.error('Invalid or missing redirectTo');
-    res.status(400).json({ status: 'error', message: 'Invalid redirect URL' });
+    // no req.on('close') handler needed
+    // --- end NEW logic ---
+
+  } catch (err) {
+    if (err.response) {
+      logger.warn(`Storage provider error for session ${req.params.sessionId}: ${err.response.status} ${err.response.statusText}`);
+      return res.status(err.response.status).send(err.response.statusText);
+    }
+    logger.error(`Error in media proxy for session ${req.params.sessionId}: ${err.message}`);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 
 // Media upload route for chat
 const { chatBucket: bucket } = require('./utilis/cloudStorage');
-app.post('/chat/upload-media', upload.single('media'), async (req, res) => {
-  if (!req.file) {
-    logger.warn('No file uploaded in /chat/upload-media');
-    return res.status(400).json({ success: false, message: 'No file uploaded.' });
+app.post('/chat/upload-media', upload.single('media'), [
+  body('media').custom((value, { req }) => {
+    if (!req.file) {
+      throw new Error('No file uploaded');
+    }
+    const allowedTypes = ['image/jpeg', 'image/png', 'video/mp4'];
+    if (!allowedTypes.includes(req.file.mimetype)) {
+      throw new Error('Invalid file type. Only JPEG, PNG, and MP4 are allowed.');
+    }
+    return true;
+  })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in POST /chat/upload-media: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ success: false, message: errors.array().map(err => err.msg).join(', ') });
   }
 
   try {
     const file = req.file;
-    const allowedTypes = ['image/jpeg', 'image/png', 'video/mp4'];
-    if (!allowedTypes.includes(file.mimetype)) {
-      logger.warn(`Invalid file type in /chat/upload-media: ${file.mimetype}`);
-      return res.status(400).json({ success: false, message: 'Invalid file type. Only JPEG, PNG, and MP4 are allowed.' });
-    }
     const fileName = `${Date.now()}-${file.originalname}`;
     const blob = bucket.file(fileName);
     const blobStream = blob.createWriteStream({
@@ -304,7 +414,6 @@ app.use('/chat/broadcast', chatBroadcastRoutes);
 app.use('/chat', chatRoutes);
 app.use('/chats', chatListRoutes);
 app.use('/notifications', notificationsRoute);
-
 app.use('/dashboard', dashboardRoutes);
 app.use('/bookmarks', bookmarksRoutes);
 app.use('/referrals', referralsRoutes);

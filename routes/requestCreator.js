@@ -6,7 +6,8 @@ const axios = require('axios');
 const { creatorRequestsBucket } = require('../utilis/cloudStorage');
 const CreatorRequest = require('../models/CreatorRequest');
 const User = require('../models/users');
-const logger = require('../logs/logger'); // Import Winston logger at top
+const logger = require('../logs/logger');
+const { body, validationResult } = require('express-validator');
 
 // Use multer with memory storage
 const upload = multer({ storage: multer.memoryStorage() });
@@ -64,20 +65,23 @@ const retry = async (fn, retries = 3, delay = 1000) => {
 };
 
 // Estimate age using configured API
-router.post('/estimate-age', authCheck, async (req, res) => {
+router.post('/estimate-age', authCheck, [
+  body('photoData')
+    .notEmpty().withMessage('Photo data is required')
+    .matches(/^data:image\/(jpeg|png);base64,/)
+    .withMessage('Photo must be a valid base64-encoded JPEG or PNG image')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in POST /estimate-age: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ success: false, message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   try {
     const { photoData } = req.body;
-    if (!photoData) {
-      logger.warn('No photoData received in /estimate-age');
-      return res.status(400).json({ success: false, message: 'Photo data is required.' });
-    }
 
     // Extract base64 data
     const matches = photoData.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-      logger.warn('Invalid photoData format in /estimate-age');
-      return res.status(400).json({ success: false, message: 'Invalid photo data.' });
-    }
     const base64Data = matches[2];
 
     // Select API provider
@@ -85,7 +89,6 @@ router.post('/estimate-age', authCheck, async (req, res) => {
     let age;
 
     if (provider === 'facepp') {
-      // Face++ API
       const faceppKey = process.env.FACEPP_API_KEY;
       const faceppSecret = process.env.FACEPP_API_SECRET;
       const faceppDetectEndpoint = process.env.FACEPP_API_ENDPOINT;
@@ -188,19 +191,37 @@ router.post('/estimate-age', authCheck, async (req, res) => {
 });
 
 // Handle "Request to Become a Creator" submission
-router.post('/', authCheck, upload.none(), async (req, res) => {
+router.post('/', authCheck, upload.none(), [
+  body('bvn')
+    .trim()
+    .notEmpty().withMessage('BVN is required')
+    .matches(/^\d{11}$/).withMessage('BVN must be an 11-digit number'),
+  body('firstName')
+    .trim()
+    .notEmpty().withMessage('First name is required')
+    .isLength({ max: 50 }).withMessage('First name must be 50 characters or less')
+    .matches(/^[a-zA-Z\s-]+$/).withMessage('First name must contain only letters, spaces, or hyphens'),
+  body('lastName')
+    .trim()
+    .notEmpty().withMessage('Last name is required')
+    .isLength({ max: 50 }).withMessage('Last name must be 50 characters or less')
+    .matches(/^[a-zA-Z\s-]+$/).withMessage('Last name must contain only letters, spaces, or hyphens'),
+  body('passportPhotoData')
+    .notEmpty().withMessage('Passport photo data is required')
+    .matches(/^data:image\/(jpeg|png);base64,/)
+    .withMessage('Passport photo must be a valid base64-encoded JPEG or PNG image'),
+  body('estimatedAge')
+    .notEmpty().withMessage('Estimated age is required')
+    .isInt({ min: 18 }).withMessage('You must be at least 18 years old')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in POST /requestCreator: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ success: false, message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   try {
     const { bvn, firstName, lastName, passportPhotoData, estimatedAge } = req.body;
-
-    // Validate inputs
-    if (!bvn || !/^\d{11}$/.test(bvn)) {
-      logger.warn('Invalid BVN in creator request');
-      return res.status(400).json({ success: false, message: 'BVN must be an 11-digit number.' });
-    }
-    if (!firstName || !lastName || !passportPhotoData || !estimatedAge) {
-      logger.warn('Missing required fields in creator request');
-      return res.status(400).json({ success: false, message: 'All fields are required, and photo must be processed successfully.' });
-    }
 
     // Check for existing pending request
     const existingRequest = await CreatorRequest.findOne({ user: req.user._id, status: 'pending' });
@@ -209,12 +230,8 @@ router.post('/', authCheck, upload.none(), async (req, res) => {
       return res.status(400).json({ success: false, message: 'You have already submitted a creator request. Approval could take 24–72 hours.' });
     }
 
-    // Process passport photo (unchanged logic, included for context)
+    // Process passport photo
     const matches = passportPhotoData.match(/^data:([A-Za-z-+/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-      logger.warn('Invalid image data in creator request');
-      return res.status(400).json({ success: false, message: 'Invalid image data. Please try capturing your photo again.' });
-    }
     const mimeType = matches[1];
     const base64Data = matches[2];
     const buffer = Buffer.from(base64Data, 'base64');
@@ -224,7 +241,7 @@ router.post('/', authCheck, upload.none(), async (req, res) => {
 
     // Create a new CreatorRequest document
     const newRequest = new CreatorRequest({
-      user: req.user._id, // Changed from req.user.id
+      user: req.user._id,
       bvn,
       firstName,
       lastName,
@@ -235,7 +252,7 @@ router.post('/', authCheck, upload.none(), async (req, res) => {
     await newRequest.save();
 
     // Update user record
-    const user = await User.findById(req.user._id); // Changed from req.user.id
+    const user = await User.findById(req.user._id);
     if (user && !user.requestToBeCreator) {
       user.requestToBeCreator = true;
       await user.save();
@@ -244,7 +261,7 @@ router.post('/', authCheck, upload.none(), async (req, res) => {
     return res.json({ success: true, message: 'Your creator request has been submitted successfully! Approval could take 24–72 hours.' });
   } catch (err) {
     logger.error(`Error submitting creator request: ${err.message}`);
-    return res.status(400).json({ success: false, message: err.message || 'An error occurred. Please try again.' });
+    return res.status(500).json({ success: false, message: 'An error occurred. Please try again.' });
   }
 });
 

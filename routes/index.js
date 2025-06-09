@@ -8,18 +8,39 @@ const sendEmail = require('../config/sendEmail');
 const PendingSubscription = require('../models/pendingSubscription');
 const SubscriptionBundle = require('../models/SubscriptionBundle');
 const Notification = require('../models/notifications');
-const logger = require('../logs/logger'); // Import Winston logger
+const logger = require('../logs/logger');
+const { body, query, validationResult } = require('express-validator');
 
+router.get('/', [
+  query('creator')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ max: 50 }).withMessage('Creator username must be 50 characters or less')
+    .matches(/^[a-zA-Z0-9_]+$/).withMessage('Creator username must be alphanumeric with underscores'),
+  query('ref')
+    .optional()
+    .isMongoId().withMessage('Invalid referral ID')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in GET /: ' + JSON.stringify(errors.array()));
+    return res.render('welcome', {
+      errorMessage: errors.array().map(err => err.msg).join(', '),
+      successMessage: req.flash('success'),
+      creator: req.query.creator || req.session.creator || '',
+      ref: req.query.ref || req.session.referralId || '',
+      isWelcomePage: true,
+      currentUser: null
+    });
+  }
 
-router.get('/', async (req, res) => {
   const { creator, ref } = req.query;
 
-  // If user is authenticated, redirect to /home
   if (req.user) {
     return res.redirect('/home');
   }
 
-  // Store creator in session.redirectTo if provided
   if (creator) {
     req.session.redirectTo = `/profile/${encodeURIComponent(creator)}`;
     req.session.save(err => {
@@ -29,7 +50,6 @@ router.get('/', async (req, res) => {
     });
   }
 
-  // Store referral ID if provided
   if (ref) {
     const referrer = await User.findOne({ _id: ref });
     if (referrer && referrer.role === 'creator') {
@@ -42,18 +62,62 @@ router.get('/', async (req, res) => {
     successMessage: req.flash('success'),
     creator: creator || req.session.creator || '',
     ref: ref || req.session.referralId || '',
-    isWelcomePage: true, // Explicitly set for clarity
-    currentUser: null // Ensure navigation bar doesn't render
+    isWelcomePage: true,
+    currentUser: null
   });
 });
-router.post('/signup', async (req, res) => {
-  const { username, email, password, creator } = req.body;
+
+router.post('/signup', [
+  body('username')
+    .trim()
+    .notEmpty().withMessage('Username is required')
+    .isLength({ min: 3, max: 20 }).withMessage('Username must be 3–20 characters')
+    .matches(/^[a-zA-Z0-9_]+$/).withMessage('Username must be alphanumeric with underscores'),
+  body('email')
+    .isEmail().withMessage('Invalid email address')
+    .normalizeEmail(),
+  body('password')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    .custom((value, { req }) => {
+      const hasUppercase = /[A-Z]/.test(value);
+      const hasLowercase = /[a-z]/.test(value);
+      const hasNumber = /[0-9]/.test(value);
+      const hasSpecial = /[!@#$%^&*]/.test(value);
+      const varietyCount = [hasUppercase, hasLowercase, hasNumber, hasSpecial].filter(Boolean).length;
+      if (varietyCount < 3) {
+        throw new Error('Password must include at least 3 of: uppercase, lowercase, number, special character');
+      }
+      const passwordLower = value.toLowerCase();
+      const usernameLower = req.body.username.toLowerCase();
+      const emailLower = req.body.email.toLowerCase();
+      if (passwordLower.includes(usernameLower) || passwordLower.includes(emailLower)) {
+        throw new Error('Password cannot contain username or email');
+      }
+      return true;
+    }),
+  body('creator')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ max: 50 }).withMessage('Creator username must be 50 characters or less')
+    .matches(/^[a-zA-Z0-9_]+$/).withMessage('Creator username must be alphanumeric with underscores')
+], async (req, res) => {
+  const errors = validationResult(req);
+  const { username, email, creator } = req.body;
   const queryCreator = req.query.creator;
   const sessionCreator = req.session.creator;
   const ref = req.query.ref || req.body.ref || req.session.referralId;
 
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in POST /signup: ' + JSON.stringify(errors.array()));
+    return res.render('signup', {
+      errorMessage: errors.array().map(err => err.msg).join(', '),
+      ref: ref || '',
+      creator: creator || queryCreator || sessionCreator || ''
+    });
+  }
+
   try {
-    // Check for existing user
     const existingUser = await User.findOne({ $or: [{ email }, { username }] });
     if (existingUser) {
       return res.render('signup', {
@@ -63,40 +127,6 @@ router.post('/signup', async (req, res) => {
       });
     }
 
-    // Password validation
-    if (password.length < 8) {
-      return res.render('signup', {
-        errorMessage: 'Password must be at least 8 characters long.',
-        ref: ref || '',
-        creator: creator || queryCreator || sessionCreator || ''
-      });
-    }
-
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasLowercase = /[a-z]/.test(password);
-    const hasNumber = /[0-9]/.test(password);
-    const hasSpecial = /[!@#$%^&*]/.test(password);
-    const varietyCount = [hasUppercase, hasLowercase, hasNumber, hasSpecial].filter(Boolean).length;
-    if (varietyCount < 3) {
-      return res.render('signup', {
-        errorMessage: 'Password must include at least 3 of: uppercase letter, lowercase letter, number, special character.',
-        ref: ref || '',
-        creator: creator || queryCreator || sessionCreator || ''
-      });
-    }
-
-    const passwordLower = password.toLowerCase();
-    const usernameLower = username.toLowerCase();
-    const emailLower = email.toLowerCase();
-    if (passwordLower.includes(usernameLower) || passwordLower.includes(emailLower)) {
-      return res.render('signup', {
-        errorMessage: 'Password should not contain your username or email.',
-        ref: ref || '',
-        creator: creator || queryCreator || sessionCreator || ''
-      });
-    }
-
-    // Set redirect URL if creator exists
     let redirectUrl = null;
     const creatorParam = creator || queryCreator || sessionCreator;
     if (creatorParam) {
@@ -106,8 +136,7 @@ router.post('/signup', async (req, res) => {
       }
     }
 
-    // Hash password and create new user
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
     const verificationToken = crypto.randomBytes(32).toString('hex');
     const newUser = new User({
       username,
@@ -120,7 +149,6 @@ router.post('/signup', async (req, res) => {
       referredBy: null
     });
 
-    // Handle referral if provided
     if (ref) {
       const referrer = await User.findById(ref);
       if (referrer && referrer.role === 'creator') {
@@ -130,7 +158,6 @@ router.post('/signup', async (req, res) => {
       }
     }
 
-    // Save session data if redirectUrl exists
     if (redirectUrl) {
       req.session.redirectTo = redirectUrl;
       req.session.creator = creatorParam;
@@ -146,7 +173,6 @@ router.post('/signup', async (req, res) => {
       });
     }
 
-    // Save user and send verification email
     await newUser.save();
     delete req.session.referralId;
 
@@ -172,7 +198,28 @@ router.post('/signup', async (req, res) => {
     });
   }
 });
-router.get('/verify/:token', async (req, res) => {
+
+router.get('/verify/:token', [
+  query('creator')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ max: 50 }).withMessage('Creator username must be 50 characters or less')
+    .matches(/^[a-zA-Z0-9_]+$/).withMessage('Creator username must be alphanumeric with underscores'),
+  query('ref')
+    .optional()
+    .isMongoId().withMessage('Invalid referral ID')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in GET /verify/:token: ' + JSON.stringify(errors.array()));
+    return res.render('welcome', {
+      errorMessage: errors.array().map(err => err.msg).join(', '),
+      creator: req.query.creator || req.session.creator || '',
+      ref: req.query.ref || ''
+    });
+  }
+
   try {
     const { token } = req.params;
     const { creator, ref } = req.query;
@@ -195,7 +242,6 @@ router.get('/verify/:token', async (req, res) => {
       });
     }
 
-    // Determine redirect URL
     let redirectTo = '/home';
     if (creator) {
       const creatorUser = await User.findOne({ username: creator });
@@ -216,20 +262,17 @@ router.get('/verify/:token', async (req, res) => {
       }
     }
 
-    // Update user
     user.verified = true;
     user.verificationToken = undefined;
     user.redirectAfterVerify = null;
     await user.save();
 
-    // Automatically subscribe to EliteFans
     const eliteFans = await User.findOne({ username: 'elitefans', role: 'creator' });
     if (!eliteFans) {
       logger.error('EliteFans account not found for auto-subscription');
     } else if (!eliteFans.freeSubscriptionEnabled) {
       logger.warn('EliteFans account has free subscription disabled');
     } else {
-      // Check if user is already subscribed to EliteFans
       const isSubscribed = user.subscriptions.some(
         (sub) =>
           sub.creatorId.toString() === eliteFans._id.toString() &&
@@ -238,7 +281,6 @@ router.get('/verify/:token', async (req, res) => {
       );
 
       if (!isSubscribed) {
-        // Find or create free subscription bundle for EliteFans
         let freeBundle = await SubscriptionBundle.findOne({
           creatorId: eliteFans._id,
           isFree: true
@@ -255,18 +297,16 @@ router.get('/verify/:token', async (req, res) => {
           logger.info(`Created free bundle for EliteFans: ${freeBundle._id}`);
         }
 
-        // Add subscription to user
         user.subscriptions.push({
           creatorId: eliteFans._id,
           subscriptionBundle: freeBundle._id,
           subscribedAt: new Date(),
-          subscriptionExpiry: new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000), // 5 years
+          subscriptionExpiry: new Date(Date.now() + 5 * 365 * 24 * 60 * 60 * 1000),
           status: 'active'
         });
         await user.save();
         logger.info(`User ${user._id} auto-subscribed to EliteFans`);
 
-        // Create notification for EliteFans
         await Notification.create({
           user: eliteFans._id,
           message: `${user.username} just subscribed to your free plan!`,
@@ -277,14 +317,12 @@ router.get('/verify/:token', async (req, res) => {
         });
         logger.info(`Notification created for EliteFans: New subscription by ${user.username}`);
 
-        // Update EliteFans subscriber count
         await eliteFans.updateSubscriberCount();
       } else {
         logger.info(`User ${user._id} already subscribed to EliteFans`);
       }
     }
 
-    // Log in the user
     req.login(user, async (err) => {
       if (err) {
         logger.error(`Login error after verification: ${err.message}`);
@@ -301,7 +339,6 @@ router.get('/verify/:token', async (req, res) => {
           lastSeen: new Date()
         });
 
-        // Clear session data
         delete req.session.redirectTo;
         delete req.session.creator;
         delete req.session.subscriptionData;
@@ -335,10 +372,11 @@ router.get('/verify/:token', async (req, res) => {
     });
   }
 });
+
 router.get('/signup', (req, res) => {
   const creator = req.query.creator || req.session.creator || '';
-  res.render('signup', { 
-    errorMessage: '', 
+  res.render('signup', {
+    errorMessage: '',
     ref: req.query.ref || req.session.referralId || '',
     creator: creator
   });
@@ -411,7 +449,6 @@ router.get('/google/redirect', passport.authenticate('google'), async (req, res)
       }
     }
 
-    // Clear session data
     delete req.session.redirectTo;
     delete req.session.subscriptionData;
     delete req.session.referralId;
@@ -424,10 +461,30 @@ router.get('/google/redirect', passport.authenticate('google'), async (req, res)
   }
 });
 
-router.post('/login', (req, res, next) => {
+router.post('/login', [
+  body('usernameOrEmail')
+    .trim()
+    .notEmpty().withMessage('Username or email is required'),
+  body('creator')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ max: 50 }).withMessage('Creator username must be 50 characters or less')
+    .matches(/^[a-zA-Z0-9_]+$/).withMessage('Creator username must be alphanumeric with underscores')
+], (req, res, next) => {
+  const errors = validationResult(req);
   const { usernameOrEmail, creator } = req.body;
   const queryCreator = req.query.creator;
   const sessionCreator = req.session.creator;
+
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in POST /login: ' + JSON.stringify(errors.array()));
+    return res.render('welcome', {
+      errorMessage: errors.array().map(err => err.msg).join(', '),
+      creator: creator || queryCreator || sessionCreator || '',
+      ref: req.body.ref || req.query.ref || ''
+    });
+  }
 
   passport.authenticate('local', async (err, user, info) => {
     if (err) {
@@ -455,7 +512,6 @@ router.post('/login', (req, res, next) => {
           lastSeen: new Date(),
         });
 
-        // Determine redirect URL
         let redirectTo = '/home';
         let creatorParam = creator || queryCreator || sessionCreator;
 
@@ -483,7 +539,6 @@ router.post('/login', (req, res, next) => {
           await user.save();
         }
 
-        // Clear session data
         delete req.session.redirectTo;
         delete req.session.subscriptionData;
         delete req.session.creator;
@@ -518,12 +573,47 @@ router.get('/change-password', (req, res) => {
   res.render('change-password', { errorMessage: '', successMessage: '' });
 });
 
-router.post('/change-password', async (req, res) => {
+router.post('/change-password', [
+  body('currentPassword')
+    .notEmpty().withMessage('Current password is required'),
+  body('newPassword')
+    .isLength({ min: 8 }).withMessage('New password must be at least 8 characters')
+    .custom((value, { req }) => {
+      const hasUppercase = /[A-Z]/.test(value);
+      const hasLowercase = /[a-z]/.test(value);
+      const hasNumber = /[0-9]/.test(value);
+      const hasSpecial = /[!@#$%^&*]/.test(value);
+      const varietyCount = [hasUppercase, hasLowercase, hasNumber, hasSpecial].filter(Boolean).length;
+      if (varietyCount < 3) {
+        throw new Error('Password must include at least 3 of: uppercase, lowercase, number, special character');
+      }
+      if (value === req.body.currentPassword) {
+        throw new Error('New password cannot be the same as current password');
+      }
+      return true;
+    }),
+  body('confirmPassword')
+    .custom((value, { req }) => {
+      if (value !== req.body.newPassword) {
+        throw new Error('Passwords do not match');
+      }
+      return true;
+    })
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in POST /change-password: ' + JSON.stringify(errors.array()));
+    return res.render('change-password', {
+      errorMessage: errors.array().map(err => err.msg).join(', '),
+      successMessage: ''
+    });
+  }
+
   if (!req.user) {
     return res.redirect('/');
   }
 
-  const { currentPassword, newPassword, confirmPassword } = req.body;
+  const { currentPassword, newPassword } = req.body;
 
   try {
     const user = await User.findById(req.user._id);
@@ -531,7 +621,7 @@ router.post('/change-password', async (req, res) => {
     if (user.googleId && !user.password) {
       return res.render('change-password', {
         errorMessage: 'Cannot change password for Google accounts.',
-        successMessage: '',
+        successMessage: ''
       });
     }
 
@@ -539,21 +629,7 @@ router.post('/change-password', async (req, res) => {
     if (!isMatch) {
       return res.render('change-password', {
         errorMessage: 'Current password is incorrect.',
-        successMessage: '',
-      });
-    }
-
-    if (newPassword !== confirmPassword) {
-      return res.render('change-password', {
-        errorMessage: 'New passwords do not match.',
-        successMessage: '',
-      });
-    }
-
-    if (newPassword.length < 6) {
-      return res.render('change-password', {
-        errorMessage: 'New password must be at least 6 characters long.',
-        successMessage: '',
+        successMessage: ''
       });
     }
 
@@ -562,13 +638,13 @@ router.post('/change-password', async (req, res) => {
 
     res.render('change-password', {
       errorMessage: '',
-      successMessage: 'Password changed successfully!',
+      successMessage: 'Password changed successfully!'
     });
   } catch (error) {
     logger.error(`Error changing password: ${error.message}`);
     res.render('change-password', {
       errorMessage: 'An error occurred. Please try again.',
-      successMessage: '',
+      successMessage: ''
     });
   }
 });
@@ -577,7 +653,20 @@ router.get('/forgot-password', (req, res) => {
   res.render('forgot-password', { errorMessage: '', successMessage: '' });
 });
 
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', [
+  body('email')
+    .isEmail().withMessage('Invalid email address')
+    .normalizeEmail()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in POST /forgot-password: ' + JSON.stringify(errors.array()));
+    return res.render('forgot-password', {
+      errorMessage: errors.array().map(err => err.msg).join(', '),
+      successMessage: ''
+    });
+  }
+
   try {
     const { email } = req.body;
     const user = await User.findOne({ email });
@@ -586,14 +675,14 @@ router.post('/forgot-password', async (req, res) => {
       logger.warn('No account found for forgot-password request');
       return res.render('forgot-password', {
         errorMessage: 'No account with that email address exists.',
-        successMessage: '',
+        successMessage: ''
       });
     }
 
     if (user.googleId && !user.password) {
       return res.render('forgot-password', {
         errorMessage: 'Cannot reset password for Google accounts.',
-        successMessage: '',
+        successMessage: ''
       });
     }
 
@@ -613,7 +702,7 @@ router.post('/forgot-password', async (req, res) => {
       );
       res.render('forgot-password', {
         errorMessage: '',
-        successMessage: 'A password reset link has been sent to your email. It may take a few minutes to arrive.',
+        successMessage: 'A password reset link has been sent to your email. It may take a few minutes to arrive.'
       });
     } catch (emailError) {
       logger.error(`Failed to send reset email: ${emailError.message}`);
@@ -622,14 +711,14 @@ router.post('/forgot-password', async (req, res) => {
       await user.save();
       res.render('forgot-password', {
         errorMessage: 'Failed to send reset email. Please try again later.',
-        successMessage: '',
+        successMessage: ''
       });
     }
   } catch (error) {
     logger.error(`Error in forgot password: ${error.message}`);
     res.render('forgot-password', {
       errorMessage: 'An error occurred. Please try again.',
-      successMessage: '',
+      successMessage: ''
     });
   }
 });
@@ -639,13 +728,13 @@ router.get('/reset-password/:token', async (req, res) => {
     const { token } = req.params;
     const user = await User.findOne({
       resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() },
+      resetPasswordExpires: { $gt: Date.now() }
     });
 
     if (!user) {
       logger.warn('Invalid or expired password reset token');
       return res.render('welcome', {
-        errorMessage: 'Password reset link is invalid or has expired.',
+        errorMessage: 'Password reset link is invalid or has expired.'
       });
     }
 
@@ -653,41 +742,57 @@ router.get('/reset-password/:token', async (req, res) => {
   } catch (error) {
     logger.error(`Error rendering reset password form: ${error.message}`);
     res.render('welcome', {
-      errorMessage: 'An error occurred. Please try again.',
+      errorMessage: 'An error occurred. Please try again.'
     });
   }
 });
 
-router.post('/reset-password/:token', async (req, res) => {
+router.post('/reset-password/:token', [
+  body('newPassword')
+    .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
+    .custom((value) => {
+      const hasUppercase = /[A-Z]/.test(value);
+      const hasLowercase = /[a-z]/.test(value);
+      const hasNumber = /[0-9]/.test(value);
+      const hasSpecial = /[!@#$%^&*]/.test(value);
+      const varietyCount = [hasUppercase, hasLowercase, hasNumber, hasSpecial].filter(Boolean).length;
+      if (varietyCount < 3) {
+        throw new Error('Password must include at least 3 of: uppercase, lowercase, number, special character');
+      }
+      return true;
+    }),
+  body('confirmPassword')
+    .custom((value, { req }) => {
+      if (value !== req.body.newPassword) {
+        throw new Error('Passwords do not match');
+      }
+      return true;
+    })
+], async (req, res) => {
+  const errors = validationResult(req);
+  const { token } = req.params;
+
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in POST /reset-password/:token: ' + JSON.stringify(errors.array()));
+    return res.render('reset-password', {
+      token,
+      errorMessage: errors.array().map(err => err.msg).join(', '),
+      successMessage: ''
+    });
+  }
+
   try {
-    const { token } = req.params;
-    const { newPassword, confirmPassword } = req.body;
+    const { newPassword } = req.body;
 
     const user = await User.findOne({
       resetPasswordToken: token,
-      resetPasswordExpires: { $gt: Date.now() },
+      resetPasswordExpires: { $gt: Date.now() }
     });
 
     if (!user) {
       logger.warn('Invalid or expired password reset token');
       return res.render('welcome', {
-        errorMessage: 'Password reset link is invalid or has expired.',
-      });
-    }
-
-    if (newPassword !== confirmPassword) {
-      return res.render('reset-password', {
-        token,
-        errorMessage: 'Passwords do not match.',
-        successMessage: '',
-      });
-    }
-
-    if (newPassword.length < 6) {
-      return res.render('reset-password', {
-        token,
-        errorMessage: 'Password must be at least 6 characters long.',
-        successMessage: '',
+        errorMessage: 'Password reset link is invalid or has expired.'
       });
     }
 
@@ -697,14 +802,14 @@ router.post('/reset-password/:token', async (req, res) => {
     await user.save();
 
     res.render('welcome', {
-      errorMessage: 'Your password has been reset successfully. Please log in.',
+      errorMessage: 'Your password has been reset successfully. Please log in.'
     });
   } catch (error) {
     logger.error(`Error resetting password: ${error.message}`);
     res.render('reset-password', {
       token: req.params.token,
       errorMessage: 'An error occurred. Please try again.',
-      successMessage: '',
+      successMessage: ''
     });
   }
 });

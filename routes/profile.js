@@ -1,13 +1,14 @@
 // routes/profile.js
 const express = require('express');
 const router = express.Router();
+const { body, param, validationResult } = require('express-validator');
 const mongoose = require('mongoose');
 const User = require('../models/users');
 const Post = require('../models/Post');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs').promises;
-const { bucket, profileBucket, generateSignedUrl, uploadMediaWithPreview } = require('../utilis/cloudStorage'); // Added uploadMediaWithPreview
+const { bucket, profileBucket, generateSignedUrl, uploadMediaWithPreview, createSignedUrlSession } = require('../utilis/cloudStorage'); // Added uploadMediaWithPreview
 const SubscriptionBundle = require('../models/SubscriptionBundle');
 const flutter = require('../utilis/flutter');
 const Transaction = require('../models/Transaction');
@@ -15,6 +16,7 @@ const Notification = require('../models/notifications');
 const PendingSubscription = require('../models/pendingSubscription'); 
 const logger = require('../logs/logger'); // Import Winston logger
 const Report = require('../models/Reports');
+const SignedUrlSession = require('../models/signedUrlSession');
 
 // Set up multer to store files in memory
 const multerStorage = multer.memoryStorage();
@@ -87,27 +89,44 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
     if (post.contentUrl && !post.contentUrl.startsWith('http')) {
       try {
         if (!post.special || canViewSpecialContent) {
-          post.contentUrl = await generateSignedUrl(post.contentUrl);
+          // CHANGED: Create session and return proxy URL instead of signed URL
+          if (currentUser) {
+            const sessionId = await createSignedUrlSession(currentUser._id, post.contentUrl);
+            post.contentUrl = `/media/${sessionId}`;
+          } else {
+            post.contentUrl = null;
+          }
         } else if (canViewPreview && post.previewUrl) {
-          post.contentUrl = await generateSignedUrl(post.previewUrl);
-          post.isLocked = true; // Flag for frontend
+          if (currentUser) {
+            const sessionId = await createSignedUrlSession(currentUser._id, post.previewUrl);
+            post.contentUrl = `/media/${sessionId}`;
+          } else {
+            post.contentUrl = null;
+          }
+          post.isLocked = true;
         } else {
-          post.contentUrl = null; // Non-subscribers see nothing
+          post.contentUrl = null;
           post.isLocked = true;
           post.isNonSubscriber = !isSubscribed;
         }
       } catch (err) {
-        logger.error(`Failed to generate signed URL for post: ${err.message}`);
+        logger.error(`Failed to create signed URL session for post: ${err.message}`);
         post.contentUrl = '/Uploads/placeholder.png';
       }
     }
-    // Generate signed URL for post.posterUrl (for single video posts)
+
+    // Generate proxy URL for post.posterUrl (for single video posts)
     if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
       try {
-        post.posterUrl = await generateSignedUrl(post.posterUrl);
+        if (currentUser) {
+          const sessionId = await createSignedUrlSession(currentUser._id, post.posterUrl);
+          post.posterUrl = `/media/${sessionId}`;
+        } else {
+          post.posterUrl = null;
+        }
       } catch (err) {
-        logger.error(`Failed to generate signed URL for post poster: ${err.message}`);
-        post.posterUrl = null; // Set to null instead of fallback
+        logger.error(`Failed to create signed URL session for post poster: ${err.message}`);
+        post.posterUrl = null;
       }
     }
 
@@ -117,27 +136,43 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
         if (!mediaItem.url.startsWith('http')) {
           try {
             if (!post.special || canViewSpecialContent) {
-              mediaItem.url = await generateSignedUrl(mediaItem.url);
+              if (currentUser) {
+                const sessionId = await createSignedUrlSession(currentUser._id, mediaItem.url);
+                mediaItem.url = `/media/${sessionId}`;
+              } else {
+                mediaItem.url = null;
+              }
             } else if (canViewPreview && mediaItem.previewUrl) {
-              mediaItem.url = await generateSignedUrl(mediaItem.previewUrl);
+              if (currentUser) {
+                const sessionId = await createSignedUrlSession(currentUser._id, mediaItem.previewUrl);
+                mediaItem.url = `/media/${sessionId}`;
+              } else {
+                mediaItem.url = null;
+              }
               post.isLocked = true;
             } else {
-              mediaItem.url = null; // Non-subscribers see nothing
+              mediaItem.url = null;
               post.isLocked = true;
               post.isNonSubscriber = !isSubscribed;
             }
           } catch (err) {
-            logger.error(`Failed to generate signed URL for media item: ${err.message}`);
+            logger.error(`Failed to create signed URL session for media item: ${err.message}`);
             mediaItem.url = '/Uploads/placeholder.png';
           }
         }
-        // Generate signed URL for mediaItem.posterUrl (for videos)
+
+        // Generate proxy URL for mediaItem.posterUrl (for videos)
         if (mediaItem.type === 'video' && mediaItem.posterUrl && !mediaItem.posterUrl.startsWith('http')) {
           try {
-            mediaItem.posterUrl = await generateSignedUrl(mediaItem.posterUrl);
+            if (currentUser) {
+              const sessionId = await createSignedUrlSession(currentUser._id, mediaItem.posterUrl);
+              mediaItem.posterUrl = `/media/${sessionId}`;
+            } else {
+              mediaItem.posterUrl = null;
+            }
           } catch (err) {
-            logger.error(`Failed to generate signed URL for media item poster: ${err.message}`);
-            mediaItem.posterUrl = null; // Set to null instead of fallback
+            logger.error(`Failed to create signed URL session for media item poster: ${err.message}`);
+            mediaItem.posterUrl = null;
           }
         }
       }
@@ -156,12 +191,42 @@ const processPostUrls = async (posts, currentUser, ownerUser, adminView = false)
     createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null),
   });
 };
+
 router.get('/edit', authCheck, (req, res) => {
   res.render('edit-profile', { user: req.user, currentUser: req.user });
 });
 
 // POST route to handle profile edits and upload profile picture to Google Cloud Storage
-router.post('/edit', authCheck, uploadFields, async (req, res) => {
+router.post('/edit', authCheck, uploadFields, [
+  body('profileName')
+    .trim()
+    .notEmpty().withMessage('Profile name is required')
+    .escape()
+    .isLength({ max: 50 }).withMessage('Profile name must be 50 characters or less'),
+  body('bio')
+    .trim()
+    .escape()
+    .isLength({ max: 500 }).withMessage('Bio must be 500 characters or less'),
+  body('username')
+    .trim()
+    .notEmpty().withMessage('Username is required')
+    .matches(/^[a-zA-Z0-9_]{3,20}$/).withMessage('Username must be 3-20 characters, alphanumeric, and underscores'),
+  body('instagramUrl')
+    .optional({ checkFalsy: true })
+    .isURL().withMessage('Invalid Instagram URL')
+    .trim(),
+  body('twitterUrl')
+    .optional({ checkFalsy: true })
+    .isURL().withMessage('Invalid Twitter URL')
+    .trim()
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /edit: ' + JSON.stringify(errors.array()));
+    req.flash('error_msg', errors.array().map(err => err.msg).join(', '));
+    return res.redirect('/profile/edit');
+  }
+
   try {
     const updates = {
       profileName: req.body.profileName,
@@ -171,24 +236,9 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
     };
 
     // Handle username update
-    const newUsername = req.body.username?.trim();
-    if (!newUsername) {
-      logger.warn('Username is required in profile edit');
-      req.flash('error_msg', 'Username is required.');
-      return res.redirect('/profile/edit');
-    }
-
-    // Check if the username has changed
+    const newUsername = req.body.username.trim(); // Already validated by express-validator
     const currentUser = await User.findById(req.user._id);
     if (newUsername !== (currentUser.username || '')) {
-      // Validate username format
-      const usernameRegex = /^[a-zA-Z0-9_]{3,20}$/;
-      if (!usernameRegex.test(newUsername)) {
-        logger.warn('Invalid username format in profile edit');
-        req.flash('error_msg', 'Username must be 3-20 characters long, alphanumeric, and can include underscores.');
-        return res.redirect('/profile/edit');
-      }
-
       // Check for username uniqueness
       const existingUser = await User.findOne({ username: newUsername });
       if (existingUser && existingUser._id.toString() !== req.user._id.toString()) {
@@ -196,7 +246,6 @@ router.post('/edit', authCheck, uploadFields, async (req, res) => {
         req.flash('error_msg', 'This username is already taken.');
         return res.redirect('/profile/edit');
       }
-
       updates.username = newUsername;
     }
 
@@ -429,17 +478,20 @@ router.get('/', authCheck, async (req, res) => {
   }
 });
 // Unlock special content route (using the Post model)
-router.post('/unlock-special-content', authCheck, async (req, res) => {
- 
+router.post('/unlock-special-content', authCheck, [
+  body('contentId')
+    .isMongoId().withMessage('Invalid content ID'),
+  body('creatorId')
+    .isMongoId().withMessage('Invalid creator ID')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /unlock-special-content: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   try {
     const { contentId, creatorId } = req.body;
-    if (!contentId || !creatorId) {
-      logger.warn('Missing contentId or creatorId in unlock-special-content');
-      return res.status(400).json({
-        status: 'error',
-        message: 'Creator ID and Content ID are required',
-      });
-    }
 
     const specialPost = await Post.findOne({
       _id: contentId,
@@ -740,11 +792,18 @@ router.get('/verify-special-payment', async (req, res) => {
 });
 
 // for tip amounts
-router.post('/posts/:postId/tip', authCheck, async (req, res) => {
+router.post('/posts/:postId/tip', authCheck, [
+  body('tipAmount')
+    .isFloat({ min: 0.01 }).withMessage('Tip amount must be a positive number')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /posts/:postId/tip: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+  }
 
   try {
     const { tipAmount } = req.body;
-    // Convert tipAmount to a number
     const numericTip = Number(tipAmount);
 
     const post = await Post.findById(req.params.postId);
@@ -753,9 +812,8 @@ router.post('/posts/:postId/tip', authCheck, async (req, res) => {
       return res.status(404).json({ message: 'Post not found' });
     }
 
-    const creatorId = post.creator; // the creator of the post
+    const creatorId = post.creator;
 
-    // Initialize tip payment using the new function
     const paymentResponse = await flutter.initializeTipPayment(
       req.user._id,
       creatorId,
@@ -768,7 +826,6 @@ router.post('/posts/:postId/tip', authCheck, async (req, res) => {
       paymentResponse.meta &&
       paymentResponse.meta.authorization
     ) {
-      // Add a pending transaction for this tip, storing the numeric value
       await User.findByIdAndUpdate(req.user._id, {
         $push: {
           pendingTransactions: {
@@ -942,22 +999,30 @@ router.get('/verify-tip-payment', async (req, res) => {
   }
 });
 
-router.post('/tip-creator/:creatorId', authCheck, async (req, res) => {
-  
+router.post('/tip-creator/:creatorId', authCheck, [
+  body('tipAmount')
+    .isFloat({ min: 0.01 }).withMessage('Tip amount must be a positive number'),
+  body('tipMessage')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ max: 500 }).withMessage('Tip message must be 500 characters or less')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /tip-creator/:creatorId: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   try {
     const { tipAmount, tipMessage } = req.body;
     const numericTip = Number(tipAmount);
-    if (!numericTip || numericTip <= 0) {
-      logger.warn('Invalid tip amount in tip-creator/:creatorId');
-      return res.status(400).json({ message: 'Invalid tip amount' });
-    }
     const creatorId = req.params.creatorId;
 
-    // Initialize the tip payment
     const paymentResponse = await flutter.initializeTipPayment(
       req.user._id,
       creatorId,
-      null, // no postId for profile-level tip
+      null,
       numericTip,
       tipMessage || ''
     );
@@ -967,7 +1032,6 @@ router.post('/tip-creator/:creatorId', authCheck, async (req, res) => {
       paymentResponse.meta &&
       paymentResponse.meta.authorization
     ) {
-      // Add pending transaction for the tip
       await User.findByIdAndUpdate(req.user._id, {
         $push: {
           pendingTransactions: {
@@ -1048,14 +1112,21 @@ router.post('/posts/:postId/like', authCheck, async (req, res) => {
 });
 
 // Comment on a post
-router.post('/posts/:postId/comment', authCheck, async (req, res) => {
-  
+router.post('/posts/:postId/comment', authCheck, [
+  body('text')
+    .trim()
+    .notEmpty().withMessage('Comment text is required')
+    .escape()
+    .isLength({ max: 500 }).withMessage('Comment must be 500 characters or less')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /posts/:postId/comment: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   try {
     const { text } = req.body;
-    if (!text) {
-      logger.warn('Comment text required in posts/:postId/comment');
-      return res.status(400).json({ message: 'Comment text required' });
-    }
     const post = await Post.findById(req.params.postId);
     if (!post) {
       logger.warn('Post not found in posts/:postId/comment');
@@ -1083,9 +1154,7 @@ router.post('/posts/:postId/comment', authCheck, async (req, res) => {
     });
   } catch (err) {
     logger.error(`Error commenting on post: ${err.message}`);
-    res
-      .status(500)
-      .json({ message: 'An error occurred while submitting your comment' });
+    res.status(500).json({ message: 'An error occurred while submitting your comment' });
   }
 });
 // Bookmark/Unbookmark a post
@@ -1136,223 +1205,265 @@ router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
   }
 });
 
-router.post(
-  '/uploadContent',
-  authCheck,
-  uploadContentFields,
-  async (req, res) => {
-    if (req.user.role !== 'creator') {
-      logger.warn('Unauthorized content upload attempt by non-creator');
-      if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
-        return res.status(403).json({ status: 'error', message: 'You do not have permission to upload content.' });
-      }
-      return res.status(403).send('You do not have permission to upload content.');
+router.post('/uploadContent', authCheck, uploadContentFields, [
+  body('writeUp')
+    .trim()
+    .escape()
+    .isLength({ max: 1000 }).withMessage('Description must be 1000 characters or less'),
+  body('special')
+    .isBoolean().withMessage('Special must be true or false'),
+  body('unlockPrice')
+    .optional()
+    .isFloat({ min: 100 }).withMessage('Unlock price must be at least 100 NGN'),
+  body('category')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ max: 50 }).withMessage('Category must be 50 characters or less')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /uploadContent: ' + JSON.stringify(errors.array()));
+    if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
     }
-    try {
-      const writeUp = req.body.writeUp || '';
-      const isSpecial = req.body.special === 'true';
-      const unlockPrice = req.body.unlockPrice ? Number(req.body.unlockPrice) : undefined;
-      const category = req.body.category || null;
+    req.flash('error_msg', errors.array().map(err => err.msg).join(', '));
+    return res.redirect('/profile');
+  }
 
-      // Validate input
-      const hasImages = req.files.contentImages && req.files.contentImages.length > 0;
-      const hasVideos = req.files.contentVideos && req.files.contentVideos.length > 0;
-      if (!writeUp && !hasImages && !hasVideos) {
-        logger.warn('Attempted to upload empty post (no text or media)');
-        if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
-          return res.status(400).json({ status: 'error', message: 'Please provide text or upload at least one image or video.' });
-        }
-        req.flash('error_msg', 'Please provide text or upload at least one image or video.');
-        return res.status(400).redirect('/profile');
+  if (req.user.role !== 'creator') {
+    logger.warn('Unauthorized content upload attempt by non-creator');
+    if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(403).json({ status: 'error', message: 'You do not have permission to upload content.' });
+    }
+    return res.status(403).send('You do not have permission to upload content.');
+  }
+
+  try {
+    const writeUp = req.body.writeUp || '';
+    const isSpecial = req.body.special === 'true';
+    const unlockPrice = req.body.unlockPrice ? Number(req.body.unlockPrice) : undefined;
+    const category = req.body.category || null;
+
+    // Validate input
+    const hasImages = req.files.contentImages && req.files.contentImages.length > 0;
+    const hasVideos = req.files.contentVideos && req.files.contentVideos.length > 0;
+    if (!writeUp && !hasImages && !hasVideos) {
+      logger.warn('Attempted to upload empty post (no text or media)');
+      if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+        return res.status(400).json({ status: 'error', message: 'Please provide text or upload at least one image or video.' });
       }
-      if (isSpecial && (!unlockPrice || unlockPrice < 100)) {
-        logger.warn(`Invalid unlock price for special content: ${unlockPrice}`);
-        if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
-          return res.status(400).json({ status: 'error', message: 'Please provide a valid unlock price (minimum 100 NGN) for special content.' });
-        }
-        req.flash('error_msg', 'Please provide a valid unlock price (minimum 100 NGN) for special content.');
-        return res.status(400).redirect('/profile');
+      req.flash('error_msg', 'Please provide text or upload at least one image or video.');
+      return res.status(400).redirect('/profile');
+    }
+    if (isSpecial && (!unlockPrice || unlockPrice < 100)) {
+      logger.warn(`Invalid unlock price for special content: ${unlockPrice}`);
+      if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+        return res.status(400).json({ status: 'error', message: 'Please provide a valid unlock price (minimum 100 NGN) for special content.' });
       }
+      req.flash('error_msg', 'Please provide a valid unlock price (minimum 100 NGN) for special content.');
+      return res.status(400).redirect('/profile');
+    }
 
-      // Check total media files
-      const totalMediaFiles =
-        (hasImages ? req.files.contentImages.length : 0) +
-        (hasVideos ? req.files.contentVideos.length : 0);
-      if (totalMediaFiles > 10) {
-        logger.warn(`Upload exceeds maximum limit: ${totalMediaFiles} files`);
-        if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
-          return res.status(400).json({ status: 'error', message: 'You can upload a maximum of 10 media files per post.' });
-        }
-        req.flash('error_msg', 'You can upload a maximum of 10 media files per post.');
-        return res.status(400).redirect('/profile');
+    // Check total media files
+    const totalMediaFiles =
+      (hasImages ? req.files.contentImages.length : 0) +
+      (hasVideos ? req.files.contentVideos.length : 0);
+    if (totalMediaFiles > 10) {
+      logger.warn(`Upload exceeds maximum limit: ${totalMediaFiles} files`);
+      if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+        return res.status(400).json({ status: 'error', message: 'You can upload a maximum of 10 media files per post.' });
       }
+      req.flash('error_msg', 'You can upload a maximum of 10 media files per post.');
+      return res.status(400).redirect('/profile');
+    }
 
-      // Validate category
-      const user = await User.findById(req.user._id);
-      if (category && !user.postCategories.includes(category)) {
-        logger.warn(`Invalid category: ${category}`);
-        if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
-          return res.status(400).json({ status: 'error', message: 'Invalid category selected.' });
-        }
-        req.flash('error_msg', 'Invalid category selected.');
-        return res.status(400).redirect('/profile');
+    // Validate category
+    const user = await User.findById(req.user._id);
+    if (category && !user.postCategories.includes(category)) {
+      logger.warn(`Invalid category: ${category}`);
+      if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+        return res.status(400).json({ status: 'error', message: 'Invalid category selected.' });
       }
+      req.flash('error_msg', 'Invalid category selected.');
+      return res.status(400).redirect('/profile');
+    }
 
-      // Parse @username tags from writeUp
-      const tagRegex = /@(\w+)/g;
-      const matches = writeUp.match(tagRegex) || [];
-      const usernames = matches.map(tag => tag.slice(1));
-      const uniqueUsernames = [...new Set(usernames)];
+    // Parse @username tags from writeUp
+    const tagRegex = /@(\w+)/g;
+    const matches = writeUp.match(tagRegex) || [];
+    const usernames = matches.map(tag => tag.slice(1));
+    const uniqueUsernames = [...new Set(usernames)];
 
-      const users = await User.find({ username: { $in: uniqueUsernames } }).select('_id username');
-      const taggedUsers = users.map(user => user._id);
-      const taggedUsersWithDetails = users;
+    const users = await User.find({ username: { $in: uniqueUsernames } }).select('_id username');
+    const taggedUsers = users.map(user => user._id);
+    const taggedUsersWithDetails = users;
 
-      // Prepare post data
-      let postType = 'text';
-      const mediaItems = [];
-      let contentUrl = null;
-      let previewUrl = null;
-      let posterUrl = null;
+    // Prepare post data
+    let postType = 'text';
+    const mediaItems = [];
+    let contentUrl = null;
+    let previewUrl = null;
+    let posterUrl = null;
 
-      if (hasImages) {
-        for (const file of req.files.contentImages) {
-          const uploadResult = await uploadMediaWithPreview(
-            file.buffer,
-            'image',
-            path.basename(file.originalname),
-            isSpecial
-          );
-          mediaItems.push({
-            url: uploadResult.originalUrl,
-            type: 'image',
-            contentType: file.mimetype,
-            previewUrl: uploadResult.previewUrl,
-          });
-        }
-        postType = 'image';
+    if (hasImages) {
+      for (const file of req.files.contentImages) {
+        const uploadResult = await uploadMediaWithPreview(
+          file.buffer,
+          'image',
+          path.basename(file.originalname),
+          isSpecial
+        );
+        mediaItems.push({
+          url: uploadResult.originalUrl,
+          type: 'image',
+          contentType: file.mimetype,
+          previewUrl: uploadResult.previewUrl,
+        });
+      }
+      postType = 'image';
+      contentUrl = mediaItems[0].url;
+      previewUrl = mediaItems[0].previewUrl;
+    }
+
+    if (hasVideos) {
+      for (const file of req.files.contentVideos) {
+        const uploadResult = await uploadMediaWithPreview(
+          file.buffer,
+          'video',
+          path.basename(file.originalname),
+          isSpecial
+        );
+        mediaItems.push({
+          url: uploadResult.originalUrl,
+          type: 'video',
+          contentType: file.mimetype,
+          previewUrl: uploadResult.previewUrl,
+          posterUrl: uploadResult.posterUrl
+        });
+      }
+      postType = hasImages ? 'mixed' : 'video';
+      if (!contentUrl) {
         contentUrl = mediaItems[0].url;
         previewUrl = mediaItems[0].previewUrl;
+        posterUrl = mediaItems[0].posterUrl;
       }
-
-      if (hasVideos) {
-        for (const file of req.files.contentVideos) {
-          const uploadResult = await uploadMediaWithPreview(
-            file.buffer,
-            'video',
-            path.basename(file.originalname),
-            isSpecial
-          );
-          mediaItems.push({
-            url: uploadResult.originalUrl,
-            type: 'video',
-            contentType: file.mimetype,
-            previewUrl: uploadResult.previewUrl,
-            posterUrl: uploadResult.posterUrl
-          });
-        }
-        postType = hasImages ? 'mixed' : 'video';
-        if (!contentUrl) {
-          contentUrl = mediaItems[0].url;
-          previewUrl = mediaItems[0].previewUrl;
-          posterUrl = mediaItems[0].posterUrl;
-        }
-      }
-
-      // Render writeUp with tagged users
-      const renderedWriteUp = renderTaggedWriteUp(writeUp, taggedUsersWithDetails);
-
-      // Create post
-      const post = new Post({
-        creator: req.user._id,
-        mediaItems,
-        type: postType,
-        writeUp,
-        special: isSpecial,
-        unlockPrice: isSpecial ? unlockPrice : undefined,
-        contentUrl,
-        previewUrl,
-        posterUrl,
-        taggedUsers,
-        renderedWriteUp,
-        category,
-      });
-
-      await post.save();
-      logger.info(`Saved post: ${post._id}, type: ${post.type}, media count: ${mediaItems.length}, taggedUsers: ${taggedUsers.length}, category: ${category}`);
-
-      // Update user counts
-      const imageCount = mediaItems.filter(item => item.type === 'image').length;
-      const videoCount = mediaItems.filter(item => item.type === 'video').length;
-
-      if (imageCount > 0 || videoCount > 0) {
-        await User.findByIdAndUpdate(req.user._id, {
-          $inc: {
-            imagesCount: imageCount,
-            videosCount: videoCount,
-          },
-        });
-      }
-
-      // Notify subscribers
-      const creatorId = req.user._id;
-      const creator = await User.findById(creatorId);
-      const subscribers = await User.find({
-        'subscriptions.creatorId': creatorId,
-        'subscriptions.status': 'active',
-      });
-
-      for (const subscriber of subscribers) {
-        const message = `New post from ${creator.username}!`;
-        await Notification.create({
-          user: subscriber._id,
-          message,
-          type: 'new_post',
-          postId: post._id,
-          creatorId: creator._id,
-          creatorName: creator.username,
-        });
-      }
-
-      // Notify tagged users
-      for (const taggedUserId of taggedUsers) {
-        await Notification.create({
-          user: taggedUserId,
-          message: `You were tagged in a post by ${creator.username}!`,
-          type: 'tag',
-          postId: post._id,
-          creatorId: creator._id,
-          creatorName: creator.username,
-        });
-      }
-
-      // Return JSON for AJAX requests
-      if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
-        return res.status(200).json({
-          status: 'success',
-          message: 'Content uploaded successfully',
-          redirect: '/profile'
-        });
-      }
-
-      // Fallback to redirect for non-AJAX requests
-      req.flash('success_msg', 'Content uploaded successfully');
-      res.redirect('/profile');
-    } catch (err) {
-      logger.error(`Error uploading content: ${err.message}, Stack: ${err.stack}`);
-      if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
-        return res.status(500).json({
-          status: 'error',
-          message: 'Error uploading content'
-        });
-      }
-      req.flash('error_msg', 'Error uploading content');
-      res.status(500).redirect('/profile');
     }
+
+    // Render writeUp with tagged users
+    const renderedWriteUp = renderTaggedWriteUp(writeUp, taggedUsersWithDetails);
+
+    // Create post
+    const post = new Post({
+      creator: req.user._id,
+      mediaItems,
+      type: postType,
+      writeUp,
+      special: isSpecial,
+      unlockPrice: isSpecial ? unlockPrice : undefined,
+      contentUrl,
+      previewUrl,
+      posterUrl,
+      taggedUsers,
+      renderedWriteUp,
+      category,
+    });
+
+    await post.save();
+    logger.info(`Saved post: ${post._id}, type: ${post.type}, media count: ${mediaItems.length}, taggedUsers: ${taggedUsers.length}, category: ${category}`);
+
+    // Update user counts
+    const imageCount = mediaItems.filter(item => item.type === 'image').length;
+    const videoCount = mediaItems.filter(item => item.type === 'video').length;
+
+    if (imageCount > 0 || videoCount > 0) {
+      await User.findByIdAndUpdate(req.user._id, {
+        $inc: {
+          imagesCount: imageCount,
+          videosCount: videoCount,
+        },
+      });
+    }
+
+    // Notify subscribers
+    const creatorId = req.user._id;
+    const creator = await User.findById(creatorId);
+    const subscribers = await User.find({
+      'subscriptions.creatorId': creatorId,
+      'subscriptions.status': 'active',
+    });
+
+    for (const subscriber of subscribers) {
+      const message = `New post from ${creator.username}!`;
+      await Notification.create({
+        user: subscriber._id,
+        message,
+        type: 'new_post',
+        postId: post._id,
+        creatorId: creator._id,
+        creatorName: creator.username,
+      });
+    }
+
+    // Notify tagged users
+    for (const taggedUserId of taggedUsers) {
+      await Notification.create({
+        user: taggedUserId,
+        message: `You were tagged in a post by ${creator.username}!`,
+        type: 'tag',
+        postId: post._id,
+        creatorId: creator._id,
+        creatorName: creator.username,
+      });
+    }
+
+    // Return JSON for AJAX requests
+    if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(200).json({
+        status: 'success',
+        message: 'Content uploaded successfully',
+        redirect: '/profile'
+      });
+    }
+
+    // Fallback to redirect for non-AJAX requests
+    req.flash('success_msg', 'Content uploaded successfully');
+    res.redirect('/profile');
+  } catch (err) {
+    logger.error(`Error uploading content: ${err.message}, Stack: ${err.stack}`);
+    if (req.xhr || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(500).json({
+        status: 'error',
+        message: 'Error uploading content'
+      });
+    }
+    req.flash('error_msg', 'Error uploading content');
+    res.status(500).redirect('/profile');
   }
-);
+});
 // Route to manage post categories (add, edit, delete)
-router.post('/manage-categories', authCheck, async (req, res) => {
+router.post('/manage-categories', authCheck, [
+  body('action')
+    .isIn(['add', 'edit', 'delete']).withMessage('Invalid action'),
+  body('category')
+    .if(body('action').isIn(['add', 'edit', 'delete']))
+    .trim()
+    .notEmpty().withMessage('Category name is required')
+    .escape()
+    .isLength({ max: 50 }).withMessage('Category must be 50 characters or less'),
+  body('newCategory')
+    .if(body('action').equals('edit'))
+    .trim()
+    .notEmpty().withMessage('New category name is required')
+    .escape()
+    .isLength({ max: 50 }).withMessage('New category must be 50 characters or less')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /manage-categories: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   if (req.user.role !== 'creator') {
     logger.warn('Unauthorized category management attempt by non-creator');
     return res.status(403).json({ status: 'error', message: 'Only creators can manage categories.' });
@@ -1363,14 +1474,11 @@ router.post('/manage-categories', authCheck, async (req, res) => {
     const user = await User.findById(req.user._id);
 
     if (action === 'add') {
-      if (!category || typeof category !== 'string' || category.trim() === '') {
-        return res.status(400).json({ status: 'error', message: 'Category name is required.' });
-      }
       const trimmedCategory = category.trim();
       if (user.postCategories.includes(trimmedCategory)) {
         return res.status(400).json({ status: 'error', message: 'Category already exists.' });
       }
-      if (user.postCategories.length >= 10) { // Limit to 10 categories
+      if (user.postCategories.length >= 10) {
         return res.status(400).json({ status: 'error', message: 'Maximum of 10 categories allowed.' });
       }
       user.postCategories.push(trimmedCategory);
@@ -1379,9 +1487,6 @@ router.post('/manage-categories', authCheck, async (req, res) => {
     }
 
     if (action === 'edit') {
-      if (!category || !newCategory || typeof newCategory !== 'string' || newCategory.trim() === '') {
-        return res.status(400).json({ status: 'error', message: 'Current and new category names are required.' });
-      }
       const trimmedNewCategory = newCategory.trim();
       const index = user.postCategories.indexOf(category);
       if (index === -1) {
@@ -1400,9 +1505,6 @@ router.post('/manage-categories', authCheck, async (req, res) => {
     }
 
     if (action === 'delete') {
-      if (!category) {
-        return res.status(400).json({ status: 'error', message: 'Category name is required.' });
-      }
       const index = user.postCategories.indexOf(category);
       if (index === -1) {
         return res.status(404).json({ status: 'error', message: 'Category not found.' });
@@ -1423,7 +1525,26 @@ router.post('/manage-categories', authCheck, async (req, res) => {
   }
 });
 // Report a post
-router.post('/report-post', authCheck, async (req, res) => {
+router.post('/report-post', authCheck, [
+  body('postId')
+    .isMongoId().withMessage('Invalid post ID'),
+  body('reason')
+    .trim()
+    .notEmpty().withMessage('Reason is required')
+    .escape()
+    .isLength({ max: 100 }).withMessage('Reason must be 100 characters or less'),
+  body('details')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ max: 500 }).withMessage('Details must be 500 characters or less')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /report-post: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   try {
     const { postId, reason, details } = req.body;
     const userId = req.user._id;
@@ -1491,8 +1612,20 @@ router.post('/delete-post/:postId', authCheck, async (req, res) => {
 });
 
 // Admin delete post with reason
-router.post('/admin-delete-post/:postId', authCheck, async (req, res) => {
-  
+router.post('/admin-delete-post/:postId', authCheck, [
+  body('reason')
+    .trim()
+    .notEmpty().withMessage('Reason for deletion is required')
+    .escape()
+    .isLength({ max: 500 }).withMessage('Reason must be 500 characters or less')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /admin-delete-post/:postId: ' + JSON.stringify(errors.array()));
+    req.flash('error_msg', errors.array().map(err => err.msg).join(', '));
+    return res.status(400).redirect('/profile');
+  }
+
   try {
     if (req.user.role !== 'admin') {
       logger.warn('Unauthorized admin delete attempt by non-admin');
@@ -1501,12 +1634,6 @@ router.post('/admin-delete-post/:postId', authCheck, async (req, res) => {
     }
 
     const { reason } = req.body;
-    if (!reason || reason.trim() === '') {
-      logger.warn('Reason for deletion missing in admin-delete-post/:postId');
-      req.flash('error_msg', 'Reason for deletion is required');
-      return res.status(400).redirect('/profile');
-    }
-
     const post = await Post.findById(req.params.postId).populate('creator', 'username _id');
     if (!post || !post.creator) {
       logger.warn('Post or creator not found in admin-delete-post/:postId');
@@ -1560,7 +1687,32 @@ router.post('/admin-delete-post/:postId', authCheck, async (req, res) => {
 });
 
 // Create a new subscription bundle
-router.post('/create-bundle', authCheck, upload.none(), async (req, res) => {
+router.post('/create-bundle', authCheck, upload.none(), [
+  body('price')
+    .isFloat({ min: 0.01 }).withMessage('Price must be a positive number'),
+  body('duration')
+    .trim()
+    .notEmpty().withMessage('Duration is required')
+    .isIn(['1 day', '1 month', '3 months', '6 months', '1 year']).withMessage('Invalid duration'),
+  body('description')
+    .trim()
+    .notEmpty().withMessage('Description is required')
+    .escape()
+    .isLength({ max: 500 }).withMessage('Description must be 500 characters or less'),
+  body('discountPercentage')
+    .optional()
+    .isFloat({ min: 0, max: 100 }).withMessage('Discount percentage must be between 0 and 100')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /create-bundle: ' + JSON.stringify(errors.array()));
+    if (req.is('json')) {
+      return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+    }
+    req.flash('error_msg', errors.array().map(err => err.msg).join(', '));
+    return res.redirect('/profile');
+  }
+
   try {
     logger.info(`Create bundle request: Method=${req.method}, URL=${req.originalUrl}, Headers=${JSON.stringify(req.headers)}, Body=${JSON.stringify(req.body)}`);
 
@@ -1600,61 +1752,9 @@ router.post('/create-bundle', authCheck, upload.none(), async (req, res) => {
     }
 
     const { price, duration: rawDuration, description, discountPercentage } = req.body;
-    const duration = rawDuration ? rawDuration.toLowerCase() : null;
-
-    if (!duration) {
-      logger.warn('Duration is missing in create-bundle');
-      if (req.is('json')) {
-        return res.status(400).json({ status: 'error', message: 'Duration is required.' });
-      }
-      req.flash('error_msg', 'Duration is required.');
-      return res.status(400).redirect('/profile');
-    }
-
-    const validDurations = ['1 day', '1 month', '3 months', '6 months', '1 year'];
-    if (!validDurations.includes(duration)) {
-      logger.warn(`Invalid duration in create-bundle: ${duration}`);
-      if (req.is('json')) {
-        return res.status(400).json({
-          status: 'error',
-          message: `Invalid duration selected. Must be one of: ${validDurations.join(', ')}`,
-        });
-      }
-      req.flash('error_msg', `Invalid duration selected. Must be one of: ${validDurations.join(', ')}`);
-      return res.status(400).redirect('/profile');
-    }
-
-    if (!description || typeof description !== 'string' || description.trim() === '') {
-      logger.warn('Invalid description in create-bundle');
-      if (req.is('json')) {
-        return res.status(400).json({ status: 'error', message: 'Description is required.' });
-      }
-      req.flash('error_msg', 'Description is required.');
-      return res.status(400).redirect('/profile');
-    }
-
+    const duration = rawDuration.toLowerCase();
     const parsedPrice = parseFloat(price);
-    if (isNaN(parsedPrice) || parsedPrice <= 0) {
-      logger.warn('Invalid price in create-bundle');
-      if (req.is('json')) {
-        return res.status(400).json({ status: 'error', message: 'Price must be a positive number.' });
-      }
-      req.flash('error_msg', 'Price must be a positive number.');
-      return res.status(400).redirect('/profile');
-    }
-
     const parsedDiscount = discountPercentage ? parseFloat(discountPercentage) : 0;
-    if (parsedDiscount < 0 || parsedDiscount > 100) {
-      logger.warn('Invalid discount percentage in create-bundle');
-      if (req.is('json')) {
-        return res.status(400).json({
-          status: 'error',
-          message: 'Discount percentage must be between 0 and 100.',
-        });
-      }
-      req.flash('error_msg', 'Discount percentage must be between 0 and 100.');
-      return res.status(400).redirect('/profile');
-    }
 
     const durationOrder = {
       '1 day': 1,
@@ -1684,10 +1784,8 @@ router.post('/create-bundle', authCheck, upload.none(), async (req, res) => {
     await bundle.save();
     logger.info(`Bundle created successfully: ${bundle._id}`);
 
-    // Set flash message for traditional form submissions
     req.flash('success_msg', 'Bundle created successfully');
 
-    // For AJAX requests, return JSON; for others, redirect
     if (req.is('json')) {
       return res.json({
         status: 'success',
@@ -1696,11 +1794,10 @@ router.post('/create-bundle', authCheck, upload.none(), async (req, res) => {
       });
     }
 
-    // Save session and redirect for traditional submissions
     await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => {
         reject(new Error('Session save timed out'));
-      }, 5000); // 5-second timeout
+      }, 5000);
       req.session.save((err) => {
         clearTimeout(timeout);
         if (err) {
@@ -1745,14 +1842,31 @@ router.post('/create-bundle', authCheck, upload.none(), async (req, res) => {
     }
   }
 });
-router.post('/edit-bundle/:bundleId', authCheck, upload.none(), async (req, res) => {
+router.post('/edit-bundle/:bundleId', authCheck, upload.none(), [
+  body('price')
+    .isFloat({ min: 0.01 }).withMessage('Price must be a positive number'),
+  body('description')
+    .trim()
+    .notEmpty().withMessage('Description is required')
+    .escape()
+    .isLength({ max: 500 }).withMessage('Description must be 500 characters or less'),
+  body('discountPercentage')
+    .optional()
+    .isFloat({ min: 0, max: 100 }).withMessage('Discount percentage must be between 0 and 100')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /edit-bundle/:bundleId: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   try {
     const { bundleId } = req.params;
     const { price, discountPercentage, description } = req.body;
     const parsedPrice = parseFloat(price);
     const parsedDiscount = discountPercentage ? parseFloat(discountPercentage) : 0;
 
-    console.log('Received edit-bundle request:', {
+    logger.info('Received edit-bundle request:', {
       bundleId,
       price,
       description,
@@ -1761,44 +1875,20 @@ router.post('/edit-bundle/:bundleId', authCheck, upload.none(), async (req, res)
       parsedDiscount,
     });
 
-    if (isNaN(parsedPrice) || parsedPrice <= 0) {
-      console.warn('Invalid price:', price);
-      return res.status(400).json({
-        status: 'error',
-        message: 'Price must be a positive number.',
-      });
-    }
-
-    if (parsedDiscount < 0 || parsedDiscount > 100) {
-      console.warn('Invalid discount percentage:', discountPercentage);
-      return res.status(400).json({
-        status: 'error',
-        message: 'Discount percentage must be between 0 and 100.',
-      });
-    }
-
-    if (!description || typeof description !== 'string' || description.trim() === '') {
-      console.warn('Invalid description:', description);
-      return res.status(400).json({
-        status: 'error',
-        message: 'Description is required.',
-      });
-    }
-
     const bundle = await SubscriptionBundle.findOne({
       _id: bundleId,
       creatorId: req.user._id,
     });
 
     if (!bundle) {
-      console.warn('Bundle not found or unauthorized:', { bundleId, creatorId: req.user._id });
+      logger.warn('Bundle not found or unauthorized:', { bundleId, creatorId: req.user._id });
       return res.status(404).json({
         status: 'error',
         message: 'Bundle not found or you are not authorized to edit it.',
       });
     }
 
-    console.log('Current bundle state:', {
+    logger.info('Current bundle state:', {
       _id: bundle._id,
       isFree: bundle.isFree,
       duration: bundle.duration,
@@ -1808,19 +1898,16 @@ router.post('/edit-bundle/:bundleId', authCheck, upload.none(), async (req, res)
       originalPrice: bundle.originalPrice,
     });
 
-    // Update bundle fields
     bundle.description = description.trim();
     bundle.discountPercentage = parsedDiscount;
 
     if (parsedDiscount > 0) {
-      // Apply discount: update price to discounted amount
-      bundle.originalPrice = parsedPrice; // Store original price
-      bundle.price = Math.round(parsedPrice * (1 - parsedDiscount / 100)); // Set discounted price
+      bundle.originalPrice = parsedPrice;
+      bundle.price = Math.round(parsedPrice * (1 - parsedDiscount / 100));
     } else {
-      // Remove discount: restore original price or use input price
-      bundle.price = bundle.originalPrice || parsedPrice; // Use originalPrice if available
-      bundle.originalPrice = null; // Clear originalPrice
-      bundle.discountPercentage = 0; // Ensure no discount
+      bundle.price = bundle.originalPrice || parsedPrice;
+      bundle.originalPrice = null;
+      bundle.discountPercentage = 0;
     }
 
     const durationOrder = {
@@ -1834,9 +1921,9 @@ router.post('/edit-bundle/:bundleId', authCheck, upload.none(), async (req, res)
     if (!bundle.isFree) {
       if (bundle.duration && durationOrder[bundle.duration]) {
         bundle.durationWeight = durationOrder[bundle.duration];
-        console.log('Set durationWeight:', bundle.durationWeight);
+        logger.info('Set durationWeight:', bundle.durationWeight);
       } else {
-        console.warn('Invalid or missing duration for bundle:', {
+        logger.warn('Invalid or missing duration for bundle:', {
           bundleId,
           duration: bundle.duration,
         });
@@ -1848,11 +1935,11 @@ router.post('/edit-bundle/:bundleId', authCheck, upload.none(), async (req, res)
     } else {
       bundle.duration = undefined;
       bundle.durationWeight = undefined;
-      console.log('Cleared duration and durationWeight for free bundle');
+      logger.info('Cleared duration and durationWeight for free bundle');
     }
 
     await bundle.save();
-    console.log('Bundle updated successfully:', {
+    logger.info('Bundle updated successfully:', {
       bundleId,
       price: bundle.price,
       discountPercentage: bundle.discountPercentage,
@@ -1864,7 +1951,7 @@ router.post('/edit-bundle/:bundleId', authCheck, upload.none(), async (req, res)
       message: 'Bundle updated successfully.',
     });
   } catch (err) {
-    console.error('Error updating bundle:', {
+    logger.error('Error updating bundle:', {
       bundleId: req.params.bundleId,
       error: err.message,
       stack: err.stack,
@@ -1875,7 +1962,6 @@ router.post('/edit-bundle/:bundleId', authCheck, upload.none(), async (req, res)
     });
   }
 });
-
 
 router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
   try {
@@ -1902,26 +1988,23 @@ router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
 });
 
 // POST /profile/subscribe-free (subscribe to a free bundle)
-// POST /profile/subscribe-free
-router.post('/subscribe-free', authCheck, async (req, res) => {
+router.post('/subscribe-free', authCheck, [
+  body('creatorId')
+    .isMongoId().withMessage('Invalid creator ID'),
+  body('creatorUsername')
+    .trim()
+    .notEmpty().withMessage('Creator username is required')
+    .isLength({ max: 50 }).withMessage('Creator username must be 50 characters or less')
+    .matches(/^[a-zA-Z0-9_]+$/).withMessage('Creator username must be alphanumeric with underscores')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /subscribe-free: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   try {
     const { creatorId, creatorUsername } = req.body;
-
-    if (!creatorId || !creatorUsername) {
-      logger.warn('Missing creatorId or creatorUsername in subscribe-free');
-      return res.status(400).json({
-        status: 'error',
-        message: 'Creator ID and Creator Username are required',
-      });
-    }
-
-    if (!mongoose.Types.ObjectId.isValid(creatorId)) {
-      logger.error(`Invalid creatorId: ${creatorId} in subscribe-free`);
-      return res.status(400).json({
-        status: 'error',
-        message: 'Invalid ID format',
-      });
-    }
 
     const creator = await User.findById(creatorId);
     if (!creator || creator.username !== creatorUsername || creator.role !== 'creator') {
@@ -2021,17 +2104,25 @@ router.post('/subscribe-free', authCheck, async (req, res) => {
 
 
 // POST /profile/subscribe
-router.post('/subscribe', async (req, res) => {
+router.post('/subscribe', [
+  body('creatorId')
+    .isMongoId().withMessage('Invalid creator ID'),
+  body('bundleId')
+    .isMongoId().withMessage('Invalid bundle ID'),
+  body('creatorUsername')
+    .trim()
+    .notEmpty().withMessage('Creator username is required')
+    .isLength({ max: 50 }).withMessage('Creator username must be 50 characters or less')
+    .matches(/^[a-zA-Z0-9_]+$/).withMessage('Creator username must be alphanumeric with underscores')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /subscribe: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   try {
     const { creatorId, bundleId, creatorUsername } = req.body;
-
-    if (!creatorId || !bundleId || !creatorUsername) {
-      logger.warn('Missing creatorId, bundleId, or creatorUsername in subscribe');
-      return res.status(400).json({
-        status: 'error',
-        message: 'Creator ID, Bundle ID, and Creator Username are required',
-      });
-    }
 
     const creator = await User.findById(creatorId);
     if (!creator || creator.username !== creatorUsername || creator.role !== 'creator') {
@@ -2366,13 +2457,26 @@ router.post('/toggle-free-subscription', authCheck, async (req, res) => {
   }
 });
 // Webhook route to handle payment notifications
-router.post('/webhook', async (req, res) => {
- 
+router.post('/webhook', [
+  body('event')
+    .equals('charge.success').withMessage('Invalid webhook event'),
+  body('metadata.user_id')
+    .isMongoId().withMessage('Invalid user ID'),
+  body('metadata.creator_id')
+    .isMongoId().withMessage('Invalid creator ID'),
+  body('metadata.bundle_id')
+    .isMongoId().withMessage('Invalid bundle ID')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in /webhook: ' + JSON.stringify(errors.array()));
+    return res.status(400).send(errors.array().map(err => err.msg).join(', '));
+  }
+
   try {
     const event = req.body;
 
     if (event.event === 'charge.success') {
-      // Find user, creator, and bundle from event metadata
       const user = await User.findById(event.metadata.user_id);
       const creator = await User.findById(event.metadata.creator_id);
       const bundle = await SubscriptionBundle.findById(event.metadata.bundle_id);
@@ -2382,7 +2486,6 @@ router.post('/webhook', async (req, res) => {
         return res.status(404).send('User, creator, or bundle not found.');
       }
 
-      // Parse bundle.duration into milliseconds
       let subscriptionExpiry = new Date();
       if (bundle.duration === '1 day') {
         subscriptionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
@@ -2396,7 +2499,6 @@ router.post('/webhook', async (req, res) => {
         subscriptionExpiry = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
       }
 
-      // Create a new subscription object
       const subscription = {
         creatorId: creator._id,
         subscriptionBundle: bundle._id,
@@ -2405,7 +2507,6 @@ router.post('/webhook', async (req, res) => {
         status: 'active',
       };
 
-      // Push the subscription to the user
       user.subscriptions.push(subscription);
       await user.save();
 

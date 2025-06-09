@@ -3,8 +3,9 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/users');
 const Post = require('../models/Post');
-const { generateSignedUrl } = require('../utilis/cloudStorage');
+const { generateSignedUrl, createSignedUrlSession } = require('../utilis/cloudStorage');
 const logger = require('../logs/logger');
+const { query, validationResult } = require('express-validator');
 
 // Authentication middleware
 const authCheck = (req, res, next) => {
@@ -36,118 +37,108 @@ const renderTaggedWriteUp = (writeUp, taggedUsers) => {
   });
 };
 
-// Process post URLs and tagged users for feed
 const processPostUrlForFeed = async (post, currentUser) => {
-  const hasPurchased = post.special && currentUser.purchasedContent?.some(
+  // Determine if the user can view the full content
+  const hasPurchased = currentUser.purchasedContent?.some(
     (p) => p.contentId.toString() === post._id.toString()
   );
+  const canViewFullContent = !post.special || hasPurchased;
 
-  if (post.special && !hasPurchased) {
-    post.locked = true;
+  // Set the locked status
+  post.locked = !canViewFullContent;
 
-    // Use preview URLs if available
-    if (post.mediaItems && post.mediaItems.length > 0) {
-      for (const item of post.mediaItems) {
-        if (item.previewUrl && !item.previewUrl.startsWith('http')) {
-          try {
-            item.url = await generateSignedUrl(item.previewUrl);
-          } catch (err) {
-            logger.error(`Failed to generate signed URL for preview: ${err.message}`);
+  // Handle multiple media items
+  if (post.mediaItems && post.mediaItems.length > 0) {
+    for (const item of post.mediaItems) {
+      // Process the media URL
+      if (item.url && !item.url.startsWith('http')) {
+        try {
+          if (canViewFullContent) {
+            const sessionId = await createSignedUrlSession(currentUser._id, item.url);
+            item.url = `/media/${sessionId}`;
+          } else if (item.previewUrl && !item.previewUrl.startsWith('http')) {
+            const sessionId = await createSignedUrlSession(currentUser._id, item.previewUrl);
+            item.url = `/media/${sessionId}`;
+          } else {
             item.url = `/Uploads/placeholder-${item.type}.png`;
           }
-        } else {
+        } catch (err) {
+          logger.error(`Failed to create signed URL session for mediaItem: ${err.message}`);
           item.url = `/Uploads/placeholder-${item.type}.png`;
         }
-        // NEW: Generate signed URL for mediaItem.posterUrl (for videos)
-        if (item.type === 'video' && item.posterUrl && !item.posterUrl.startsWith('http')) {
-          try {
-            item.posterUrl = await generateSignedUrl(item.posterUrl);
-          } catch (err) {
-            logger.error(`Failed to generate signed URL for media item poster: ${err.message}`);
-            item.posterUrl = null; // Set to null instead of fallback
-          }
-        }
       }
-    } else if (post.previewUrl && !post.previewUrl.startsWith('http')) {
-      try {
-        post.contentUrl = await generateSignedUrl(post.previewUrl);
-      } catch (err) {
-        logger.error(`Failed to generate signed URL for post preview: ${err.message}`);
-        post.contentUrl = '/Uploads/placeholder.png';
-      }
-      // NEW: Generate signed URL for post.posterUrl (for single video posts)
-      if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
+
+      // Process the poster URL for videos
+      if (item.type === 'video' && item.posterUrl && !item.posterUrl.startsWith('http')) {
         try {
-          post.posterUrl = await generateSignedUrl(post.posterUrl);
+          const sessionId = await createSignedUrlSession(currentUser._id, item.posterUrl);
+          item.posterUrl = `/media/${sessionId}`;
         } catch (err) {
-          logger.error(`Failed to generate signed URL for post poster: ${err.message}`);
-          post.posterUrl = null; // Set to null instead of fallback
-        }
-      }
-    } else {
-      post.contentUrl = '/Uploads/placeholder.png';
-      // NEW: Generate signed URL for post.posterUrl (for single video posts)
-      if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
-        try {
-          post.posterUrl = await generateSignedUrl(post.posterUrl);
-        } catch (err) {
-          logger.error(`Failed to generate signed URL for post poster: ${err.message}`);
-          post.posterUrl = null; // Set to null instead of fallback
+          logger.error(`Failed to create signed URL session for media item poster: ${err.message}`);
+          item.posterUrl = null;
         }
       }
     }
   } else {
-    post.locked = false;
-
-    // Use original URLs
-    if (post.mediaItems && post.mediaItems.length > 0) {
-      for (const item of post.mediaItems) {
-        if (item.url && !item.url.startsWith('http')) {
-          try {
-            item.url = await generateSignedUrl(item.url);
-          } catch (err) {
-            logger.error(`Failed to generate signed URL for mediaItem: ${err.message}`);
-            item.url = `/Uploads/placeholder-${item.type}.png`;
-          }
-        }
-        // NEW: Generate signed URL for mediaItem.posterUrl (for videos)
-        if (item.type === 'video' && item.posterUrl && !item.posterUrl.startsWith('http')) {
-          try {
-            item.posterUrl = await generateSignedUrl(item.posterUrl);
-          } catch (err) {
-            logger.error(`Failed to generate signed URL for media item poster: ${err.message}`);
-            item.posterUrl = null; // Set to null instead of fallback
-          }
-        }
-      }
-    } else if (post.contentUrl && !post.contentUrl.startsWith('http')) {
+    // Handle single media posts
+    if (post.contentUrl && !post.contentUrl.startsWith('http')) {
       try {
-        post.contentUrl = await generateSignedUrl(post.contentUrl);
+        if (canViewFullContent) {
+          const sessionId = await createSignedUrlSession(currentUser._id, post.contentUrl);
+          post.contentUrl = `/media/${sessionId}`;
+        } else if (post.previewUrl && !post.previewUrl.startsWith('http')) {
+          const sessionId = await createSignedUrlSession(currentUser._id, post.previewUrl);
+          post.contentUrl = `/media/${sessionId}`;
+        } else {
+          post.contentUrl = '/Uploads/placeholder.png';
+        }
       } catch (err) {
-        logger.error(`Failed to generate signed URL for post: ${err.message}`);
+        logger.error(`Failed to create signed URL session for post: ${err.message}`);
         post.contentUrl = '/Uploads/placeholder.png';
       }
-      // NEW: Generate signed URL for post.posterUrl (for single video posts)
-      if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
-        try {
-          post.posterUrl = await generateSignedUrl(post.posterUrl);
-        } catch (err) {
-          logger.error(`Failed to generate signed URL for post poster: ${err.message}`);
-          post.posterUrl = null; // Set to null instead of fallback
-        }
+    }
+
+    // Process the poster URL for single video posts
+    if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
+      try {
+        const sessionId = await createSignedUrlSession(currentUser._id, post.posterUrl);
+        post.posterUrl = `/media/${sessionId}`;
+      } catch (err) {
+        logger.error(`Failed to create signed URL session for post poster: ${err.message}`);
+        post.posterUrl = null;
       }
     }
   }
 
-  // Render tagged users
+  // Render tagged users in the write-up
   if (post.writeUp && post.taggedUsers) {
     post.renderedWriteUp = renderTaggedWriteUp(post.writeUp, post.taggedUsers);
   } else {
     post.renderedWriteUp = post.writeUp || '';
   }
 };
+router.get('/', authCheck, [
+  query('query')
+    .optional()
+    .trim()
+    .escape()
+    .isLength({ max: 100 }).withMessage('Search query must be 100 characters or less')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in GET /: ' + JSON.stringify(errors.array()));
+    return res.status(400).render('home', {
+      user: req.user,
+      currentUser: null,
+      posts: [],
+      creators: [],
+      featuredCreators: [],
+      search: req.query.query || '',
+      error_msg: errors.array().map(err => err.msg).join(', '),
+      env: process.env.NODE_ENV || 'development'
+    });
+  }
 
-router.get('/', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id).populate('bookmarks');
     const query = req.query.query;
@@ -187,7 +178,7 @@ router.get('/', authCheck, async (req, res) => {
       const posts = await Post.find({ creator: { $in: subscribedCreatorIds } })
         .populate('creator', 'username profilePicture')
         .populate('comments.user', 'username')
-        .populate('taggedUsers', 'username') // Add taggedUsers population
+        .populate('taggedUsers', 'username')
         .sort({ createdAt: -1 });
 
       const validPosts = posts.filter(post => post.creator !== null);
@@ -238,17 +229,34 @@ router.get('/', authCheck, async (req, res) => {
     }
   } catch (err) {
     logger.error(`Error in home route: ${err.message}`);
-    res.status(500).send('Error loading home page');
+    res.status(500).render('home', {
+      user: req.user,
+      currentUser: null,
+      posts: [],
+      creators: [],
+      featuredCreators: [],
+      search: req.query.query || '',
+      error_msg: 'Error loading home page',
+      env: process.env.NODE_ENV || 'development'
+    });
   }
 });
 
-// Search suggestions and search-creators routes remain unchanged
-router.get('/search-suggestions', authCheck, async (req, res) => {
+router.get('/search-suggestions', authCheck, [
+  query('query')
+    .trim()
+    .notEmpty().withMessage('Search query is required')
+    .escape()
+    .isLength({ max: 100 }).withMessage('Search query must be 100 characters or less')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in GET /search-suggestions: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ message: errors.array().map(err => err.msg).join(', '), creators: [] });
+  }
+
   try {
     const query = req.query.query;
-    if (!query || query.trim() === '') {
-      return res.json({ creators: [] });
-    }
 
     const matchingCreators = await User.find({
       role: 'creator',
@@ -271,12 +279,21 @@ router.get('/search-suggestions', authCheck, async (req, res) => {
   }
 });
 
-router.get('/search-creators', authCheck, async (req, res) => {
+router.get('/search-creators', authCheck, [
+  query('query')
+    .trim()
+    .notEmpty().withMessage('Search query is required')
+    .escape()
+    .isLength({ max: 100 }).withMessage('Search query must be 100 characters or less')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in GET /search-creators: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ message: errors.array().map(err => err.msg).join(', '), creators: [] });
+  }
+
   try {
     const query = req.query.query;
-    if (!query || query.trim() === '') {
-      return res.json({ creators: [] });
-    }
 
     const matchingCreators = await User.find({
       role: 'creator',

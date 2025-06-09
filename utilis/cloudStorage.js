@@ -51,13 +51,41 @@ const generateSignedUrl = async (filename) => {
   const options = {
     version: 'v4',
     action: 'read',
-    expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+    expires: Date.now() + 5 * 60 * 1000, // Changed from 15 to 5 minutes
   };
   try {
     const [url] = await bucket.file(filename).getSignedUrl(options);
     return url;
   } catch (err) {
     logger.error(`Error generating signed URL for private content: ${err.message}`);
+    throw err;
+  }
+};
+
+// 3. NEW: Function to create and store signed URL session
+const createSignedUrlSession = async (userId, filename) => {
+  const SignedUrlSession = require('../models/signedUrlSession');
+  
+  try {
+    // Generate signed URL
+    const signedUrl = await generateSignedUrl(filename);
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+    
+    // Remove any existing session for this user/filename combination
+    await SignedUrlSession.deleteMany({ userId, filename });
+    
+    // Create new session
+    const session = new SignedUrlSession({
+      userId,
+      filename,
+      signedUrl,
+      expiresAt
+    });
+    
+    await session.save();
+    return session._id; // Return session ID instead of signed URL
+  } catch (err) {
+    logger.error(`Error creating signed URL session: ${err.message}`);
     throw err;
   }
 };
@@ -309,6 +337,7 @@ module.exports = {
   bucket,
   profileBucket,
   generateSignedUrl,
+  createSignedUrlSession,
   creatorRequestsBucket,
   generateSignedUrlForCreatorRequest,
   chatBucket,

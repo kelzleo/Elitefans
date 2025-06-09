@@ -242,113 +242,116 @@ lbContent.addEventListener('touchend', e => {
 if (isDevEnv) console.log('Lightbox script initialized');
 
   // --- Free Subscription Form ---
-  document.querySelectorAll('.subscribe-free-bundle-form').forEach(form => {
-    form.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      if (!isLoggedIn) {
-        try {
-          const redirectResponse = await fetchWithCsrf('/store-redirect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ redirectTo: `/profile/<%= user.username %>` })
-          });
-          if (!redirectResponse.ok && isDevEnv) {
-            console.error('Failed to store redirect:', redirectResponse.status);
-          }
-        } catch (error) {
-          if (isDevEnv) console.error('Error storing redirect:', error.message);
-        }
-        window.location.href = `/?creator=<%= encodeURIComponent(user.username) %>`;
-        return;
-      }
-
-      const submitButton = form.querySelector('button[type="submit"]');
-      const originalHtml = submitButton.innerHTML;
-      submitButton.innerHTML = 'Processing...';
-      submitButton.disabled = true;
-
+document.querySelectorAll('.subscribe-free-bundle-form').forEach(form => {
+  form.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    if (!isLoggedIn) {
       try {
-        const formData = new FormData(form);
-        const data = {
-          creatorId: formData.get('creatorId'),
-          creatorUsername: formData.get('creatorUsername')
-        };
-        const response = await fetchWithCsrf('/profile/subscribe-free', {
+        const redirectResponse = await fetchWithCsrf('/store-redirect', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data)
+          body: JSON.stringify({ redirectTo: window.location.pathname })
         });
-        const text = await response.text();
-        let result;
-        try {
-          result = JSON.parse(text);
-        } catch (parseError) {
-          if (isDevEnv) console.error('Non-JSON response:', text);
-          throw new Error(`Failed to parse server response: ${parseError.message}`);
+        if (!redirectResponse.ok && isDevEnv) {
+          console.error('Failed to store redirect:', redirectResponse.status);
         }
-        if (response.ok && result.status === 'success') {
-          alert(result.message || 'Subscribed successfully.');
-          window.location.href = result.redirect || `/profile/<%= user.username %>`;
-        } else {
-          if (isDevEnv) console.error('Free subscription error:', result);
-          alert(result.message || 'Error subscribing. Please try again.');
-          submitButton.innerHTML = originalHtml;
-          submitButton.disabled = false;
-        }
-      } catch (err) {
-        if (isDevEnv) console.error('Error subscribing to free bundle:', err.message);
-        alert('Error subscribing. Please try again.');
+      } catch (error) {
+        if (isDevEnv) console.error('Error storing redirect:', error.message);
+      }
+      // Get username from data attribute instead of EJS template
+      const username = document.querySelector('.profile-container').dataset.username;
+      window.location.href = `/?creator=${encodeURIComponent(username)}`;
+      return;
+    }
+
+    const submitButton = form.querySelector('button[type="submit"]');
+    const originalHtml = submitButton.innerHTML;
+    submitButton.innerHTML = 'Processing...';
+    submitButton.disabled = true;
+
+    try {
+      const formData = new FormData(form);
+      const data = {
+        creatorId: formData.get('creatorId'),
+        creatorUsername: formData.get('creatorUsername')
+      };
+      const response = await fetchWithCsrf('/profile/subscribe-free', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+      const text = await response.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (parseError) {
+        if (isDevEnv) console.error('Non-JSON response:', text);
+        throw new Error(`Failed to parse server response: ${parseError.message}`);
+      }
+      if (response.ok && result.status === 'success') {
+        alert(result.message || 'Subscribed successfully.');
+        window.location.href = result.redirect || window.location.pathname;
+      } else {
+        if (isDevEnv) console.error('Free subscription error:', result);
+        alert(result.message || 'Error subscribing. Please try again.');
         submitButton.innerHTML = originalHtml;
         submitButton.disabled = false;
       }
-    });
-  });
-
-  // --- Subscription Dropdown Toggle ---
-  const toggleBtn = document.getElementById('toggleBundlesBtn');
-  const dropdown = document.getElementById('subscriptionDropdown');
-
-  if (toggleBtn && dropdown) {
-    dropdown.classList.add('hidden');
-    toggleBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (!isLoggedIn) {
-        try {
-          const redirectResponse = await fetchWithCsrf('/store-redirect', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ redirectTo: `/profile/<%= user.username %>` })
-          });
-          if (!redirectResponse.ok && isDevEnv) {
-            console.error('Failed to store redirect:', redirectResponse.status);
-          }
-        } catch (error) {
-          if (isDevEnv) console.error('Error storing redirect:', error.message);
-        }
-        window.location.href = `/?creator=<%= encodeURIComponent(user.username) %>`;
-        return;
-      }
-      dropdown.classList.toggle('hidden');
-      toggleBtn.classList.toggle('active', !dropdown.classList.contains('hidden'));
-    });
-    document.addEventListener('click', (e) => {
-      if (!dropdown.contains(e.target) && !toggleBtn.contains(e.target)) {
-        dropdown.classList.add('hidden');
-        if (toggleBtn) toggleBtn.classList.remove('active');
-      }
-    });
-  } else if (isDevEnv) {
-    console.warn('Missing toggleBundlesBtn or subscriptionDropdown');
-  }
-
-  // --- Toggle Free Subscription Confirmation ---
-  document.querySelector('.toggle-free-subscription-form')?.addEventListener('submit', (e) => {
-    const isEnabling = e.target.querySelector('button').textContent.includes('Enable');
-    if (isEnabling && !confirm('Enabling free mode will delete all paid bundles. Continue?')) {
-      e.preventDefault();
+    } catch (err) {
+      if (isDevEnv) console.error('Error subscribing to free bundle:', err.message);
+      alert('Error subscribing. Please try again.');
+      submitButton.innerHTML = originalHtml;
+      submitButton.disabled = false;
     }
   });
+});
 
+// --- Subscription Dropdown Toggle ---
+const toggleBtn = document.getElementById('toggleBundlesBtn');
+const dropdown = document.getElementById('subscriptionDropdown');
+
+if (toggleBtn && dropdown) {
+  dropdown.classList.add('hidden');
+  toggleBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (!isLoggedIn) {
+      try {
+        const redirectResponse = await fetchWithCsrf('/store-redirect', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ redirectTo: window.location.pathname })
+        });
+        if (!redirectResponse.ok && isDevEnv) {
+          console.error('Failed to store redirect:', redirectResponse.status);
+        }
+      } catch (error) {
+        if (isDevEnv) console.error('Error storing redirect:', error.message);
+      }
+      // Get username from data attribute instead of EJS template
+      const username = document.querySelector('.profile-container').dataset.username;
+      window.location.href = `/?creator=${encodeURIComponent(username)}`;
+      return;
+    }
+    dropdown.classList.toggle('hidden');
+    toggleBtn.classList.toggle('active', !dropdown.classList.contains('hidden'));
+  });
+  document.addEventListener('click', (e) => {
+    if (!dropdown.contains(e.target) && !toggleBtn.contains(e.target)) {
+      dropdown.classList.add('hidden');
+      if (toggleBtn) toggleBtn.classList.remove('active');
+    }
+  });
+} else if (isDevEnv) {
+  console.warn('Missing toggleBundlesBtn or subscriptionDropdown');
+}
+
+// --- Toggle Free Subscription Confirmation ---
+document.querySelector('.toggle-free-subscription-form')?.addEventListener('submit', (e) => {
+  const isEnabling = e.target.querySelector('button').textContent.includes('Enable');
+  if (isEnabling && !confirm('Enabling free mode will delete all paid bundles. Continue?')) {
+    e.preventDefault();
+  }
+});
   // --- Edit Bundle Modal and Form ---
   const editBundleModal = document.getElementById('editBundleModal');
   const editBundleForm = document.getElementById('editBundleForm');

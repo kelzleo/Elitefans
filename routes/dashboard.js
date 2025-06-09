@@ -4,7 +4,8 @@ const router = express.Router();
 const Transaction = require('../models/Transaction');
 const User = require('../models/users');
 const { transferToBank, resolveBankAccount } = require('../utilis/flutter');
-const logger = require('../logs/logger'); // Import Winston logger at top
+const logger = require('../logs/logger');
+const { body, validationResult } = require('express-validator');
 
 function authCheck(req, res, next) {
   if (!req.user) {
@@ -26,7 +27,7 @@ router.get('/', authCheck, async (req, res) => {
     if (currentUser.role === 'creator') {
       transactions = await Transaction.find({ creator: currentUser._id })
         .sort({ createdAt: -1 })
-        .populate('user', 'username profilePicture') // Add profilePicture here
+        .populate('user', 'username profilePicture')
         .populate('post', 'writeUp')
         .populate('subscriptionBundle', 'description price');
 
@@ -52,7 +53,7 @@ router.get('/', authCheck, async (req, res) => {
     } else {
       transactions = await Transaction.find({ user: currentUser._id })
         .sort({ createdAt: -1 })
-        .populate('creator', 'username profilePicture') // Add profilePicture here
+        .populate('creator', 'username profilePicture')
         .populate('post', 'writeUp')
         .populate('subscriptionBundle', 'description price');
 
@@ -78,8 +79,31 @@ router.get('/', authCheck, async (req, res) => {
   }
 });
 
+router.post('/add-bank', authCheck, [
+  body('bankName')
+    .trim()
+    .notEmpty().withMessage('Bank name is required')
+    .isIn([
+      'Access Bank', 'ALAT by Wema', 'Citibank Nigeria', 'Ecobank Nigeria',
+      'Fidelity Bank', 'First Bank of Nigeria', 'First City Monument Bank (FCMB)',
+      'Globus Bank', 'Guaranty Trust Bank (GTBank)', 'Heritage Bank', 'Jaiz Bank',
+      'Keystone Bank', 'Kuda Bank', 'Moniepoint Microfinance Bank', 'OPay',
+      'Palmpay', 'Parallex Bank', 'Polaris Bank', 'PremiumTrust Bank', 'Providus Bank',
+      'Stanbic IBTC Bank', 'Standard Chartered Bank', 'Sterling Bank', 'SunTrust Bank',
+      'Titan Trust Bank', 'Union Bank of Nigeria', 'United Bank for Africa (UBA)',
+      'Unity Bank', 'Wema Bank', 'Zenith Bank'
+    ]).withMessage('Invalid bank name'),
+  body('accountNumber')
+    .trim()
+    .notEmpty().withMessage('Account number is required')
+    .matches(/^\d{10}$/).withMessage('Account number must be exactly 10 digits')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in POST /add-bank: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ message: errors.array().map(err => err.msg).join(', ') });
+  }
 
-router.post('/add-bank', authCheck, async (req, res) => {
   try {
     const currentUser = await User.findById(req.user._id);
     if (currentUser.role !== 'creator') {
@@ -88,19 +112,9 @@ router.post('/add-bank', authCheck, async (req, res) => {
     }
 
     const { bankName, accountNumber } = req.body;
-    if (!bankName || !accountNumber) {
-      logger.warn('Missing bank name or account number in add-bank');
-      return res.status(400).json({ message: 'Please provide bank name and account number.' });
-    }
 
-    // Get the bank code from the bank name
     const bankCode = mapBankNameToCode(bankName);
-    if (!bankCode) {
-      logger.warn('Invalid bank name in add-bank');
-      return res.status(400).json({ message: 'Invalid bank name.' });
-    }
 
-    // Resolve the account holder's name using Flutterwave
     let accountHolderName;
     try {
       accountHolderName = await resolveBankAccount(bankCode, accountNumber);
@@ -109,18 +123,34 @@ router.post('/add-bank', authCheck, async (req, res) => {
       return res.status(400).json({ message: 'Unable to verify bank account. Please check your details.' });
     }
 
-    // Save bank details including the account holder's name
     currentUser.banks.push({ bankName, accountNumber, accountHolderName });
     await currentUser.save();
 
-    res.json({ message: 'Bank added successfully!', success: true }); // Added success: true for consistency with client-side code
+    res.json({ message: 'Bank added successfully!', success: true });
   } catch (error) {
     logger.error(`Error adding bank: ${error.message}`);
     res.status(500).json({ message: 'Error adding bank.' });
   }
 });
 
-router.post('/withdraw', authCheck, async (req, res) => {
+router.post('/withdraw', authCheck, [
+  body('amount')
+    .isFloat({ min: 1000 }).withMessage('Withdrawal amount must be at least 1000')
+    .custom((value) => {
+      if (isNaN(parseFloat(value))) {
+        throw new Error('Amount must be a valid number');
+      }
+      return true;
+    }),
+  body('bankId')
+    .isMongoId().withMessage('Invalid bank ID')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in POST /withdraw: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   try {
     const currentUser = await User.findById(req.user._id);
     if (currentUser.role !== 'creator') {
@@ -130,11 +160,6 @@ router.post('/withdraw', authCheck, async (req, res) => {
 
     const { amount, bankId } = req.body;
     const withdrawalAmount = parseFloat(amount);
-
-    if (!withdrawalAmount || withdrawalAmount < 1000) {
-      logger.warn('Invalid withdrawal amount in withdraw');
-      return res.status(400).json({ message: 'Withdrawal amount must be at least 1000.' });
-    }
 
     if (withdrawalAmount > currentUser.totalEarnings) {
       logger.warn('Insufficient balance for withdrawal');
@@ -206,7 +231,7 @@ function mapBankNameToCode(bankName) {
     'United Bank for Africa (UBA)': '033',
     'Unity Bank': '215',
     'Wema Bank': '035',
-    'Zenith Bank': '057',
+    'Zenith Bank': '057'
   };
   return bankMap[bankName] || '044';
 }

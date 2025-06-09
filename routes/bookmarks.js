@@ -3,8 +3,9 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/users');
 const Post = require('../models/Post');
-const { generateSignedUrl } = require('../utilis/cloudStorage');
+const { createSignedUrlSession } = require('../utilis/cloudStorage');
 const logger = require('../logs/logger');
+const { param, validationResult } = require('express-validator');
 
 // Authentication middleware
 const authCheck = (req, res, next) => {
@@ -37,94 +38,74 @@ const renderTaggedWriteUp = (writeUp, taggedUsers) => {
 // Helper to process post URLs
 const processPostUrls = async (posts, currentUser) => {
   for (const post of posts) {
-    const hasPurchased = post.special && currentUser.purchasedContent.some(
+    // Determine if the user can view the full content
+    const hasPurchased = currentUser.purchasedContent?.some(
       (p) => p.contentId.toString() === post._id.toString()
     );
+    const canViewFullContent = !post.special || hasPurchased;
 
-    if (post.special && !hasPurchased) {
-      post.locked = true;
-      if (post.mediaItems && post.mediaItems.length > 0) {
-        for (const item of post.mediaItems) {
-          if (item.previewUrl && !item.previewUrl.startsWith('http')) {
-            try {
-              item.url = await generateSignedUrl(item.previewUrl);
-            } catch (err) {
-              logger.error(`Failed to generate signed URL for preview: ${err.message}`);
+    // Set the locked status
+    post.locked = !canViewFullContent;
+
+    // Handle multiple media items
+    if (post.mediaItems && post.mediaItems.length > 0) {
+      for (const item of post.mediaItems) {
+        // Process the media URL
+        if (item.url && !item.url.startsWith('http')) {
+          try {
+            if (canViewFullContent) {
+              const sessionId = await createSignedUrlSession(currentUser._id, item.url);
+              item.url = `/media/${sessionId}`;
+            } else if (item.previewUrl && !item.previewUrl.startsWith('http')) {
+              const sessionId = await createSignedUrlSession(currentUser._id, item.previewUrl);
+              item.url = `/media/${sessionId}`;
+            } else {
               item.url = `/Uploads/placeholder-${item.type}.png`;
             }
-          } else {
+          } catch (err) {
+            logger.error(`Failed to create signed URL session for mediaItem: ${err.message}`);
             item.url = `/Uploads/placeholder-${item.type}.png`;
           }
-          if (item.type === 'video' && item.posterUrl && !item.posterUrl.startsWith('http')) {
-            try {
-              item.posterUrl = await generateSignedUrl(item.posterUrl);
-            } catch (err) {
-              logger.error(`Failed to generate signed URL for media item poster: ${err.message}`);
-              item.posterUrl = null;
-            }
-          }
         }
-      } else if (post.previewUrl && !post.previewUrl.startsWith('http')) {
-        try {
-          post.contentUrl = await generateSignedUrl(post.previewUrl);
-        } catch (err) {
-          logger.error(`Failed to generate signed URL for post preview: ${err.message}`);
-          post.contentUrl = '/Uploads/placeholder.png';
-        }
-        if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
+
+        // Process the poster URL for videos
+        if (item.type === 'video' && item.posterUrl && !item.posterUrl.startsWith('http')) {
           try {
-            post.posterUrl = await generateSignedUrl(post.posterUrl);
+            const sessionId = await createSignedUrlSession(currentUser._id, item.posterUrl);
+            item.posterUrl = `/media/${sessionId}`;
           } catch (err) {
-            logger.error(`Failed to generate signed URL for post poster: ${err.message}`);
-            post.posterUrl = null;
-          }
-        }
-      } else {
-        post.contentUrl = '/Uploads/placeholder.png';
-        if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
-          try {
-            post.posterUrl = await generateSignedUrl(post.posterUrl);
-          } catch (err) {
-            logger.error(`Failed to generate signed URL for post poster: ${err.message}`);
-            post.posterUrl = null;
+            logger.error(`Failed to create signed URL session for media item poster: ${err.message}`);
+            item.posterUrl = null;
           }
         }
       }
     } else {
-      post.locked = false;
-      if (post.mediaItems && post.mediaItems.length > 0) {
-        for (const item of post.mediaItems) {
-          if (item.url && !item.url.startsWith('http')) {
-            try {
-              item.url = await generateSignedUrl(item.url);
-            } catch (err) {
-              logger.error(`Failed to generate signed URL for mediaItem: ${err.message}`);
-              item.url = `/Uploads/placeholder-${item.type}.png`;
-            }
-          }
-          if (item.type === 'video' && item.posterUrl && !item.posterUrl.startsWith('http')) {
-            try {
-              item.posterUrl = await generateSignedUrl(item.posterUrl);
-            } catch (err) {
-              logger.error(`Failed to generate signed URL for media item poster: ${err.message}`);
-              item.posterUrl = null;
-            }
-          }
-        }
-      } else if (post.contentUrl && !post.contentUrl.startsWith('http')) {
+      // Handle single media posts
+      if (post.contentUrl && !post.contentUrl.startsWith('http')) {
         try {
-          post.contentUrl = await generateSignedUrl(post.contentUrl);
+          if (canViewFullContent) {
+            const sessionId = await createSignedUrlSession(currentUser._id, post.contentUrl);
+            post.contentUrl = `/media/${sessionId}`;
+          } else if (post.previewUrl && !post.previewUrl.startsWith('http')) {
+            const sessionId = await createSignedUrlSession(currentUser._id, post.previewUrl);
+            post.contentUrl = `/media/${sessionId}`;
+          } else {
+            post.contentUrl = '/Uploads/placeholder.png';
+          }
         } catch (err) {
-          logger.error(`Failed to generate signed URL for post: ${err.message}`);
+          logger.error(`Failed to create signed URL session for post: ${err.message}`);
           post.contentUrl = '/Uploads/placeholder.png';
         }
-        if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
-          try {
-            post.posterUrl = await generateSignedUrl(post.posterUrl);
-          } catch (err) {
-            logger.error(`Failed to generate signed URL for post poster: ${err.message}`);
-            post.posterUrl = null;
-          }
+      }
+
+      // Process the poster URL for single video posts
+      if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
+        try {
+          const sessionId = await createSignedUrlSession(currentUser._id, post.posterUrl);
+          post.posterUrl = `/media/${sessionId}`;
+        } catch (err) {
+          logger.error(`Failed to create signed URL session for post poster: ${err.message}`);
+          post.posterUrl = null;
         }
       }
     }
@@ -182,7 +163,16 @@ router.get('/', authCheck, async (req, res) => {
 });
 
 // Bookmark status endpoint
-router.get('/:postId/bookmark-status', authCheck, async (req, res) => {
+router.get('/:postId/bookmark-status', authCheck, [
+  param('postId')
+    .isMongoId().withMessage('Invalid post ID')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in GET /:postId/bookmark-status: ' + JSON.stringify(errors.array()));
+    return res.status(400).json({ message: errors.array().map(err => err.msg).join(', ') });
+  }
+
   try {
     const user = await User.findById(req.user._id);
     const isBookmarked = user.bookmarks.some(

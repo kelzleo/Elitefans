@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/users');
 const Post = require('../models/Post');
-const { generateSignedUrl } = require('../utilis/cloudStorage');
+const { createSignedUrlSession } = require('../utilis/cloudStorage');
 const logger = require('../logs/logger');
 
 // Authentication middleware
@@ -35,24 +35,29 @@ const renderTaggedWriteUp = (writeUp, taggedUsers) => {
 };
 
 // Helper to process post URLs for purchased content
-const processPostUrls = async (posts) => {
+const processPostUrls = async (posts, currentUser) => {
   for (const post of posts) {
+    // All posts are purchased special content, so no locked status
+    post.locked = false;
+
     // Process mediaItems (new schema)
     if (post.mediaItems?.length > 0) {
       for (const item of post.mediaItems) {
         if (item.url && !item.url.startsWith('http')) {
           try {
-            item.url = await generateSignedUrl(item.url);
+            const sessionId = await createSignedUrlSession(currentUser._id, item.url);
+            item.url = `/media/${sessionId}`;
           } catch (err) {
-            logger.error(`Failed to generate signed URL for mediaItem ${item.url}: ${err.message}`);
+            logger.error(`Failed to create signed URL session for mediaItem ${item.url}: ${err.message}`);
             item.url = `/Uploads/placeholder-${item.type}.png`;
           }
         }
         if (item.type === 'video' && item.posterUrl && !item.posterUrl.startsWith('http')) {
           try {
-            item.posterUrl = await generateSignedUrl(item.posterUrl);
+            const sessionId = await createSignedUrlSession(currentUser._id, item.posterUrl);
+            item.posterUrl = `/media/${sessionId}`;
           } catch (err) {
-            logger.error(`Failed to generate signed URL for media item poster: ${err.message}`);
+            logger.error(`Failed to create signed URL session for media item poster: ${err.message}`);
             item.posterUrl = null;
           }
         }
@@ -62,17 +67,19 @@ const processPostUrls = async (posts) => {
     // Process contentUrl and posterUrl (legacy schema)
     if (post.contentUrl && !post.contentUrl.startsWith('http')) {
       try {
-        post.contentUrl = await generateSignedUrl(post.contentUrl);
+        const sessionId = await createSignedUrlSession(currentUser._id, post.contentUrl);
+        post.contentUrl = `/media/${sessionId}`;
       } catch (err) {
-        logger.error(`Failed to generate signed URL for post: ${err.message}`);
+        logger.error(`Failed to create signed URL session for post: ${err.message}`);
         post.contentUrl = '/Uploads/placeholder.png';
       }
     }
     if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
       try {
-        post.posterUrl = await generateSignedUrl(post.posterUrl);
+        const sessionId = await createSignedUrlSession(currentUser._id, post.posterUrl);
+        post.posterUrl = `/media/${sessionId}`;
       } catch (err) {
-        logger.error(`Failed to generate signed URL for post poster: ${err.message}`);
+        logger.error(`Failed to create signed URL session for post poster: ${err.message}`);
         post.posterUrl = null;
       }
     }
@@ -100,11 +107,8 @@ router.get('/', authCheck, async (req, res) => {
     // Filter valid purchased posts (only special content)
     const purchasedPosts = currentUser.purchasedContent
       .filter(p => {
-        if (!p.contentId) {
-          logger.warn('Invalid contentId in purchasedContent for user');
-          return false;
-        }
-        if (!p.contentId.special) {
+        if (!p.contentId || !p.contentId.special) {
+          logger.warn(`Invalid or non-special contentId in purchasedContent for user: ${p.contentId?._id}`);
           return false;
         }
         return true;
@@ -114,18 +118,18 @@ router.get('/', authCheck, async (req, res) => {
 
     // Process URLs for all purchased posts
     if (purchasedPosts.length > 0) {
-      await processPostUrls(purchasedPosts);
+      await processPostUrls(purchasedPosts, currentUser);
     }
 
     res.render('purchased-content', {
       user: currentUser,
       currentUser,
-      isSubscribed: false,
+      isSubscribed: true,
       posts: purchasedPosts.sort((a, b) => b.createdAt - a.createdAt)
     });
   } catch (err) {
     logger.error(`Error loading purchased content: ${err.message}`);
-    req.flash('error', 'Error loading purchased content.');
+    req.flash('error', 'Something went wrong while loading your content.');
     res.redirect('/profile');
   }
 });

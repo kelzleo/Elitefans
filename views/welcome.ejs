@@ -32,7 +32,11 @@
       </a>
     </div>
     <h1 class="wel-tagline">
-      Sign up to support your<br>favorite creators
+      <% if (typeof creator !== 'undefined' && creator) { %>
+        Sign up to subscribe to<br>@<%= creator %>
+      <% } else { %>
+        Sign up to support your<br>favorite creators
+      <% } %>
     </h1>
   </div>
 
@@ -40,13 +44,21 @@
   <div class="wel-right-section">
     <div class="wel-signup-options">
       <p>
-        Don't have an account?
+        <% if (typeof creator !== 'undefined' && creator) { %>
+          New to EliteFans?
+        <% } else { %>
+          Don't have an account?
+        <% } %>
         <span class="wel-getstarted-box">
           <a
             href="/signup<%= typeof ref !== 'undefined' && ref ? `?ref=${encodeURIComponent(ref)}` : '' %><%= creator ? `${typeof ref !== 'undefined' && ref ? '&' : '?'}creator=${encodeURIComponent(creator)}` : '' %>"
             class="wel-signup-link"
           >
-            Get Started
+            <% if (creator) { %>
+              Create Account
+            <% } else { %>
+              Get Started
+            <% } %>
           </a>
         </span>
       </p>
@@ -70,8 +82,8 @@
     <div class="wel-content-section">
       <div class="wel-welcome-container">
         <% if (typeof creator !== 'undefined' && creator) { %>
-          <h2 class="wel-heading">Welcome Back</h2>
-          <p class="wel-subheading">Sign up or log in to subscribe to <%= creator %></p>
+          <h2 class="wel-heading">Subscribe to @<%= creator %></h2>
+          <p class="wel-subheading">Sign in to your account or create a new one to start supporting this creator</p>
         <% } else { %>
           <h2 class="wel-heading">Welcome Back</h2>
           <p class="wel-subheading">Sign up to meet and support your favorite creators</p>
@@ -118,7 +130,13 @@
             <span class="wel-toggle-password" aria-label="Toggle password visibility">👁️</span>
           </div>
 
-          <button type="submit" class="wel-button-login">Sign In</button>
+          <button type="submit" class="wel-button-login">
+            <% if (creator) { %>
+              Sign In to Subscribe
+            <% } else { %>
+              Sign In
+            <% } %>
+          </button>
         </form>
 
         <div class="wel-forgot-password">
@@ -136,6 +154,23 @@
             </a>
           </div>
         </div>
+
+        <% if (creator) { %>
+          <div class="wel-creator-signup-section">
+            <div class="wel-divider">
+              <span class="wel-divider-text">New to EliteFans?</span>
+            </div>
+            <a
+              href="/signup<%= `?creator=${encodeURIComponent(creator)}` %><%= typeof ref !== 'undefined' && ref ? `&ref=${encodeURIComponent(ref)}` : '' %>"
+              class="wel-button-signup"
+            >
+              Create Account to Subscribe
+            </a>
+            <p class="wel-creator-benefit">
+              Join thousands of fans supporting their favorite creators on EliteFans
+            </p>
+          </div>
+        <% } %>
       </div>
     </div>
   </div>

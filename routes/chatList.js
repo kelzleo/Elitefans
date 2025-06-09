@@ -31,12 +31,12 @@ router.get('/', authCheck, async (req, res) => {
           message.sender.toString() !== currentUser._id.toString() &&
           !message.readBy.includes(currentUser._id.toString())
       );
-      
+
       // Get the latest message (text or media)
-      const latestMessage = chat.messages.length > 0 
-        ? chat.messages.sort((a, b) => b.timestamp - a.timestamp)[0] 
+      const latestMessage = chat.messages.length > 0
+        ? chat.messages.sort((a, b) => b.timestamp - a.timestamp)[0]
         : null;
-      
+
       // Determine preview content and timestamp
       let previewText = 'No messages yet.';
       let mediaType = null;
@@ -60,14 +60,14 @@ router.get('/', authCheck, async (req, res) => {
         });
       }
 
-      return { 
-        ...chat.toObject(), 
-        hasUnread, 
-        previewText, 
-        mediaType, 
-        isTip, 
+      return {
+        ...chat.toObject(),
+        hasUnread,
+        previewText,
+        mediaType,
+        isTip,
         tipAmount,
-        lastMessageTime 
+        lastMessageTime
       };
     });
 

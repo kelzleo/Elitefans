@@ -1,8 +1,9 @@
 // routes/notifications.js
 const express = require('express');
 const router = express.Router();
-const Notification = require('../models/notifications'); // Correct filename (plural)
-const logger = require('../logs/logger'); // Import Winston logger
+const Notification = require('../models/notifications');
+const logger = require('../logs/logger');
+const { param, validationResult } = require('express-validator');
 
 // Authentication middleware
 function authCheck(req, res, next) {
@@ -19,7 +20,7 @@ router.get('/', authCheck, async (req, res) => {
     const notifications = await Notification.find({ user: req.user._id })
       .sort({ createdAt: -1 })
       .limit(50)
-      .lean(); // Optimize query performance
+      .lean();
     res.render('notifications', {
       notifications,
       errorMessage: req.flash('error'),
@@ -33,7 +34,17 @@ router.get('/', authCheck, async (req, res) => {
 });
 
 // POST /notifications/:id/read - Mark a notification as read
-router.post('/:id/read', authCheck, async (req, res) => {
+router.post('/:id/read', authCheck, [
+  param('id')
+    .isMongoId().withMessage('Invalid notification ID')
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn('Validation errors in POST /notifications/:id/read: ' + JSON.stringify(errors.array()));
+    req.flash('error', errors.array().map(err => err.msg).join(', '));
+    return res.redirect('/notifications');
+  }
+
   try {
     const notification = await Notification.findOne({
       _id: req.params.id,
