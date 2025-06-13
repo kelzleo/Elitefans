@@ -144,22 +144,24 @@
     <p>No purchased content available.</p>
   <% } %>
 
-  <!-- Lightbox HTML -->
-  <div id="lightbox" class="hidden">
-    <div id="lb-backdrop"></div>
-    <div id="lb-content">
-      <button id="lb-close" aria-label="Close fullscreen">×</button>
-      <img id="lb-img" class="lb-media" alt="">
-      <video id="lb-vid" class="lb-media" controlsList="nodownload noremoteplayback" disablePictureInPicture></video>
-      <div class="custom-controls" id="custom-controls">
-        <button class="control-btn" id="play-pause">▶</button>
-        <div class="progress-container" id="progress-container">
-          <div class="progress-bar" id="progress-bar"></div>
-        </div>
-        <button class="control-btn" id="mute-unmute">🔊</button>
+  <!-- Lightbox HTML with custom controls -->
+<div id="lightbox" class="hidden">
+  <div id="lb-backdrop"></div>
+  <div id="lb-content">
+    <button id="lb-close" aria-label="Close fullscreen">×</button>
+    <img id="lb-img" class="lb-media" alt="">
+    <video id="lb-vid" class="lb-media" controlsList="nodownload noremoteplayback" disablePictureInPicture></video>
+    
+    <!-- Custom video controls -->
+    <div class="custom-controls" id="custom-controls">
+      <button class="control-btn" id="play-pause">▶</button>
+      <div class="progress-container" id="progress-container">
+        <progress class="progress-bar" id="progress-bar" value="0" max="100"></progress>
       </div>
+      <button class="control-btn" id="mute-unmute">🔊</button>
     </div>
   </div>
+</div>
 
   <!-- Post Action Modal -->
   <div id="postActionModal" class="post-action-modal hidden">

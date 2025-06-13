@@ -51,7 +51,7 @@ const generateSignedUrl = async (filename) => {
   const options = {
     version: 'v4',
     action: 'read',
-    expires: Date.now() + 5 * 60 * 1000, // Changed from 15 to 5 minutes
+    expires: Date.now() + 5 * 60 * 1000, // Still 5 minutes for the actual signed URL
   };
   try {
     const [url] = await bucket.file(filename).getSignedUrl(options);
@@ -62,26 +62,48 @@ const generateSignedUrl = async (filename) => {
   }
 };
 
-// 3. NEW: Function to create and store signed URL session
+// Function to create and store signed URL session (now with 24hr session expiry)
 const createSignedUrlSession = async (userId, filename) => {
   const SignedUrlSession = require('../models/signedUrlSession');
   
   try {
+    // Check if an active session already exists for this user/filename
+    const existingSession = await SignedUrlSession.findOne({
+      userId,
+      filename,
+      sessionExpiresAt: { $gt: new Date() },
+      isActive: true
+    });
+
+    if (existingSession) {
+      // Update last accessed time and return existing session ID
+      existingSession.lastAccessed = new Date();
+      await existingSession.save();
+      return existingSession._id;
+    }
+
     // Generate signed URL
     const signedUrl = await generateSignedUrl(filename);
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-    
-    // Remove any existing session for this user/filename combination
-    await SignedUrlSession.deleteMany({ userId, filename });
-    
+    const signedUrlExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes for signed URL
+    const sessionExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours for session
+
+    // Remove any existing expired sessions for this user/filename combination
+    await SignedUrlSession.deleteMany({
+      userId,
+      filename,
+      sessionExpiresAt: { $lt: new Date() }
+    });
+
     // Create new session
     const session = new SignedUrlSession({
       userId,
       filename,
       signedUrl,
-      expiresAt
+      signedUrlExpiresAt,
+      sessionExpiresAt,
+      lastAccessed: new Date()
     });
-    
+
     await session.save();
     return session._id; // Return session ID instead of signed URL
   } catch (err) {
@@ -90,6 +112,105 @@ const createSignedUrlSession = async (userId, filename) => {
   }
 };
 
+// NEW: Function to regenerate signed URL for an existing session
+const regenerateSignedUrl = async (sessionId) => {
+  const SignedUrlSession = require('../models/signedUrlSession');
+  
+  try {
+    const session = await SignedUrlSession.findById(sessionId);
+    if (!session || !session.isActive || new Date() > session.sessionExpiresAt) {
+      throw new Error('Session not found or expired');
+    }
+
+    // Generate new signed URL
+    const newSignedUrl = await generateSignedUrl(session.filename);
+    const newSignedUrlExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    // Update the session with new signed URL
+    session.signedUrl = newSignedUrl;
+    session.signedUrlExpiresAt = newSignedUrlExpiresAt;
+    session.lastAccessed = new Date();
+    
+    await session.save();
+    
+    logger.info(`Regenerated signed URL for session ${sessionId}`);
+    return session;
+  } catch (err) {
+    logger.error(`Error regenerating signed URL for session ${sessionId}: ${err.message}`);
+    throw err;
+  }
+};
+
+// NEW: Function to invalidate all sessions for a user (for logout)
+const invalidateUserSessions = async (userId) => {
+  const SignedUrlSession = require('../models/signedUrlSession');
+  
+  try {
+    await SignedUrlSession.updateMany(
+      { userId, isActive: true },
+      { 
+        isActive: false,
+        sessionExpiresAt: new Date() // Set to expire immediately
+      }
+    );
+    logger.info(`Invalidated all sessions for user ${userId}`);
+  } catch (err) {
+    logger.error(`Error invalidating sessions for user ${userId}: ${err.message}`);
+    throw err;
+  }
+};
+
+// NEW: Background job to regenerate expiring signed URLs
+const regenerateExpiring = async () => {
+  const SignedUrlSession = require('../models/signedUrlSession');
+  
+  try {
+    // Find sessions where signed URL expires in the next 2 minutes
+    const expiringThreshold = new Date(Date.now() + 2 * 60 * 1000);
+    const expiringSessions = await SignedUrlSession.find({
+      signedUrlExpiresAt: { $lt: expiringThreshold },
+      sessionExpiresAt: { $gt: new Date() },
+      isActive: true
+    });
+
+    for (const session of expiringSessions) {
+      try {
+        await regenerateSignedUrl(session._id);
+      } catch (err) {
+        logger.error(`Failed to regenerate session ${session._id}: ${err.message}`);
+      }
+    }
+
+    if (expiringSessions.length > 0) {
+      logger.info(`Regenerated ${expiringSessions.length} expiring signed URLs`);
+    }
+  } catch (err) {
+    logger.error(`Error in regenerateExpiring job: ${err.message}`);
+  }
+};
+
+// NEW: Function to extend session activity (reset 24hr timer)
+const extendSessionActivity = async (userId) => {
+  const SignedUrlSession = require('../models/signedUrlSession');
+  
+  try {
+    const newSessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    
+    await SignedUrlSession.updateMany(
+      { 
+        userId, 
+        isActive: true,
+        sessionExpiresAt: { $gt: new Date() }
+      },
+      { 
+        sessionExpiresAt: newSessionExpiry,
+        lastAccessed: new Date()
+      }
+    );
+  } catch (err) {
+    logger.error(`Error extending session activity for user ${userId}: ${err.message}`);
+  }
+};
 // Function to generate a signed URL for chat media, with authorization check
 const generateSignedUrlForChatMedia = async (filename, userId, chatId) => {
   const Chat = require('../models/chat');
@@ -338,6 +459,10 @@ module.exports = {
   profileBucket,
   generateSignedUrl,
   createSignedUrlSession,
+  regenerateSignedUrl,
+  invalidateUserSessions,
+  regenerateExpiring,
+  extendSessionActivity,
   creatorRequestsBucket,
   generateSignedUrlForCreatorRequest,
   chatBucket,

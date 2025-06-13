@@ -10,6 +10,7 @@ const SubscriptionBundle = require('../models/SubscriptionBundle');
 const Notification = require('../models/notifications');
 const logger = require('../logs/logger');
 const { body, query, validationResult } = require('express-validator');
+const { invalidateUserSessions } = require('../utilis/cloudStorage');
 
 router.get('/', [
   query('creator')
@@ -385,10 +386,14 @@ router.get('/signup', (req, res) => {
 router.get('/logout', async (req, res, next) => {
   try {
     if (req.user) {
-      await User.findByIdAndUpdate(req.user._id, {
+      const userId = req.user._id;
+      // Update user status
+      await User.findByIdAndUpdate(userId, {
         isOnline: false,
         lastSeen: new Date(),
       });
+      // Invalidate all signed URL sessions for this user
+      await invalidateUserSessions(userId);
     }
     req.logout(function (err) {
       if (err) {
@@ -402,7 +407,6 @@ router.get('/logout', async (req, res, next) => {
     res.redirect('/');
   }
 });
-
 router.get('/google', (req, res, next) => {
   if (req.query.ref) {
     req.session.referralId = req.query.ref;

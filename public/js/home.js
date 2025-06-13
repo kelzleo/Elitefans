@@ -16,6 +16,8 @@ const progressContainer = document.getElementById('progress-container');
 const progressBar = document.getElementById('progress-bar');
 const muteUnmuteBtn = document.getElementById('mute-unmute');
 
+
+
 // Check if all required elements exist
 if (!lightbox || !lbBackdrop || !lbContent || !lbClose || !lbImg || !lbVid || !customControls || !playPauseBtn || !progressContainer || !progressBar || !muteUnmuteBtn) {
   if (isDevEnv) {

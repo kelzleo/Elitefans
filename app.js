@@ -23,6 +23,8 @@ const { body, param,  validationResult } = require('express-validator'); // Adde
 const SignedUrlSession = require('./models/signedUrlSession');
 const axios = require('axios'); // Add this import
 
+const { regenerateSignedUrl, extendSessionActivity, regenerateExpiring } = require('./utilis/cloudStorage')
+
 // Import configuration and keys
 const keys = require('./config/keys');
 require('./config/passport-setup');
@@ -253,26 +255,70 @@ app.post('/store-redirect', [
     res.status(200).json({ status: 'success' });
   });
 });
+
+const startBackgroundJobs = () => {
+  // Run immediately on startup
+  regenerateExpiring();
+  
+  // Then run every minute
+  setInterval(async () => {
+    try {
+      await regenerateExpiring();
+    } catch (err) {
+      logger.error(`Background job error: ${err.message}`);
+    }
+  }, 60 * 1000); // Run every minute
+  
+  logger.info('Background jobs started for signed URL regeneration');
+};
+
+// Call this when your server starts
+startBackgroundJobs();
 app.get('/media/:sessionId', [
   // Validate sessionId as a URL parameter and ensure it's a valid MongoDB ObjectId
   param('sessionId').isMongoId().withMessage('Invalid session ID')
 ], async (req, res) => {
+  
   try {
+    logger.debug(`Request to /media/${req.params.sessionId}, User: ${req.user ? req.user._id : 'none'}`);
     if (!req.user) {
+      logger.warn(`No user authenticated for /media/${req.params.sessionId}`);
       return res.status(401).json({ error: 'Authentication required' });
     }
     const { sessionId } = req.params;
     const userId = req.user._id;
 
-    const session = await SignedUrlSession.findOne({ _id: sessionId, userId });
+    let session = await SignedUrlSession.findOne({ 
+      _id: sessionId, 
+      userId,
+      isActive: true 
+    });
+    
     if (!session) {
       logger.warn(`Invalid or unauthorized media access by user ${userId} for session ${sessionId}`);
       return res.status(403).json({ error: 'Access denied' });
     }
-    if (new Date() > session.expiresAt) {
-      logger.warn(`Expired media access by user ${userId} for session ${sessionId}`);
+    
+    // Check if session has expired
+    if (new Date() > session.sessionExpiresAt) {
+      logger.warn(`Expired session access by user ${userId} for session ${sessionId}`);
       await SignedUrlSession.deleteOne({ _id: sessionId });
-      return res.status(403).json({ error: 'Access expired' });
+      return res.status(403).json({ error: 'Session expired' });
+    }
+
+    // Check if signed URL is about to expire (within 2 minutes) and regenerate
+    const twoMinutesFromNow = new Date(Date.now() + 2 * 60 * 1000);
+    if (session.signedUrlExpiresAt < twoMinutesFromNow) {
+      logger.info(`Regenerating signed URL for session ${sessionId} on access`);
+      session = await regenerateSignedUrl(sessionId);
+    }
+
+    // Extend user session activity (reset 24hr timer for all user sessions)
+    try {
+      await extendSessionActivity(userId);
+    } catch (err) {
+      logger.warn(`Failed to extend session activity for user ${userId}: ${err.message}`);
+      // Don't fail the request for this
     }
 
     const method = req.method.toLowerCase();
@@ -280,7 +326,7 @@ app.get('/media/:sessionId', [
       return res.status(405).send('Method not allowed');
     }
 
-    // Fetch stream from storage
+    // Fetch stream from storage using the current (possibly regenerated) signed URL
     const axiosConfig = {
       method,
       url: session.signedUrl,
@@ -297,9 +343,7 @@ app.get('/media/:sessionId', [
     // Build response headers
     const headers = {
       'Content-Type': axiosResponse.headers['content-type'] || 'application/octet-stream',
-      'Cache-Control': 'private, no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0',
+      'Cache-Control': 'private, max-age=300', // Cache for 5 minutes
       'Connection': 'keep-alive'
     };
     if (method === 'get') {
@@ -318,7 +362,7 @@ app.get('/media/:sessionId', [
       return res.status(axiosResponse.status).end();
     }
 
-    // --- NEW: suppress benign aborts ---
+    // --- Stream handling (unchanged) ---
     let completed = false;
     res.on('finish', () => { completed = true; });
 
@@ -337,9 +381,8 @@ app.get('/media/:sessionId', [
         }
       }
     });
-    // no req.on('close') handler needed
-    // --- end NEW logic ---
-
+    // --- end stream handling ---
+    
   } catch (err) {
     if (err.response) {
       logger.warn(`Storage provider error for session ${req.params.sessionId}: ${err.response.status} ${err.response.statusText}`);
@@ -349,7 +392,6 @@ app.get('/media/:sessionId', [
     res.status(500).json({ error: 'Internal server error' });
   }
 });
-
 // Media upload route for chat
 const { chatBucket: bucket } = require('./utilis/cloudStorage');
 app.post('/chat/upload-media', upload.single('media'), [

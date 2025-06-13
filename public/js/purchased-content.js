@@ -14,6 +14,8 @@ const progressContainer = document.getElementById('progress-container');
 const progressBar = document.getElementById('progress-bar');
 const muteUnmuteBtn = document.getElementById('mute-unmute');
 
+
+
 // Check if all required elements exist
 if (!lightbox || !lbBackdrop || !lbContent || !lbClose || !lbImg || !lbVid || !customControls || !playPauseBtn || !progressContainer || !progressBar || !muteUnmuteBtn) {
   if (isDevEnv) {
@@ -231,7 +233,6 @@ lbContent.addEventListener('touchend', e => {
 
 // Debug: Log initialization
 if (isDevEnv) console.log('Lightbox script initialized');
-
   // --- Like Button ---
   document.querySelectorAll('.like-button').forEach(button => {
     button.addEventListener('click', async function() {
