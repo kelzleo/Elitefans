@@ -1,7 +1,5 @@
 <!-- views/signup.ejs -->
-
 <div class="sel-signup-page">
-
   <!-- 1. Top “Already have an account?” box -->
   <div class="sel-signup-options">
     <p>
@@ -11,7 +9,7 @@
           // Build query string for redirect back to welcome ("/")
           const queryParts = [];
           if (creator) queryParts.push('creator=' + encodeURIComponent(creator));
-          if (ref)     queryParts.push('ref='     + encodeURIComponent(ref));
+          if (ref) queryParts.push('ref=' + encodeURIComponent(ref));
         %>
         <a
           href="/<%= queryParts.length ? '?' + queryParts.join('&') : '' %>"
@@ -101,9 +99,10 @@
       </form>
     </div>
   </div>
-
 </div><!-- /.sel-signup-page -->
+
+<!-- Load FingerprintJS and scripts -->
+
 <script src="/scripts/utils.js"></script>
-<script src="/js/signup.js" defer>
- 
-</script>
+<script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
+<script src="/js/signup.js" defer></script>

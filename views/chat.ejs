@@ -93,23 +93,25 @@
     <% } %>
   </div>
   <form id="messageForm" class="message-form" enctype="multipart/form-data">
-    <input type="hidden" id="chatId" value="<%= chat._id %>">
-    <input type="hidden" id="sender" value="<%= currentUser._id %>">
-    <div class="message-input-wrapper">
-      <label for="mediaInput" class="input-icon media-icon"><i class="fa fa-image"></i></label>
-      <input type="file" id="mediaInput" accept="image/*,video/*" style="display: none;">
-      <button type="button" class="input-icon tip-icon tip-chat-button" data-creator-id="<%= creator._id %>" title="Tip <%= creator.username %>">
-        <i class="fa fa-gift"></i>
-      </button>
-      <div id="mediaPreview" class="media-preview"></div>
-      <input type="text" id="messageInput" placeholder="Type your message here..." autocomplete="off">
-      <button type="button" class="input-icon smiley-icon" id="emojiToggle" title="Add emoji">
-        <i class="fa-solid fa-face-smile"></i>
-      </button>
-      <div id="emojiPicker" class="emoji-picker hidden"></div>
-      <button type="submit" class="send-button"><i class="fa fa-paper-plane"></i></button>
-    </div>
-  </form>
+  <input type="hidden" id="chatId" value="<%= chat._id %>">
+  <input type="hidden" id="sender" value="<%= currentUser._id %>">
+  <div class="message-input-wrapper">
+    <label for="mediaInput" class="input-icon media-icon" aria-label="Upload media">
+      <i class="fa fa-image"></i>
+    </label>
+    <input type="file" id="mediaInput" class="media-input" accept="image/*,video/*" aria-hidden="true">
+    <button type="button" class="input-icon tip-icon tip-chat-button" data-creator-id="<%= creator._id %>" title="Tip <%= creator.username %>">
+      <i class="fa fa-gift"></i>
+    </button>
+    <div id="mediaPreview" class="media-preview"></div>
+    <input type="text" id="messageInput" autocomplete="off" placeholder="Type your message here...">
+    <button type="button" class="input-icon smiley-icon" id="emojiToggle" title="Add emoji">
+      <i class="fa-solid fa-face-smile"></i>
+    </button>
+    <div id="emojiPicker" class="emoji-picker hidden"></div>
+    <button type="submit" class="send-button"><i class="fa fa-paper-plane"></i></button>
+  </div>
+</form>
 
   <!-- Tip Modal (Mirrors profile.ejs) -->
   <div id="tipModal" class="tip-modal">

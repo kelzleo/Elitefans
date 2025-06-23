@@ -10,7 +10,7 @@ const authCheck = (req, res, next) => {
   if (!req.user) {
     logger.warn('Unauthorized access attempt to chat page');
     req.flash('error_msg', 'You must be logged in to access chat.');
-    return res.redirect('/users/login');
+    return res.redirect('/');
   }
   next();
 };

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const passport = require('passport');
 const bcrypt = require('bcrypt');
+const rateLimit = require('express-rate-limit');
+const MongoStore = require('rate-limit-mongo');
 const User = require('../models/users');
 const crypto = require('crypto');
 const sendEmail = require('../config/sendEmail');
@@ -11,6 +13,67 @@ const Notification = require('../models/notifications');
 const logger = require('../logs/logger');
 const { body, query, validationResult } = require('express-validator');
 const { invalidateUserSessions } = require('../utilis/cloudStorage');
+
+// MongoDB Store Configuration
+const mongoStore = new MongoStore({
+  uri: process.env.MONGO_URI,
+  collectionName: 'rateLimits',
+  expireTimeMs: 60 * 60 * 1000, // 1 hour
+});
+
+// Rate Limiters for Different Endpoints
+const loginLimiter = rateLimit({
+  store: mongoStore,
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 10, // Relaxed to 10 attempts per minute
+  keyGenerator: (req) => {
+    return req.body.fingerprint || req.query.fingerprint || req.ip;
+  },
+  message: 'Too many login attempts from this device, please try again soon',
+});
+
+const signupLimiter = rateLimit({
+  store: mongoStore,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // Relaxed to 5 attempts per hour
+  keyGenerator: (req) => {
+    return req.body.fingerprint || req.query.fingerprint || req.ip;
+  },
+  message: 'Too many accounts created from this device, please try again after an hour',
+});
+
+const forgotPasswordLimiter = rateLimit({
+  store: mongoStore,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 5, // Relaxed to 5 attempts
+  keyGenerator: (req) => {
+    const fingerprint = req.body.fingerprint || req.query.fingerprint || req.ip;
+    return fingerprint + (req.body.email ? req.body.email.toLowerCase() : '');
+  },
+  message: 'Too many password reset requests from this device, please try again after an hour',
+});
+
+const resetPasswordLimiter = rateLimit({
+  store: mongoStore,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 15, // Relaxed to 15 attempts
+  keyGenerator: (req) => {
+    const fingerprint = req.body.fingerprint || req.query.fingerprint || req.ip;
+    return fingerprint + req.params.token;
+  },
+  message: 'Too many attempts from this device, please try again after an hour',
+});
+
+const verifyLimiter = rateLimit({
+  store: mongoStore,
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 15, // Relaxed to 15 attempts
+  keyGenerator: (req) => {
+    const fingerprint = req.query.fingerprint || req.ip;
+    return fingerprint + req.params.token;
+  },
+  message: 'Too many verification attempts from this device, please try again after an hour',
+});
 
 router.get('/', [
   query('creator')
@@ -68,7 +131,7 @@ router.get('/', [
   });
 });
 
-router.post('/signup', [
+router.post('/signup', signupLimiter, [
   body('username')
     .trim()
     .notEmpty().withMessage('Username is required')
@@ -101,10 +164,13 @@ router.post('/signup', [
     .trim()
     .escape()
     .isLength({ max: 50 }).withMessage('Creator username must be 50 characters or less')
-    .matches(/^[a-zA-Z0-9_]+$/).withMessage('Creator username must be alphanumeric with underscores')
+    .matches(/^[a-zA-Z0-9_]+$/).withMessage('Creator username must be alphanumeric with underscores'),
+  body('fingerprint')
+    .optional()
+    .isString().withMessage('Invalid fingerprint')
 ], async (req, res) => {
   const errors = validationResult(req);
-  const { username, email, creator } = req.body;
+  const { username, email, creator, fingerprint } = req.body;
   const queryCreator = req.query.creator;
   const sessionCreator = req.session.creator;
   const ref = req.query.ref || req.body.ref || req.session.referralId;
@@ -114,7 +180,8 @@ router.post('/signup', [
     return res.render('signup', {
       errorMessage: errors.array().map(err => err.msg).join(', '),
       ref: ref || '',
-      creator: creator || queryCreator || sessionCreator || ''
+      creator: creator || queryCreator || sessionCreator || '',
+      fingerprint: fingerprint || req.query.fingerprint || ''
     });
   }
 
@@ -124,7 +191,8 @@ router.post('/signup', [
       return res.render('signup', {
         errorMessage: 'Email or username already exists',
         ref: ref || '',
-        creator: creator || queryCreator || sessionCreator || ''
+        creator: creator || queryCreator || sessionCreator || '',
+        fingerprint: fingerprint || req.query.fingerprint || ''
       });
     }
 
@@ -177,7 +245,7 @@ router.post('/signup', [
     await newUser.save();
     delete req.session.referralId;
 
-    const verificationLink = `https://onlyaccess.onrender.com/verify/${verificationToken}${creatorParam ? `?creator=${encodeURIComponent(creatorParam)}` : ''}${ref ? `${creatorParam ? '&' : '?'}ref=${encodeURIComponent(ref)}` : ''}`;
+    const verificationLink = `https://onlyaccess.onrender.com/verify/${verificationToken}${creatorParam ? `?creator=${encodeURIComponent(creatorParam)}` : ''}${ref ? `${creatorParam ? '&' : '?'}ref=${encodeURIComponent(ref)}` : ''}${fingerprint ? `${creatorParam || ref ? '&' : '?'}fingerprint=${encodeURIComponent(fingerprint)}` : ''}`;
     await sendEmail(
       email,
       'Verify Your Email',
@@ -188,19 +256,21 @@ router.post('/signup', [
     res.render('welcome', {
       errorMessage: 'Check your email to verify your account.',
       creator: creatorParam || '',
-      ref: ref || ''
+      ref: ref || '',
+      fingerprint: fingerprint || req.query.fingerprint || ''
     });
   } catch (error) {
     logger.error(`Error signing up user: ${error.message}`);
     res.render('signup', {
       errorMessage: 'An error occurred while signing up. Please try again.',
       ref: ref || '',
-      creator: creator || queryCreator || sessionCreator || ''
+      creator: creator || queryCreator || sessionCreator || '',
+      fingerprint: fingerprint || req.query.fingerprint || ''
     });
   }
 });
 
-router.get('/verify/:token', [
+router.get('/verify/:token', verifyLimiter, [
   query('creator')
     .optional()
     .trim()
@@ -209,7 +279,10 @@ router.get('/verify/:token', [
     .matches(/^[a-zA-Z0-9_]+$/).withMessage('Creator username must be alphanumeric with underscores'),
   query('ref')
     .optional()
-    .isMongoId().withMessage('Invalid referral ID')
+    .isMongoId().withMessage('Invalid referral ID'),
+  query('fingerprint')
+    .optional()
+    .isString().withMessage('Invalid fingerprint')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -217,13 +290,14 @@ router.get('/verify/:token', [
     return res.render('welcome', {
       errorMessage: errors.array().map(err => err.msg).join(', '),
       creator: req.query.creator || req.session.creator || '',
-      ref: req.query.ref || ''
+      ref: req.query.ref || '',
+      fingerprint: req.query.fingerprint || ''
     });
   }
 
   try {
     const { token } = req.params;
-    const { creator, ref } = req.query;
+    const { creator, ref, fingerprint } = req.query;
 
     const user = await User.findOne({ verificationToken: token });
     if (!user) {
@@ -231,15 +305,17 @@ router.get('/verify/:token', [
       if (alreadyVerifiedUser) {
         return res.render('welcome', {
           errorMessage: 'Your email is already verified. Please log in.',
-          creator: req.query.creator || req.session.creator || '',
-          ref: req.query.ref || ''
+          creator: creator || req.session.creator || '',
+          ref: ref || '',
+          fingerprint: fingerprint || ''
         });
       }
       logger.warn('Invalid or expired verification token');
       return res.render('welcome', {
         errorMessage: 'Invalid or expired verification link.',
-        creator: req.query.creator || req.session.creator || '',
-        ref: req.query.ref || ''
+        creator: creator || req.session.creator || '',
+        ref: ref || '',
+        fingerprint: fingerprint || ''
       });
     }
 
@@ -329,8 +405,9 @@ router.get('/verify/:token', [
         logger.error(`Login error after verification: ${err.message}`);
         return res.render('welcome', {
           errorMessage: 'Error logging in after verification. Please try logging in manually.',
-          creator: req.query.creator || req.session.creator || '',
-          ref: req.query.ref || ''
+          creator: creator || req.session.creator || '',
+          ref: ref || '',
+          fingerprint: fingerprint || ''
         });
       }
 
@@ -359,8 +436,9 @@ router.get('/verify/:token', [
         logger.error(`Error during post-verification login: ${error.message}`);
         return res.render('welcome', {
           errorMessage: 'Error processing login after verification. Please try logging in manually.',
-          creator: req.query.creator || req.session.creator || '',
-          ref: req.query.ref || ''
+          creator: creator || req.session.creator || '',
+          ref: ref || '',
+          fingerprint: fingerprint || ''
         });
       }
     });
@@ -368,18 +446,21 @@ router.get('/verify/:token', [
     logger.error(`Error verifying email: ${error.message}`);
     res.render('welcome', {
       errorMessage: 'An error occurred. Please try again.',
-      creator: req.query.creator || req.session.creator || '',
-      ref: req.query.ref || ''
+      creator: creator || req.session.creator || '',
+      ref: ref || '',
+      fingerprint: fingerprint || ''
     });
   }
 });
 
 router.get('/signup', (req, res) => {
   const creator = req.query.creator || req.session.creator || '';
+  const fingerprint = req.query.fingerprint || '';
   res.render('signup', {
     errorMessage: '',
     ref: req.query.ref || req.session.referralId || '',
-    creator: creator
+    creator: creator,
+    fingerprint: fingerprint
   });
 });
 
@@ -387,26 +468,33 @@ router.get('/logout', async (req, res, next) => {
   try {
     if (req.user) {
       const userId = req.user._id;
-      // Update user status
       await User.findByIdAndUpdate(userId, {
         isOnline: false,
         lastSeen: new Date(),
       });
-      // Invalidate all signed URL sessions for this user
       await invalidateUserSessions(userId);
     }
-    req.logout(function (err) {
+
+    req.logout(async (err) => {
       if (err) {
         logger.error(`Error during logout: ${err.message}`);
         return next(err);
       }
-      res.redirect('/');
+
+      req.session.destroy((err) => {
+        if (err) {
+          logger.error('Error destroying session on logout', err);
+        }
+        res.clearCookie('connect.sid', { path: '/' });
+        res.redirect('/');
+      });
     });
   } catch (error) {
     logger.error(`Error during logout: ${error.message}`);
     res.redirect('/');
   }
 });
+
 router.get('/google', (req, res, next) => {
   if (req.query.ref) {
     req.session.referralId = req.query.ref;
@@ -414,6 +502,7 @@ router.get('/google', (req, res, next) => {
   if (req.query.creator) {
     req.session.creator = req.query.creator;
     req.session.redirectTo = `/profile/${req.query.creator}`;
+    req.session.fingerprint = req.query.fingerprint;
     req.session.save(err => {
       if (err) {
         logger.error(`Google auth session save error: ${err.message}`);
@@ -457,6 +546,7 @@ router.get('/google/redirect', passport.authenticate('google'), async (req, res)
     delete req.session.subscriptionData;
     delete req.session.referralId;
     delete req.session.creator;
+    delete req.session.fingerprint;
 
     res.redirect(redirectTo);
   } catch (error) {
@@ -602,7 +692,10 @@ router.post('/change-password', [
         throw new Error('Passwords do not match');
       }
       return true;
-    })
+    }),
+  body('fingerprint')
+    .optional()
+    .isString().withMessage('Invalid fingerprint')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -654,39 +747,57 @@ router.post('/change-password', [
 });
 
 router.get('/forgot-password', (req, res) => {
-  res.render('forgot-password', { errorMessage: '', successMessage: '' });
+  res.render('forgot-password', {
+    errorMessage: '',
+    successMessage: '',
+    creator: req.query.creator || '',
+    ref: req.query.ref || '',
+    fingerprint: req.query.fingerprint || ''
+  });
 });
 
-router.post('/forgot-password', [
+router.post('/forgot-password', forgotPasswordLimiter, [
   body('email')
     .isEmail().withMessage('Invalid email address')
-    .normalizeEmail()
+    .normalizeEmail(),
+  body('fingerprint')
+    .optional()
+    .isString().withMessage('Invalid fingerprint')
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     logger.warn('Validation errors in POST /forgot-password: ' + JSON.stringify(errors.array()));
     return res.render('forgot-password', {
       errorMessage: errors.array().map(err => err.msg).join(', '),
-      successMessage: ''
+      successMessage: '',
+      creator: req.body.creator || req.query.creator || '',
+      ref: req.body.ref || req.query.ref || '',
+      fingerprint: req.body.fingerprint || req.query.fingerprint || ''
     });
   }
 
   try {
-    const { email } = req.body;
+    const { email, fingerprint } = req.body;
     const user = await User.findOne({ email });
 
     if (!user) {
       logger.warn('No account found for forgot-password request');
       return res.render('forgot-password', {
         errorMessage: 'No account with that email address exists.',
-        successMessage: ''
+        successMessage: '',
+        creator: req.body.creator || req.query.creator || '',
+        ref: req.body.ref || req.query.ref || '',
+        fingerprint: fingerprint || req.query.fingerprint || ''
       });
     }
 
     if (user.googleId && !user.password) {
       return res.render('forgot-password', {
         errorMessage: 'Cannot reset password for Google accounts.',
-        successMessage: ''
+        successMessage: '',
+        creator: req.body.creator || req.query.creator || '',
+        ref: req.body.ref || req.query.ref || '',
+        fingerprint: fingerprint || req.query.fingerprint || ''
       });
     }
 
@@ -695,7 +806,7 @@ router.post('/forgot-password', [
     user.resetPasswordExpires = Date.now() + 3600000;
     await user.save();
 
-    const resetLink = `https://onlyaccess.onrender.com/reset-password/${resetToken}`;
+    const resetLink = `https://onlyaccess.onrender.com/reset-password/${resetToken}${fingerprint ? `?fingerprint=${encodeURIComponent(fingerprint)}` : ''}`;
     try {
       await sendEmail(
         email,
@@ -706,7 +817,10 @@ router.post('/forgot-password', [
       );
       res.render('forgot-password', {
         errorMessage: '',
-        successMessage: 'A password reset link has been sent to your email. It may take a few minutes to arrive.'
+        successMessage: 'A password reset link has been sent to your email. It may take a few minutes to arrive.',
+        creator: req.body.creator || req.query.creator || '',
+        ref: req.body.ref || req.query.ref || '',
+        fingerprint: fingerprint || req.query.fingerprint || ''
       });
     } catch (emailError) {
       logger.error(`Failed to send reset email: ${emailError.message}`);
@@ -715,14 +829,20 @@ router.post('/forgot-password', [
       await user.save();
       res.render('forgot-password', {
         errorMessage: 'Failed to send reset email. Please try again later.',
-        successMessage: ''
+        successMessage: '',
+        creator: req.body.creator || req.query.creator || '',
+        ref: req.body.ref || req.query.ref || '',
+        fingerprint: fingerprint || req.query.fingerprint || ''
       });
     }
   } catch (error) {
     logger.error(`Error in forgot password: ${error.message}`);
     res.render('forgot-password', {
       errorMessage: 'An error occurred. Please try again.',
-      successMessage: ''
+      successMessage: '',
+      creator: req.body.creator || req.query.creator || '',
+      ref: req.body.ref || req.query.ref || '',
+      fingerprint: req.body.fingerprint || req.query.fingerprint || ''
     });
   }
 });
@@ -730,6 +850,7 @@ router.post('/forgot-password', [
 router.get('/reset-password/:token', async (req, res) => {
   try {
     const { token } = req.params;
+    const fingerprint = req.query.fingerprint || '';
     const user = await User.findOne({
       resetPasswordToken: token,
       resetPasswordExpires: { $gt: Date.now() }
@@ -738,20 +859,31 @@ router.get('/reset-password/:token', async (req, res) => {
     if (!user) {
       logger.warn('Invalid or expired password reset token');
       return res.render('welcome', {
-        errorMessage: 'Password reset link is invalid or has expired.'
+        errorMessage: 'Password reset link is invalid or has expired.',
+        creator: req.query.creator || '',
+        ref: req.query.ref || '',
+        fingerprint: fingerprint
       });
     }
 
-    res.render('reset-password', { token, errorMessage: '', successMessage: '' });
+    res.render('reset-password', {
+      token,
+      errorMessage: '',
+      successMessage: '',
+      fingerprint: fingerprint
+    });
   } catch (error) {
     logger.error(`Error rendering reset password form: ${error.message}`);
     res.render('welcome', {
-      errorMessage: 'An error occurred. Please try again.'
+      errorMessage: 'An error occurred. Please try again.',
+      creator: req.query.creator || '',
+      ref: req.query.ref || '',
+      fingerprint: req.query.fingerprint || ''
     });
   }
 });
 
-router.post('/reset-password/:token', [
+router.post('/reset-password/:token', resetPasswordLimiter, [
   body('newPassword')
     .isLength({ min: 8 }).withMessage('Password must be at least 8 characters')
     .custom((value) => {
@@ -771,17 +903,22 @@ router.post('/reset-password/:token', [
         throw new Error('Passwords do not match');
       }
       return true;
-    })
+    }),
+  body('fingerprint')
+    .optional()
+    .isString().withMessage('Invalid fingerprint')
 ], async (req, res) => {
   const errors = validationResult(req);
   const { token } = req.params;
+  const { fingerprint } = req.body;
 
   if (!errors.isEmpty()) {
     logger.warn('Validation errors in POST /reset-password/:token: ' + JSON.stringify(errors.array()));
     return res.render('reset-password', {
       token,
       errorMessage: errors.array().map(err => err.msg).join(', '),
-      successMessage: ''
+      successMessage: '',
+      fingerprint: fingerprint || req.query.fingerprint || ''
     });
   }
 
@@ -796,7 +933,10 @@ router.post('/reset-password/:token', [
     if (!user) {
       logger.warn('Invalid or expired password reset token');
       return res.render('welcome', {
-        errorMessage: 'Password reset link is invalid or has expired.'
+        errorMessage: 'Password reset link is invalid or has expired.',
+        creator: req.query.creator || '',
+        ref: req.query.ref || '',
+        fingerprint: fingerprint || req.query.fingerprint || ''
       });
     }
 
@@ -806,14 +946,18 @@ router.post('/reset-password/:token', [
     await user.save();
 
     res.render('welcome', {
-      errorMessage: 'Your password has been reset successfully. Please log in.'
+      errorMessage: 'Your password has been reset successfully. Please log in.',
+      creator: req.query.creator || '',
+      ref: req.query.ref || '',
+      fingerprint: fingerprint || req.query.fingerprint || ''
     });
   } catch (error) {
     logger.error(`Error resetting password: ${error.message}`);
     res.render('reset-password', {
       token: req.params.token,
       errorMessage: 'An error occurred. Please try again.',
-      successMessage: ''
+      successMessage: '',
+      fingerprint: fingerprint || req.query.fingerprint || ''
     });
   }
 });

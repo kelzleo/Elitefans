@@ -12,6 +12,7 @@
   "description": "",
   "dependencies": {
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@fingerprintjs/fingerprintjs": "^4.6.2",
     "@getbrevo/brevo": "^2.2.0",
     "@google-cloud/storage": "^7.14.0",
     "aws-sdk": "^2.1692.0",
@@ -49,6 +50,7 @@
     "passport-local": "^1.0.0",
     "paystack": "^2.0.1",
     "paystack-api": "^2.0.6",
+    "rate-limit-mongo": "^2.3.2",
     "sanitize-html": "^2.17.0",
     "session": "^0.1.0",
     "sharp": "^0.34.1",

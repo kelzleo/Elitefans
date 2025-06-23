@@ -4213,6 +4213,32 @@ select.form-input:focus {
   display: block;
 }
 
+/* Hide the file input completely */
+.media-input {
+  display: none;
+}
+/* Style the media icon label */
+.input-icon.media-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  width: 40px;
+  height: 40px;
+  margin: 0 5px;
+  padding: 0;
+  background: none;
+  border: none;
+}
+
+/* Suppress browser pseudo-elements */
+.input-icon.media-icon::before,
+.input-icon.media-icon::after,
+.media-input::before,
+.media-input::after {
+  content: none !important;
+}
+
 /********************************************
  * VIDEO FALLBACK
  ********************************************/

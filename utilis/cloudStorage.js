@@ -1,16 +1,16 @@
-// utilis/cloudStorage.js
 const { Storage } = require('@google-cloud/storage');
 const path = require('path');
 const logger = require('../logs/logger');
-const sharp = require('sharp'); // For image processing
-const ffmpeg = require('fluent-ffmpeg'); // For video processing
-const fs = require('fs').promises; // Use promises for async file operations
+const sharp = require('sharp');
+const ffmpeg = require('fluent-ffmpeg');
+const fs = require('fs').promises;
 const os = require('os');
-// Set FFmpeg path
+const INACTIVITY_MS = 30 * 60 * 1000; // 30 minutes
+const ABSOLUTE_MS = 4 * 60 * 60 * 1000; // 4 hours
+
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
-// Decode the Base64-encoded credentials from GCLOUD_CREDS_BASE64
 let credentials;
 try {
   const credentialsBase64 = process.env.GCLOUD_CREDS_BASE64;
@@ -25,33 +25,27 @@ try {
   throw err;
 }
 
-// Initialize Google Cloud Storage client with the credentials
 const storage = new Storage({
   credentials: credentials,
 });
 
-// Existing bucket for private content (e.g., posts)
 const bucketName = 'kaccessfans';
 const bucket = storage.bucket(bucketName);
 
-// New bucket for chat media
 const chatBucketName = 'kaccessfans-chat';
 const chatBucket = storage.bucket(chatBucketName);
 
-// New public bucket for profile pictures
 const profileBucketName = 'my-public-profile-pictures';
 const profileBucket = storage.bucket(profileBucketName);
 
-// New bucket for creator requests (for sensitive documents)
 const creatorRequestsBucketName = 'my-creator-requests';
 const creatorRequestsBucket = storage.bucket(creatorRequestsBucketName);
 
-// Function to generate a signed URL for a file stored in the private content bucket
 const generateSignedUrl = async (filename) => {
   const options = {
     version: 'v4',
     action: 'read',
-    expires: Date.now() + 5 * 60 * 1000, // Still 5 minutes for the actual signed URL
+    expires: Date.now() + 5 * 60 * 1000,
   };
   try {
     const [url] = await bucket.file(filename).getSignedUrl(options);
@@ -62,77 +56,78 @@ const generateSignedUrl = async (filename) => {
   }
 };
 
-// Function to create and store signed URL session (now with 24hr session expiry)
-const createSignedUrlSession = async (userId, filename) => {
+const createSignedUrlSession = async (userId, filename, postId = null) => {
   const SignedUrlSession = require('../models/signedUrlSession');
-  
+
   try {
-    // Check if an active session already exists for this user/filename
-    const existingSession = await SignedUrlSession.findOne({
+    const now = Date.now();
+    const existing = await SignedUrlSession.findOne({
       userId,
       filename,
-      sessionExpiresAt: { $gt: new Date() },
-      isActive: true
+      isActive: true,
+      sessionExpiresAt: { $gt: now },
+      createdAt: { $gt: now - ABSOLUTE_MS },
     });
 
-    if (existingSession) {
-      // Update last accessed time and return existing session ID
-      existingSession.lastAccessed = new Date();
-      await existingSession.save();
-      return existingSession._id;
+    if (existing) {
+      existing.lastAccessed = new Date();
+      existing.sessionExpiresAt = new Date(now + INACTIVITY_MS);
+      await existing.save();
+      return existing._id;
     }
 
-    // Generate signed URL
     const signedUrl = await generateSignedUrl(filename);
-    const signedUrlExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes for signed URL
-    const sessionExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours for session
+    const signedUrlExpiresAt = new Date(now + 5 * 60 * 1000);
+    const sessionExpiresAt = new Date(now + INACTIVITY_MS);
 
-    // Remove any existing expired sessions for this user/filename combination
     await SignedUrlSession.deleteMany({
       userId,
       filename,
-      sessionExpiresAt: { $lt: new Date() }
+      sessionExpiresAt: { $lt: now },
     });
 
-    // Create new session
     const session = new SignedUrlSession({
       userId,
       filename,
       signedUrl,
       signedUrlExpiresAt,
       sessionExpiresAt,
-      lastAccessed: new Date()
+      lastAccessed: new Date(),
+      isActive: true,
+      postId,
     });
 
     await session.save();
-    return session._id; // Return session ID instead of signed URL
+    logger.info(`Created signed URL session ${session._id} for post ${postId || 'none'}`);
+    return session._id;
   } catch (err) {
-    logger.error(`Error creating signed URL session: ${err.message}`);
+    logger.error(`Error creating signed URL session for filename ${filename}: ${err.message}`);
     throw err;
   }
 };
 
-// NEW: Function to regenerate signed URL for an existing session
 const regenerateSignedUrl = async (sessionId) => {
   const SignedUrlSession = require('../models/signedUrlSession');
-  
+  const now = Date.now();
+
   try {
     const session = await SignedUrlSession.findById(sessionId);
-    if (!session || !session.isActive || new Date() > session.sessionExpiresAt) {
+    if (
+      !session ||
+      !session.isActive ||
+      now > session.sessionExpiresAt ||
+      now > session.createdAt.getTime() + ABSOLUTE_MS
+    ) {
       throw new Error('Session not found or expired');
     }
 
-    // Generate new signed URL
-    const newSignedUrl = await generateSignedUrl(session.filename);
-    const newSignedUrlExpiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
-
-    // Update the session with new signed URL
-    session.signedUrl = newSignedUrl;
-    session.signedUrlExpiresAt = newSignedUrlExpiresAt;
+    const newUrl = await generateSignedUrl(session.filename);
+    session.signedUrl = newUrl;
+    session.signedUrlExpiresAt = new Date(now + 5 * 60 * 1000);
     session.lastAccessed = new Date();
-    
+    session.sessionExpiresAt = new Date(now + INACTIVITY_MS);
+
     await session.save();
-    
     logger.info(`Regenerated signed URL for session ${sessionId}`);
     return session;
   } catch (err) {
@@ -141,76 +136,108 @@ const regenerateSignedUrl = async (sessionId) => {
   }
 };
 
-// NEW: Function to invalidate all sessions for a user (for logout)
+const regenerateExpiring = async () => {
+  const SignedUrlSession = require('../models/signedUrlSession');
+  const now = Date.now();
+
+  try {
+    const soon = new Date(now + 2 * 60 * 1000);
+    const expiringSessions = await SignedUrlSession.find({
+      signedUrlExpiresAt: { $lt: soon },
+      sessionExpiresAt: { $gt: now },
+      createdAt: { $gt: now - ABSOLUTE_MS },
+      isActive: true,
+    });
+
+    for (const s of expiringSessions) {
+      try {
+        await regenerateSignedUrl(s._id);
+      } catch (err) {
+        logger.error(err);
+      }
+    }
+    if (expiringSessions.length) {
+      logger.info(`Regenerated ${expiringSessions.length} signed URLs`);
+    }
+
+    await SignedUrlSession.deleteMany({
+      $or: [
+        { sessionExpiresAt: { $lt: now } },
+        { createdAt: { $lt: now - ABSOLUTE_MS } },
+      ],
+    });
+  } catch (err) {
+    logger.error(`Error in regenerateExpiring job: ${err.message}`);
+  }
+};
+
 const invalidateUserSessions = async (userId) => {
   const SignedUrlSession = require('../models/signedUrlSession');
-  
   try {
-    await SignedUrlSession.updateMany(
-      { userId, isActive: true },
-      { 
-        isActive: false,
-        sessionExpiresAt: new Date() // Set to expire immediately
-      }
-    );
-    logger.info(`Invalidated all sessions for user ${userId}`);
+    const result = await SignedUrlSession.deleteMany({
+      userId,
+      isActive: true,
+    });
+    logger.info(`Invalidated ${result.deletedCount} sessions for user ${userId}`);
+    return result.deletedCount;
   } catch (err) {
     logger.error(`Error invalidating sessions for user ${userId}: ${err.message}`);
     throw err;
   }
 };
 
-// NEW: Background job to regenerate expiring signed URLs
-const regenerateExpiring = async () => {
+const extendSessionActivity = async (userId, sessionId) => {
   const SignedUrlSession = require('../models/signedUrlSession');
-  
+  const now = Date.now();
   try {
-    // Find sessions where signed URL expires in the next 2 minutes
-    const expiringThreshold = new Date(Date.now() + 2 * 60 * 1000);
-    const expiringSessions = await SignedUrlSession.find({
-      signedUrlExpiresAt: { $lt: expiringThreshold },
-      sessionExpiresAt: { $gt: new Date() },
-      isActive: true
-    });
-
-    for (const session of expiringSessions) {
-      try {
-        await regenerateSignedUrl(session._id);
-      } catch (err) {
-        logger.error(`Failed to regenerate session ${session._id}: ${err.message}`);
-      }
-    }
-
-    if (expiringSessions.length > 0) {
-      logger.info(`Regenerated ${expiringSessions.length} expiring signed URLs`);
-    }
-  } catch (err) {
-    logger.error(`Error in regenerateExpiring job: ${err.message}`);
-  }
-};
-
-// NEW: Function to extend session activity (reset 24hr timer)
-const extendSessionActivity = async (userId) => {
-  const SignedUrlSession = require('../models/signedUrlSession');
-  
-  try {
-    const newSessionExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    
-    await SignedUrlSession.updateMany(
-      { 
-        userId, 
-        isActive: true,
-        sessionExpiresAt: { $gt: new Date() }
-      },
-      { 
-        sessionExpiresAt: newSessionExpiry,
-        lastAccessed: new Date()
+    const query = {
+      userId,
+      _id: sessionId,
+      isActive: true,
+      sessionExpiresAt: { $gt: now },
+      createdAt: { $gt: now - ABSOLUTE_MS },
+    };
+    const result = await SignedUrlSession.updateOne(
+      query,
+      {
+        $set: {
+          lastAccessed: new Date(),
+          sessionExpiresAt: new Date(now + INACTIVITY_MS),
+        },
       }
     );
+    if (result.modifiedCount > 0) {
+      logger.debug(`Extended activity for session ${sessionId} for user ${userId}`);
+    } else {
+      logger.debug(`No session extended for ${sessionId} (likely inactive or expired)`);
+    }
+    return result.modifiedCount;
   } catch (err) {
-    logger.error(`Error extending session activity for user ${userId}: ${err.message}`);
+    logger.error(`Error extending session activity for user ${userId}, session ${sessionId}: ${err.message}`);
+    throw err;
   }
 };
+const cleanupExpiredSessions = async () => {
+  const SignedUrlSession = require('../models/signedUrlSession');
+  const now = Date.now();
+  try {
+    const result = await SignedUrlSession.deleteMany({
+      $or: [
+        { sessionExpiresAt: { $lt: now } },
+        { createdAt: { $lt: now - ABSOLUTE_MS } },
+        { isActive: false },
+      ],
+    });
+    if (result.deletedCount > 0) {
+      logger.info(`Cleaned up ${result.deletedCount} expired or inactive sessions`);
+    }
+    return result.deletedCount;
+  } catch (err) {
+    logger.error(`Error cleaning up expired sessions: ${err.message}`);
+    throw err;
+  }
+};
+
 // Function to generate a signed URL for chat media, with authorization check
 const generateSignedUrlForChatMedia = async (filename, userId, chatId) => {
   const Chat = require('../models/chat');
@@ -233,12 +260,11 @@ const generateSignedUrlForChatMedia = async (filename, userId, chatId) => {
   }
 };
 
-// Function to generate a signed URL for a file stored in the creator requests bucket
 const generateSignedUrlForCreatorRequest = async (filename) => {
   const options = {
     version: 'v4',
     action: 'read',
-    expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+    expires: Date.now() + 15 * 60 * 1000,
   };
   try {
     const [url] = await creatorRequestsBucket.file(filename).getSignedUrl(options);
@@ -249,24 +275,19 @@ const generateSignedUrlForCreatorRequest = async (filename) => {
   }
 };
 
-// Create a blurred preview image for special content
 const createBlurredPreview = async (buffer, mimetype, originalBlobName) => {
   try {
-    // Create a blurred version of the image
     const blurredBuffer = await sharp(buffer)
-      .resize({ width: 800, height: 800, fit: 'inside' }) // Resize to standard dimensions
-      .blur(20) // Apply strong blur
-      .jpeg({ quality: 60 }) // Lower quality for previews
+      .resize({ width: 800, height: 800, fit: 'inside' })
+      .blur(20)
+      .jpeg({ quality: 60 })
       .toBuffer();
 
-    // Create a new blob name for the blurred preview
     const previewBlobName = originalBlobName.replace('uploads/', 'previews/');
-    
-    // Upload the blurred preview to the bucket
     const previewBlob = bucket.file(previewBlobName);
     const previewStream = previewBlob.createWriteStream({
       resumable: false,
-      contentType: 'image/jpeg', // Always save as jpeg for consistency
+      contentType: 'image/jpeg',
     });
 
     await new Promise((resolve, reject) => {
@@ -283,25 +304,16 @@ const createBlurredPreview = async (buffer, mimetype, originalBlobName) => {
   }
 };
 
-// Create a short video preview (first few seconds)
 const createVideoPreview = async (buffer, mimetype, originalBlobName) => {
   try {
-    // Create temporary files for processing
     const tempInputPath = path.join(os.tmpdir(), `input-${Date.now()}.mp4`);
     const tempOutputPath = path.join(os.tmpdir(), `output-${Date.now()}.mp4`);
-    
-    // Write the buffer to the temp file
+
     await fs.writeFile(tempInputPath, buffer);
 
-    // Create a 5-second preview of the video with lowered resolution
     await new Promise((resolve, reject) => {
       ffmpeg(tempInputPath)
-        .outputOptions([
-          '-t 5', // First 5 seconds
-          '-vf scale=480:-2', // Lower resolution
-          '-b:v 500k', // Lower bitrate
-          '-an' // Remove audio
-        ])
+        .outputOptions(['-t 5', '-vf scale=480:-2', '-b:v 500k', '-an'])
         .output(tempOutputPath)
         .on('end', resolve)
         .on('error', (err) => {
@@ -311,13 +323,8 @@ const createVideoPreview = async (buffer, mimetype, originalBlobName) => {
         .run();
     });
 
-    // Read the output file
     const previewBuffer = await fs.readFile(tempOutputPath);
-    
-    // Create a new blob name for the video preview
     const previewBlobName = originalBlobName.replace('uploads/', 'previews/');
-    
-    // Upload the preview to the bucket
     const previewBlob = bucket.file(previewBlobName);
     const previewStream = previewBlob.createWriteStream({
       resumable: false,
@@ -330,11 +337,7 @@ const createVideoPreview = async (buffer, mimetype, originalBlobName) => {
       previewStream.end(previewBuffer);
     });
 
-    // Clean up temp files
-    await Promise.all([
-      fs.unlink(tempInputPath),
-      fs.unlink(tempOutputPath)
-    ]);
+    await Promise.all([fs.unlink(tempInputPath), fs.unlink(tempOutputPath)]);
 
     logger.info(`Created video preview for ${originalBlobName}`);
     return previewBlobName;
@@ -344,25 +347,21 @@ const createVideoPreview = async (buffer, mimetype, originalBlobName) => {
   }
 };
 
-// NEW: Create a thumbnail image for videos
 const createVideoThumbnail = async (buffer, originalBlobName) => {
   try {
-    // Create temporary files for processing
     const tempInputPath = path.join(os.tmpdir(), `input-thumb-${Date.now()}.mp4`);
     const tempOutputPath = path.join(os.tmpdir(), `thumb-${Date.now()}.jpg`);
 
-    // Write the video buffer to a temp file
     await fs.writeFile(tempInputPath, buffer);
 
-    // Extract a thumbnail at 1 second
     await new Promise((resolve, reject) => {
       ffmpeg(tempInputPath)
         .screenshots({
           count: 1,
           folder: os.tmpdir(),
           filename: path.basename(tempOutputPath),
-          timestamps: ['1'], // Capture at 1 second
-          size: '480x?', // Resize width to 480, maintain aspect ratio
+          timestamps: ['1'],
+          size: '480x?',
         })
         .on('end', resolve)
         .on('error', (err) => {
@@ -371,18 +370,10 @@ const createVideoThumbnail = async (buffer, originalBlobName) => {
         });
     });
 
-    // Read the thumbnail file
     let thumbnailBuffer = await fs.readFile(tempOutputPath);
+    thumbnailBuffer = await sharp(thumbnailBuffer).jpeg({ quality: 80 }).toBuffer();
 
-    // Optimize the thumbnail with sharp
-    thumbnailBuffer = await sharp(thumbnailBuffer)
-      .jpeg({ quality: 80 }) // Optimize quality
-      .toBuffer();
-
-    // Create a new blob name for the thumbnail
     const thumbnailBlobName = originalBlobName.replace('uploads/', 'thumbnails/').replace(/\.[^/.]+$/, '.jpg');
-
-    // Upload the thumbnail to the bucket
     const thumbnailBlob = bucket.file(thumbnailBlobName);
     const thumbnailStream = thumbnailBlob.createWriteStream({
       resumable: false,
@@ -395,11 +386,7 @@ const createVideoThumbnail = async (buffer, originalBlobName) => {
       thumbnailStream.end(thumbnailBuffer);
     });
 
-    // Clean up temp files
-    await Promise.all([
-      fs.unlink(tempInputPath),
-      fs.unlink(tempOutputPath)
-    ]);
+    await Promise.all([fs.unlink(tempInputPath), fs.unlink(tempOutputPath)]);
 
     logger.info(`Created video thumbnail for ${originalBlobName}: ${thumbnailBlobName}`);
     return thumbnailBlobName;
@@ -409,17 +396,16 @@ const createVideoThumbnail = async (buffer, originalBlobName) => {
   }
 };
 
-// Enhanced function to upload media with preview and thumbnail generation for special content
 const uploadMediaWithPreview = async (buffer, type, filename, isSpecial = false) => {
   const mimeType = type === 'image' ? 'image/jpeg' : 'video/mp4';
   const blobName = `uploads/${type}/${Date.now()}_${filename}`;
   const blob = bucket.file(blobName);
-  
+
   const blobStream = blob.createWriteStream({
     resumable: false,
     contentType: mimeType,
   });
-  
+
   await new Promise((resolve, reject) => {
     blobStream.on('finish', resolve);
     blobStream.on('error', (err) => {
@@ -429,14 +415,12 @@ const uploadMediaWithPreview = async (buffer, type, filename, isSpecial = false)
     blobStream.end(buffer);
   });
 
-  // Initialize return object
   const result = {
     originalUrl: blobName,
     previewUrl: null,
-    posterUrl: null, // NEW: Include posterUrl for videos
+    posterUrl: null,
   };
 
-  // If this is special content, create and upload preview version
   if (isSpecial) {
     if (type === 'image') {
       result.previewUrl = await createBlurredPreview(buffer, mimeType, blobName);
@@ -445,7 +429,6 @@ const uploadMediaWithPreview = async (buffer, type, filename, isSpecial = false)
     }
   }
 
-  // If this is a video, generate a thumbnail
   if (type === 'video') {
     result.posterUrl = await createVideoThumbnail(buffer, blobName);
   }
@@ -467,5 +450,6 @@ module.exports = {
   generateSignedUrlForCreatorRequest,
   chatBucket,
   generateSignedUrlForChatMedia,
-  uploadMediaWithPreview, // Export the updated function
+  uploadMediaWithPreview,
+  cleanupExpiredSessions,
 };

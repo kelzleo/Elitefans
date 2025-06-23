@@ -196,7 +196,7 @@ data-username="<%= user.username %>">
                 </span>
               </div>
               <% if (currentUser && currentUser._id.toString() === user._id.toString() && !bundle.isFree) { %>
-                <form action="/profile/delete-bundle/<%= bundle._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this bundle?');" class="delete-bundle-form">
+                <form action="/profile/delete-bundle/<%= bundle._id %>" method="POST"  class="delete-bundle-form">
                   <button type="submit" class="delete-bundle-button">Delete</button>
                 </form>
                 <button class="edit-bundle-button" 
@@ -338,8 +338,8 @@ data-username="<%= user.username %>">
   <!-- Posts Tab -->
 <!-- Posts Tab -->
 <div class="tab-content <%= activeTab === 'posts' ? '' : 'hidden' %>" id="posts-tab">
-   <!-- Sort Button for Posts Tab -->
-   <div class="sort-container sort-container-align">
+  <!-- Sort Button for Posts Tab -->
+  <div class="sort-container sort-container-align">
     <button class="sort-button" title="Sort Posts">
       <i class="fas fa-sort"></i>
     </button>
@@ -385,7 +385,7 @@ data-username="<%= user.username %>">
         <% if (posts && posts.length > 0) { %>
           <% posts.forEach(post => { %>
             <% const showLocked = false; %>
-            <div class="post-card" id="post-<%= post._id %>" data-category="<%= post.category || 'none' %>">
+            <div class="post-card" id="post-<%= post._id %>" data-category="<%= post.category || 'none' %>" data-post-id="<%= post._id %>" data-actual-post-id="<%= post._id %>">
               <div class="profile-post-header">
                 <div class="profile-creator-info">
                   <a href="/profile/<%= user.username %>">
@@ -408,7 +408,7 @@ data-username="<%= user.username %>">
                 </div>
               </div>
               <div class="post-content">
-                <% console.log('Rendering post:', { id: post._id, type: post.type, contentUrl: post.contentUrl, writeUp: post.renderedWriteUp, category: post.category }); %>
+                <% console.log('Rendering post:', { id: post._id, type: post.type, contentUrl: post.originalContentUrl, writeUp: post.renderedWriteUp, category: post.category }); %>
                 <% if (post.type === 'text') { %>
                   <p class="post-text"><%- post.renderedWriteUp %></p>
                 <% } else { %>
@@ -416,7 +416,7 @@ data-username="<%= user.username %>">
                   <% 
                     const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
                       post.mediaItems : 
-                      (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
+                      (post.originalContentUrl ? [{ type: post.type, originalUrl: post.originalContentUrl, contentType: post.contentType, originalPosterUrl: post.originalPosterUrl }] : []);
                   %>
                   <% if (mediaItems.length > 0) { %>
                     <div class="media-carousel-container">
@@ -424,24 +424,27 @@ data-username="<%= user.username %>">
                         <% mediaItems.forEach((media, index) => { %>
                           <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                             <% if (media.type === 'image') { %>
-                              <img src="<%= media.url %>" 
+                              <img src="/images/placeholder.png" 
                                    alt="Post Image" 
-                                   class="post-image fullscreenable" 
-                                   data-fullscreen-src="<%= media.url %>" 
+                                   class="post-image fullscreenable lazy-media" 
+                                   data-fullscreen-src="" 
+                                   data-original-url="<%= media.originalUrl %>" 
                                    draggable="false" 
                                    oncontextmenu="return false;">
                             <% } else if (media.type === 'video') { %>
                               <video
-                              class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                              controlsList="nodownload noremoteplayback"
-                              data-fullscreen-src="<%= media.url %>"
-                              disablePictureInPicture
-                              draggable="false"
-                              oncontextmenu="return false;"
-                              poster="<%= media.posterUrl %>">
-                              <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                              Your browser does not support the video tag.
-                            </video>
+                                class="post-video fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
+                                controlsList="nodownload noremoteplayback"
+                                data-fullscreen-src=""
+                                data-original-url="<%= media.originalUrl %>"
+                                disablePictureInPicture
+                                draggable="false"
+                                oncontextmenu="return false;"
+                                poster="/images/placeholder.png"
+                                data-original-poster="<%= media.originalPosterUrl || '' %>">
+                                <source src="" type="<%= media.contentType || 'video/mp4' %>">
+                                Your browser does not support the video tag.
+                              </video>
                             <% } %>
                           </div>
                         <% }); %>
@@ -505,7 +508,7 @@ data-username="<%= user.username %>">
                   <button type="submit">Post</button>
                 </form>
               </div>
-              <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+              <form action="/profile/delete-post/<%= post._id %>" method="POST" class="delete-post-form">
                 <button type="submit" class="delete-post-btn">Delete Post</button>
               </form>
             </div>
@@ -522,16 +525,16 @@ data-username="<%= user.username %>">
         <div class="posts-list">
           <% if (posts && posts.length > 0) { %>
             <% posts.forEach(post => { %>
-              <div class="post-card" id="post-<%= post._id %>" data-category="<%= post.category || 'none' %>">
-                <% 
-                  const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-                  const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-                    currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
-                  const showLocked = post.special && !isAdminView && !hasPurchased;
-                  const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
-                    post.mediaItems : 
-                    (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
-                %>
+              <% 
+                const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+                const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+                  currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
+                const showLocked = post.special && !isAdminView && !hasPurchased;
+                const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
+                  post.mediaItems : 
+                  (post.originalContentUrl ? [{ type: post.type, originalUrl: post.originalContentUrl, contentType: post.contentType, originalPosterUrl: post.originalPosterUrl }] : []);
+              %>
+              <div class="post-card" id="post-<%= post._id %>" data-category="<%= post.category || 'none' %>" data-post-id="<%= post._id %>" data-actual-post-id="<%= post._id %>">
                 <div class="profile-post-header">
                   <div class="profile-creator-info">
                     <a href="/profile/<%= user.username %>">
@@ -554,7 +557,7 @@ data-username="<%= user.username %>">
                   </div>
                 </div>
                 <div class="post-content">
-                  <% console.log('Rendering post:', { id: post._id, type: post.type, contentUrl: post.contentUrl, writeUp: post.renderedWriteUp, category: post.category }); %>
+                  <% console.log('Rendering post:', { id: post._id, type: post.type, contentUrl: post.originalContentUrl, writeUp: post.renderedWriteUp, category: post.category }); %>
                   <% if (post.type === 'text') { %>
                     <p class="post-text"><%- post.renderedWriteUp %></p>
                   <% } else { %>
@@ -565,24 +568,27 @@ data-username="<%= user.username %>">
                           <% mediaItems.forEach((media, index) => { %>
                             <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                               <% if (media.type === 'image') { %>
-                                <img src="<%= media.url %>"
+                                <img src="/images/placeholder.png"
                                      alt="Post Image"
-                                     class="post-image fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                                     data-fullscreen-src="<%= media.url %>"
+                                     class="post-image fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
+                                     data-fullscreen-src=""
+                                     data-original-url="<%= media.originalUrl %>"
                                      draggable="false"
                                      oncontextmenu="return false;">
                               <% } else if (media.type === 'video') { %>
                                 <video
-                                class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                                controlsList="nodownload noremoteplayback"
-                                data-fullscreen-src="<%= media.url %>"
-                                disablePictureInPicture
-                                draggable="false"
-                                oncontextmenu="return false;"
-                                poster="<%= media.posterUrl %>">
-                                <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                                Your browser does not support the video tag.
-                              </video>
+                                  class="post-video fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
+                                  controlsList="nodownload noremoteplayback"
+                                  data-fullscreen-src=""
+                                  data-original-url="<%= media.originalUrl %>"
+                                  disablePictureInPicture
+                                  draggable="false"
+                                  oncontextmenu="return false;"
+                                  poster="/images/placeholder.png"
+                                  data-original-poster="<%= media.originalPosterUrl || '' %>">
+                                  <source src="" type="<%= media.contentType || 'video/mp4' %>">
+                                  Your browser does not support the video tag.
+                                </video>
                               <% } %>
                             </div>
                           <% }); %>
@@ -653,7 +659,7 @@ data-username="<%= user.username %>">
                   </form>
                 </div>
                 <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
-                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST"  class="delete-post-form">
                     <label for="reason-<%= post._id %>">Reason for deletion:</label>
                     <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
                     <button type="submit" class="delete-post-btn">Delete Post</button>
@@ -671,7 +677,6 @@ data-username="<%= user.username %>">
     <% } %>
   <% } %>
 </div>
-<!-- Media Tab -->
 <div class="tab-content hidden" id="media-tab">
   <div class="media-subtabs">
     <button class="subtab-button active" data-subtab="all">All <span class="tab-count"><%= (user.imagesCount || 0) + (user.videosCount || 0) %></span></button>
@@ -697,11 +702,25 @@ data-username="<%= user.username %>">
               currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
             const showLocked = post.special && !isAdminView && !isOwner && !hasPurchased;
             const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
-              post.mediaItems : 
-              (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
+              post.mediaItems.map(item => ({
+                type: item.type,
+                originalUrl: item.originalUrl || item.url,
+                originalPosterUrl: item.originalPosterUrl || item.posterUrl,
+                contentType: item.contentType
+              })) : 
+              (post.contentUrl ? [{
+                type: post.type,
+                originalUrl: post.contentUrl,
+                originalPosterUrl: post.posterUrl,
+                contentType: post.contentType
+              }] : []);
           %>
             <!-- Normal View: One media-item with carousel -->
-            <div class="media-item normal-view" id="media-post-<%= post._id %>">
+            <div class="media-item post-card normal-view" 
+                 data-post-id="<%= post._id %>" 
+                 data-actual-post-id="<%= post._id %>"
+                 data-is-locked="<%= showLocked ? 'true' : 'false' %>" 
+                 id="media-post-<%= post._id %>">
               <div class="profile-post-header normal-view-only">
                 <div class="profile-creator-info">
                   <a href="/profile/<%= user.username %>">
@@ -729,22 +748,25 @@ data-username="<%= user.username %>">
                     <% mediaItems.forEach((media, index) => { %>
                       <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                         <% if (media.type === 'image') { %>
-                          <img src="<%= media.url %>" 
+                          <img src="/images/placeholder.png" 
                                alt="Post Image" 
-                               class="post-image fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                               data-fullscreen-src="<%= media.url %>" 
+                               class="post-image lazy-media fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                               data-original-url="<%= media.originalUrl %>"
+                               data-fullscreen-src="<%= media.originalUrl %>" 
                                draggable="false" 
                                oncontextmenu="return false;">
                         <% } else if (media.type === 'video') { %>
                           <video
-                                class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                                class="post-video lazy-media fullscreenable <%= showLocked ? 'blurred' : '' %>"
                                 controlsList="nodownload noremoteplayback"
-                                data-fullscreen-src="<%= media.url %>"
+                                data-original-url="<%= media.originalUrl %>"
+                                <% if (media.originalPosterUrl) { %>data-original-poster="<%= media.originalPosterUrl %>"<% } %>
+                                data-fullscreen-src="<%= media.originalUrl %>"
                                 disablePictureInPicture
                                 draggable="false"
                                 oncontextmenu="return false;"
-                                poster="<%= media.posterUrl %>">
-                                <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                                poster="/images/placeholder.png">
+                                <source src="/images/placeholder.png" type="<%= media.contentType || 'video/mp4' %>">
                                 Your browser does not support the video tag.
                               </video>
                         <% } %>
@@ -819,12 +841,12 @@ data-username="<%= user.username %>">
                   </form>
                 </div>
                 <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-                  <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                  <form action="/profile/delete-post/<%= post._id %>" method="POST"  class="delete-post-form">
                     <button type="submit" class="delete-post-btn">Delete Post</button>
                   </form>
                 <% } %>
                 <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
-                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST"  class="delete-post-form">
                     <label for="reason-<%= post._id %>">Reason for deletion:</label>
                     <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
                     <button type="submit" class="delete-post-btn">Delete Post</button>
@@ -834,16 +856,26 @@ data-username="<%= user.username %>">
             </div>
             <!-- Compact View: One media-item per media item -->
             <% if (showLocked) { %>
-              <div class="media-item compact-view locked" id="media-post-<%= post._id %>-locked">
+              <div class="media-item post-card compact-view locked" 
+                   data-post-id="<%= post._id %>-locked" 
+                   data-actual-post-id="<%= post._id %>"
+                   data-is-locked="true" 
+                   id="media-post-<%= post._id %>-locked">
                 <% if (mediaItems.length > 0) { %>
                   <% mediaItems.forEach((media, index) => { %>
                     <div class="preview-media">
                       <% if (media.type === 'image') { %>
-                        <img src="<%= media.url %>" alt="Preview Image" class="post-image blurred">
+                        <img src="/images/placeholder.png" 
+                             alt="Preview Image" 
+                             class="post-image lazy-media blurred"
+                             data-original-url="<%= media.originalUrl %>">
                       <% } else if (media.type === 'video') { %>
-                        <video class="post-video blurred" disablePictureInPicture>
-                          poster="<%= media.posterUrl %>"
-                          <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                        <video class="post-video lazy-media blurred" 
+                               disablePictureInPicture
+                               data-original-url="<%= media.originalUrl %>"
+                               <% if (media.originalPosterUrl) { %>data-original-poster="<%= media.originalPosterUrl %>"<% } %>
+                               poster="/images/placeholder.png">
+                          <source src="/images/placeholder.png" type="<%= media.contentType || 'video/mp4' %>">
                           Your browser does not support the video tag.
                         </video>
                       <% } %>
@@ -853,22 +885,30 @@ data-username="<%= user.username %>">
               </div>
             <% } else if (mediaItems.length > 0) { %>
               <% mediaItems.forEach((media, index) => { %>
-                <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
+                <div class="media-item post-card compact-view" 
+                     data-post-id="<%= post._id %>-item-<%= index %>"
+                     
+                     data-actual-post-id="<%= post._id %>" 
+                     data-is-locked="false" 
+                     id="media-post-<%= post._id %>-item-<%= index %>">
                   <% if (media.type === 'image') { %>
-                    <img src="<%= media.url %>" 
+                    <img src="/images/placeholder.png" 
                          alt="Post Image" 
-                         class="post-image fullscreenable" 
-                         data-fullscreen-src="<%= media.url %>" 
+                         class="post-image lazy-media fullscreenable" 
+                         data-original-url="<%= media.originalUrl %>"
+                         data-fullscreen-src="<%= media.originalUrl %>" 
                          draggable="false" 
                          oncontextmenu="return false;">
                   <% } else if (media.type === 'video') { %>
-                    <video controls 
-                           class="post-video" 
+                    <video class="post-video lazy-media" 
                            controlsList="nodownload" 
                            disablePictureInPicture 
                            oncontextmenu="return false;" 
-                           draggable="false">
-                      <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                           draggable="false"
+                           data-original-url="<%= media.originalUrl %>"
+                           <% if (media.originalPosterUrl) { %>data-original-poster="<%= media.originalPosterUrl %>"<% } %>
+                           poster="/images/placeholder.png">
+                      <source src="/images/placeholder.png" type="<%= media.contentType || 'video/mp4' %>">
                       Your browser does not support the video tag.
                     </video>
                   <% } %>
@@ -905,11 +945,25 @@ data-username="<%= user.username %>">
               currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
             const showLocked = post.special && !isAdminView && !isOwner && !hasPurchased;
             const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
-              post.mediaItems : 
-              (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
+              post.mediaItems.filter(item => item.type === 'image').map(item => ({
+                type: item.type,
+                originalUrl: item.originalUrl || item.url,
+                originalPosterUrl: item.originalPosterUrl || item.posterUrl,
+                contentType: item.contentType
+              })) : 
+              (post.contentUrl && post.type === 'image' ? [{
+                type: post.type,
+                originalUrl: post.contentUrl,
+                originalPosterUrl: post.posterUrl,
+                contentType: post.contentType
+              }] : []);
           %>
             <!-- Normal View -->
-            <div class="media-item normal-view" id="media-post-<%= post._id %>">
+            <div class="media-item post-card normal-view" 
+                 data-post-id="<%= post._id %>" 
+                 data-actual-post-id="<%= post._id %>"
+                 data-is-locked="<%= showLocked ? 'true' : 'false' %>" 
+                 id="media-post-<%= post._id %>">
               <div class="profile-post-header normal-view-only">
                 <div class="profile-creator-info">
                   <a href="/profile/<%= user.username %>">
@@ -936,10 +990,11 @@ data-username="<%= user.username %>">
                   <div class="media-carousel">
                     <% mediaItems.forEach((media, index) => { %>
                       <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                        <img src="<%= media.url %>" 
+                        <img src="/images/placeholder.png" 
                              alt="Post Image" 
-                             class="post-image fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                             data-fullscreen-src="<%= media.url %>" 
+                             class="post-image lazy-media fullscreenable <%= showLocked ? 'blurred' : '' %>"
+                             data-original-url="<%= media.originalUrl %>"
+                             data-fullscreen-src="<%= media.originalUrl %>" 
                              draggable="false" 
                              oncontextmenu="return false;">
                       </div>
@@ -1013,12 +1068,12 @@ data-username="<%= user.username %>">
                   </form>
                 </div>
                 <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-                  <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                  <form action="/profile/delete-post/<%= post._id %>" method="POST"  class="delete-post-form">
                     <button type="submit" class="delete-post-btn">Delete Post</button>
                   </form>
                 <% } %>
                 <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
-                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST"  class="delete-post-form">
                     <label for="reason-<%= post._id %>">Reason for deletion:</label>
                     <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
                     <button type="submit" class="delete-post-btn">Delete Post</button>
@@ -1028,22 +1083,34 @@ data-username="<%= user.username %>">
             </div>
             <!-- Compact View -->
             <% if (showLocked) { %>
-              <div class="media-item compact-view locked" id="media-post-<%= post._id %>-locked">
+              <div class="media-item post-card compact-view locked" 
+                   data-post-id="<%= post._id %>-locked" 
+                   data-actual-post-id="<%= post._id %>"
+                   data-is-locked="true" 
+                   id="media-post-<%= post._id %>-locked">
                 <% if (mediaItems.length > 0) { %>
                   <% mediaItems.forEach((media, index) => { %>
                     <div class="preview-media">
-                      <img src="<%= media.url %>" alt="Preview Image" class="post-image blurred">
+                      <img src="/images/placeholder.png" 
+                           alt="Preview Image" 
+                           class="post-image lazy-media blurred"
+                           data-original-url="<%= media.originalUrl %>">
                     </div>
                   <% }); %>
                 <% } %>
               </div>
             <% } else if (mediaItems.length > 0) { %>
               <% mediaItems.forEach((media, index) => { %>
-                <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
-                  <img src="<%= media.url %>" 
+                <div class="media-item post-card compact-view" 
+                     data-post-id="<%= post._id %>-item-<%= index %>" 
+                     data-actual-post-id="<%= post._id %>"
+                     data-is-locked="false" 
+                     id="media-post-<%= post._id %>-item-<%= index %>">
+                  <img src="/images/placeholder.png" 
                        alt="Post Image" 
-                       class="post-image fullscreenable" 
-                       data-fullscreen-src="<%= media.url %>" 
+                       class="post-image lazy-media fullscreenable" 
+                       data-original-url="<%= media.originalUrl %>"
+                       data-fullscreen-src="<%= media.originalUrl %>" 
                        draggable="false" 
                        oncontextmenu="return false;">
                 </div>
@@ -1192,12 +1259,12 @@ data-username="<%= user.username %>">
                   </form>
                 </div>
                 <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-                  <form action="/profile/delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                  <form action="/profile/delete-post/<%= post._id %>" method="POST"  class="delete-post-form">
                     <button type="submit" class="delete-post-btn">Delete Post</button>
                   </form>
                 <% } %>
                 <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
-                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST" onsubmit="return confirm('Are you sure you want to delete this post?');" class="delete-post-form">
+                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST"  class="delete-post-form">
                     <label for="reason-<%= post._id %>">Reason for deletion:</label>
                     <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
                     <button type="submit" class="delete-post-btn">Delete Post</button>
@@ -1443,4 +1510,6 @@ data-username="<%= user.username %>">
   </div>
 </div>
 <script src="/scripts/utils.js"></script>
+ <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
+
 <script src="/js/profile.js" defer></script>

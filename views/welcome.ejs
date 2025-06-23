@@ -96,7 +96,7 @@
         <% } %>
 
         <form
-          action="/login<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %>"
+          action="/login<%= creator ? `?creator=${encodeURIComponent(creator)}` : '' %><%= typeof ref !== 'undefined' && ref ? `${creator ? '&' : '?'}ref=${encodeURIComponent(ref)}` : '' %>"
           method="POST"
           class="wel-login-form"
         >
@@ -140,7 +140,12 @@
         </form>
 
         <div class="wel-forgot-password">
-          <a href="/forgot-password" class="wel-forgot-link">Forgot your password?</a>
+          <a
+            href="/forgot-password<%= typeof ref !== 'undefined' && ref ? `?ref=${encodeURIComponent(ref)}` : '' %><%= creator ? `${typeof ref !== 'undefined' && ref ? '&' : '?'}creator=${encodeURIComponent(creator)}` : '' %>"
+            class="wel-forgot-link"
+          >
+            Forgot your password?
+          </a>
         </div>
 
         <div class="wel-sign-options">
@@ -176,5 +181,8 @@
   </div>
 </div>
 
+<!-- Load FingerprintJS and scripts -->
+
 <script src="/scripts/utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
 <script src="/js/welcome.js" defer></script>

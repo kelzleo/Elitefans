@@ -1,4 +1,5 @@
 // routes/profile.js
+require('dotenv').config()
 const express = require('express');
 const router = express.Router();
 const { body, param, validationResult } = require('express-validator');
@@ -16,6 +17,8 @@ const Notification = require('../models/notifications');
 const PendingSubscription = require('../models/pendingSubscription'); 
 const logger = require('../logs/logger'); // Import Winston logger
 const Report = require('../models/Reports');
+const rateLimit = require('express-rate-limit');
+const MongoStore = require('rate-limit-mongo');
 const SignedUrlSession = require('../models/signedUrlSession');
 
 // Set up multer to store files in memory
@@ -36,7 +39,74 @@ const authCheck = (req, res, next) => {
   }
   next();
 };
+// Rate limiters
+const HighSensitivityLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 3, // 3 requests per minute
+  keyGenerator: (req) => req.body.fingerprint || req.ip,
+  handler: (req, res) => {
+    logger.warn(`Rate limit exceeded for ${req.originalUrl}: ${req.body.fingerprint || req.ip}`);
+    if (req.is('json') || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(429).json({
+        status: 'error',
+        message: 'Too many requests. Please try again in a minute.',
+      });
+    }
+    req.flash('error_msg', 'Too many requests. Please try again in a minute.');
+    return res.redirect('/profile');
+  },
+});
 
+const MediumSensitivityLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 5, // 5 requests per minute
+  keyGenerator: (req) => req.body.fingerprint || req.ip,
+  handler: (req, res) => {
+    logger.warn(`Rate limit exceeded for ${req.originalUrl}: ${req.body.fingerprint || req.ip}`);
+    if (req.is('json') || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(429).json({
+        status: 'error',
+        message: 'Too many requests. Please try again in a minute.',
+      });
+    }
+    req.flash('error_msg', 'Too many requests. Please try again in a minute.');
+    return res.redirect('/profile');
+  },
+});
+
+const LowSensitivityLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 10, // 10 requests per minute
+  keyGenerator: (req) => req.body.fingerprint || req.ip,
+  handler: (req, res) => {
+    logger.warn(`Rate limit exceeded for ${req.originalUrl}: ${req.body.fingerprint || req.ip}`);
+    if (req.is('json') || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(429).json({
+        status: 'error',
+        message: 'Too many requests. Please try again in a minute.',
+      });
+    }
+    req.flash('error_msg', 'Too many requests. Please try again in a minute.');
+    return res.redirect('/profile');
+  },
+});
+const PageLoadLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,  // 1 minute
+  max:      30,             // 30 full‐page loads per minute
+  keyGenerator: (req) => req.ip,  // fingerprint not used on full‐page GETs
+  handler: (req, res) => {
+    const key = req.ip;
+    logger.warn(`Rate limit exceeded for ${req.originalUrl}: ${key}`);
+    if (req.is('json') || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(429).json({
+        status: 'error',
+        message: 'Too many requests. Please try again in a minute.',
+      });
+    }
+    req.flash('error_msg', 'Too many requests. Please try again in a minute.');
+    return res.redirect('/home');
+  },
+});
 
 // Helper function to parse @username tags and convert to HTML links
 const renderTaggedWriteUp = (writeUp, taggedUsers) => {
@@ -70,134 +140,106 @@ const renderTaggedWriteUp = (writeUp, taggedUsers) => {
  * Preserves createdAt for frontend relative time formatting.
  */
 const processPostUrls = async (posts, currentUser, ownerUser, adminView = false) => {
-  await Post.populate(posts, { path: 'taggedUsers', select: 'username' });
+  try {
+    await Post.populate(posts, { path: 'taggedUsers', select: 'username' });
 
-  for (const post of posts) {
-    const isOwner = currentUser && currentUser._id.toString() === ownerUser._id.toString();
-    const isSubscribed = currentUser && currentUser.subscriptions &&
-      currentUser.subscriptions.some(sub =>
-        sub.creatorId.toString() === ownerUser._id.toString() &&
-        sub.status === 'active' &&
-        sub.subscriptionExpiry > new Date()
-      );
-    const hasPurchased = currentUser && currentUser.purchasedContent &&
-      currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
-    const canViewSpecialContent = adminView || isOwner || hasPurchased;
-    const canViewPreview = isSubscribed && !hasPurchased && !isOwner && !adminView;
+    for (const post of posts) {
+      const isOwner = currentUser && currentUser._id.toString() === ownerUser._id.toString();
+      const isSubscribed = currentUser && currentUser.subscriptions &&
+        currentUser.subscriptions.some(sub =>
+          sub.creatorId.toString() === ownerUser._id.toString() &&
+          sub.status === 'active' &&
+          sub.subscriptionExpiry > new Date()
+        );
+      const hasPurchased = currentUser && currentUser.purchasedContent &&
+        currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
+      const canViewSpecialContent = adminView || isOwner || hasPurchased;
+      const canViewPreview = isSubscribed && !hasPurchased && !isOwner && !adminView;
 
-    // Handle old-style posts (single media)
-    if (post.contentUrl && !post.contentUrl.startsWith('http')) {
-      try {
+      // Store original blob names for content
+      if (post.contentUrl && !post.contentUrl.startsWith('http')) {
+        post.originalContentUrl = post.contentUrl;
         if (!post.special || canViewSpecialContent) {
-          // CHANGED: Create session and return proxy URL instead of signed URL
-          if (currentUser) {
-            const sessionId = await createSignedUrlSession(currentUser._id, post.contentUrl);
-            post.contentUrl = `/media/${sessionId}`;
-          } else {
-            post.contentUrl = null;
-          }
+          post.contentUrl = null;
         } else if (canViewPreview && post.previewUrl) {
-          if (currentUser) {
-            const sessionId = await createSignedUrlSession(currentUser._id, post.previewUrl);
-            post.contentUrl = `/media/${sessionId}`;
-          } else {
-            post.contentUrl = null;
-          }
+          post.originalContentUrl = post.previewUrl;
+          post.contentUrl = null;
           post.isLocked = true;
         } else {
           post.contentUrl = null;
           post.isLocked = true;
           post.isNonSubscriber = !isSubscribed;
         }
-      } catch (err) {
-        logger.error(`Failed to create signed URL session for post: ${err.message}`);
-        post.contentUrl = '/Uploads/placeholder.png';
       }
-    }
 
-    // Generate proxy URL for post.posterUrl (for single video posts)
-    if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
-      try {
-        if (currentUser) {
-          const sessionId = await createSignedUrlSession(currentUser._id, post.posterUrl);
-          post.posterUrl = `/media/${sessionId}`;
-        } else {
-          post.posterUrl = null;
-        }
-      } catch (err) {
-        logger.error(`Failed to create signed URL session for post poster: ${err.message}`);
+      // Store original poster URL for videos
+      if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
+        post.originalPosterUrl = post.posterUrl;
         post.posterUrl = null;
       }
-    }
 
-    // Handle new-style posts (multiple media)
-    if (post.mediaItems && post.mediaItems.length > 0) {
-      for (const mediaItem of post.mediaItems) {
-        if (!mediaItem.url.startsWith('http')) {
-          try {
+      // Handle multiple media items (limit to 3)
+      if (post.mediaItems && post.mediaItems.length > 0) {
+        const limitedMediaItems = post.mediaItems.slice(0, 3); // Align with app.js
+        post.mediaItems = limitedMediaItems; // Update post to enforce limit
+        for (const mediaItem of limitedMediaItems) {
+          if (!mediaItem.url.startsWith('http')) {
+            mediaItem.originalUrl = mediaItem.url;
             if (!post.special || canViewSpecialContent) {
-              if (currentUser) {
-                const sessionId = await createSignedUrlSession(currentUser._id, mediaItem.url);
-                mediaItem.url = `/media/${sessionId}`;
-              } else {
-                mediaItem.url = null;
-              }
+              mediaItem.url = null;
             } else if (canViewPreview && mediaItem.previewUrl) {
-              if (currentUser) {
-                const sessionId = await createSignedUrlSession(currentUser._id, mediaItem.previewUrl);
-                mediaItem.url = `/media/${sessionId}`;
-              } else {
-                mediaItem.url = null;
-              }
+              mediaItem.originalUrl = mediaItem.previewUrl;
+              mediaItem.url = null;
               post.isLocked = true;
             } else {
               mediaItem.url = null;
               post.isLocked = true;
               post.isNonSubscriber = !isSubscribed;
             }
-          } catch (err) {
-            logger.error(`Failed to create signed URL session for media item: ${err.message}`);
-            mediaItem.url = '/Uploads/placeholder.png';
           }
-        }
 
-        // Generate proxy URL for mediaItem.posterUrl (for videos)
-        if (mediaItem.type === 'video' && mediaItem.posterUrl && !mediaItem.posterUrl.startsWith('http')) {
-          try {
-            if (currentUser) {
-              const sessionId = await createSignedUrlSession(currentUser._id, mediaItem.posterUrl);
-              mediaItem.posterUrl = `/media/${sessionId}`;
-            } else {
-              mediaItem.posterUrl = null;
-            }
-          } catch (err) {
-            logger.error(`Failed to create signed URL session for media item poster: ${err.message}`);
+          if (mediaItem.type === 'video' && mediaItem.posterUrl && !mediaItem.posterUrl.startsWith('http')) {
+            mediaItem.originalPosterUrl = mediaItem.posterUrl;
             mediaItem.posterUrl = null;
           }
         }
       }
+
+      // Render writeUp with tagged user links
+      try {
+        if (post.writeUp && post.taggedUsers) {
+          post.renderedWriteUp = await renderTaggedWriteUp(post.writeUp, post.taggedUsers);
+        } else {
+          post.renderedWriteUp = post.writeUp;
+        }
+      } catch (err) {
+        logger.error(`Error rendering writeUp for post ${post._id}: ${err.message}`);
+        post.renderedWriteUp = post.writeUp || '';
+      }
+
+      // Ensure post._id is a string for profile.js
+      post._id = post._id.toString();
     }
 
-    // Render writeUp with tagged user links
-    if (post.writeUp && post.taggedUsers) {
-      post.renderedWriteUp = await renderTaggedWriteUp(post.writeUp, post.taggedUsers);
-    } else {
-      post.renderedWriteUp = post.writeUp;
-    }
+    logger.debug('Processed posts with createdAt timestamps:', {
+      postIds: posts.map(p => p._id),
+      createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null),
+      mediaCounts: posts.map(p => (p.mediaItems || []).length),
+    });
+  } catch (err) {
+    logger.error(`Error in processPostUrls: ${err.message}`);
+    throw err;
   }
-
-  logger.debug('Processed posts with createdAt timestamps:', {
-    postIds: posts.map(p => p._id.toString()),
-    createdAt: posts.map(p => p.createdAt ? p.createdAt.toISOString() : null),
-  });
 };
+// Ensure createSignedUrlSession is exported if not already
 
-router.get('/edit', authCheck, (req, res) => {
+router.get('/edit', authCheck, PageLoadLimiter, (req, res) => {
   res.render('edit-profile', { user: req.user, currentUser: req.user });
 });
 
 // POST route to handle profile edits and upload profile picture to Google Cloud Storage
-router.post('/edit', authCheck, uploadFields, [
+router.post('/edit', authCheck,  uploadFields, MediumSensitivityLimiter,[
+  body('fingerprint').optional().isString().withMessage('Invalid fingerprint'),
   body('profileName')
     .trim()
     .notEmpty().withMessage('Profile name is required')
@@ -478,7 +520,8 @@ router.get('/', authCheck, async (req, res) => {
   }
 });
 // Unlock special content route (using the Post model)
-router.post('/unlock-special-content', authCheck, [
+router.post('/unlock-special-content', authCheck, MediumSensitivityLimiter, [
+  body('fingerprint').optional().isString().withMessage('Invalid fingerprint'),
   body('contentId')
     .isMongoId().withMessage('Invalid content ID'),
   body('creatorId')
@@ -792,7 +835,8 @@ router.get('/verify-special-payment', async (req, res) => {
 });
 
 // for tip amounts
-router.post('/posts/:postId/tip', authCheck, [
+router.post('/posts/:postId/tip', authCheck, MediumSensitivityLimiter, [
+  body('fingerprint').optional().isString().withMessage('Invalid fingerprint'),
   body('tipAmount')
     .isFloat({ min: 0.01 }).withMessage('Tip amount must be a positive number')
 ], async (req, res) => {
@@ -999,7 +1043,8 @@ router.get('/verify-tip-payment', async (req, res) => {
   }
 });
 
-router.post('/tip-creator/:creatorId', authCheck, [
+router.post('/tip-creator/:creatorId', authCheck, MediumSensitivityLimiter, [
+  body('fingerprint').optional().isString().withMessage('Invalid fingerprint'),
   body('tipAmount')
     .isFloat({ min: 0.01 }).withMessage('Tip amount must be a positive number'),
   body('tipMessage')
@@ -1068,13 +1113,21 @@ router.post('/tip-creator/:creatorId', authCheck, [
   }
 });
 
-router.post('/posts/:postId/like', authCheck, async (req, res) => {
+router.post('/posts/:postId/like', authCheck, LowSensitivityLimiter, [
+  param('postId').isMongoId().withMessage('Invalid post ID'),
+  body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn(`Validation errors in /posts/:postId/like: ${JSON.stringify(errors.array())}`);
+    return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+  }
 
   try {
     const post = await Post.findById(req.params.postId);
     if (!post) {
-      logger.warn('Post not found in posts/:postId/like');
-      return res.status(404).json({ message: 'Post not found' });
+      logger.warn(`Post not found in /posts/:postId/like: ${req.params.postId}`);
+      return res.status(404).json({ status: 'error', message: 'Post not found' });
     }
 
     const userId = req.user._id.toString();
@@ -1095,24 +1148,26 @@ router.post('/posts/:postId/like', authCheck, async (req, res) => {
     // Update the creator's totalLikes
     const creator = await User.findById(post.creator);
     if (!creator) {
-      logger.error('Creator not found for post in posts/:postId/like');
-      return res.status(404).json({ message: 'Creator not found' });
+      logger.error(`Creator not found for post in /posts/:postId/like: ${post.creator}`);
+      return res.status(404).json({ status: 'error', message: 'Creator not found' });
     }
     await User.findByIdAndUpdate(post.creator, { $inc: { totalLikes: likeChange } });
 
     res.json({
+      status: 'success',
       message: alreadyLiked ? 'Post unliked successfully' : 'Post liked successfully',
       likes: post.likes.length,
       userLiked: !alreadyLiked,
     });
   } catch (err) {
-    logger.error(`Error toggling like: ${err.message}`);
-    res.status(500).json({ message: 'An error occurred while toggling the like' });
+    logger.error(`Error toggling like in /posts/:postId/like: ${err.message}`);
+    res.status(500).json({ status: 'error', message: 'An error occurred while toggling the like' });
   }
 });
 
 // Comment on a post
-router.post('/posts/:postId/comment', authCheck, [
+router.post('/posts/:postId/comment', authCheck, LowSensitivityLimiter, [
+    body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
   body('text')
     .trim()
     .notEmpty().withMessage('Comment text is required')
@@ -1157,8 +1212,15 @@ router.post('/posts/:postId/comment', authCheck, [
     res.status(500).json({ message: 'An error occurred while submitting your comment' });
   }
 });
-// Bookmark/Unbookmark a post
-router.post('/posts/:postId/bookmark', authCheck, async (req, res) => {
+router.post('/posts/:postId/bookmark', authCheck, LowSensitivityLimiter, [
+  param('postId').isMongoId().withMessage('Invalid post ID'),
+  body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn(`Validation errors in /posts/:postId/bookmark: ${JSON.stringify(errors.array())}`);
+    return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+  }
 
   try {
     const postId = req.params.postId;
@@ -1166,8 +1228,8 @@ router.post('/posts/:postId/bookmark', authCheck, async (req, res) => {
 
     const post = await Post.findById(postId);
     if (!post) {
-      logger.warn('Post not found in posts/:postId/bookmark');
-      return res.status(404).json({ message: 'Post not found' });
+      logger.warn(`Post not found in /posts/:postId/bookmark: ${postId}`);
+      return res.status(404).json({ status: 'error', message: 'Post not found' });
     }
 
     const user = await User.findById(userId);
@@ -1184,16 +1246,17 @@ router.post('/posts/:postId/bookmark', authCheck, async (req, res) => {
     await user.save();
 
     res.status(200).json({
+      status: 'success',
       message: isBookmarked ? 'Post unbookmarked successfully' : 'Post bookmarked successfully',
       isBookmarked: !isBookmarked
     });
   } catch (error) {
-    logger.error(`Bookmark error: ${error.message}`);
-    res.status(500).json({ message: 'Server error' });
+    logger.error(`Bookmark error in /posts/:postId/bookmark: ${error.message}`);
+    res.status(500).json({ status: 'error', message: 'Server error' });
   }
 });
 
-router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
+router.get('/posts/:postId/bookmark-status', authCheck, PageLoadLimiter,async (req, res) => {
   const logger = require('../logs/logger'); // Import Winston logger
   try {
     const user = await User.findById(req.user._id);
@@ -1205,7 +1268,8 @@ router.get('/posts/:postId/bookmark-status', authCheck, async (req, res) => {
   }
 });
 
-router.post('/uploadContent', authCheck, uploadContentFields, [
+router.post('/uploadContent', authCheck, uploadContentFields, HighSensitivityLimiter, [
+    body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
   body('writeUp')
     .trim()
     .escape()
@@ -1220,6 +1284,7 @@ router.post('/uploadContent', authCheck, uploadContentFields, [
     .trim()
     .escape()
     .isLength({ max: 50 }).withMessage('Category must be 50 characters or less')
+    
 ], async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -1442,7 +1507,8 @@ router.post('/uploadContent', authCheck, uploadContentFields, [
   }
 });
 // Route to manage post categories (add, edit, delete)
-router.post('/manage-categories', authCheck, [
+router.post('/manage-categories', authCheck, LowSensitivityLimiter, [
+    body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
   body('action')
     .isIn(['add', 'edit', 'delete']).withMessage('Invalid action'),
   body('category')
@@ -1525,7 +1591,8 @@ router.post('/manage-categories', authCheck, [
   }
 });
 // Report a post
-router.post('/report-post', authCheck, [
+router.post('/report-post', authCheck, LowSensitivityLimiter, [
+    body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
   body('postId')
     .isMongoId().withMessage('Invalid post ID'),
   body('reason')
@@ -1572,20 +1639,28 @@ router.post('/report-post', authCheck, [
     res.status(500).json({ status: 'error', message: 'Error submitting report.' });
   }
 });
-// Delete post route
-router.post('/delete-post/:postId', authCheck, async (req, res) => {
-  
+router.post('/delete-post/:postId', authCheck, HighSensitivityLimiter, [
+  param('postId').isMongoId().withMessage('Invalid post ID'),
+  body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn(`Validation errors in /delete-post/:postId: ${JSON.stringify(errors.array())}`);
+    req.flash('error_msg', errors.array().map(err => err.msg).join(', '));
+    return res.status(400).redirect('/profile');
+  }
+
   try {
     const post = await Post.findOne({ _id: req.params.postId, creator: req.user._id });
     if (!post) {
-      logger.warn('Post not found or unauthorized in delete-post/:postId');
+      logger.warn(`Post not found or unauthorized in /delete-post/:postId: ${req.params.postId}`);
       req.flash('error_msg', 'Post not found or you are not authorized to delete it');
       return res.status(404).redirect('/profile');
     }
 
     const user = await User.findById(req.user._id);
     if (!user) {
-      logger.error('User not found in delete-post/:postId');
+      logger.error(`User not found in /delete-post/:postId: ${req.user._id}`);
       req.flash('error_msg', 'User not found');
       return res.status(404).redirect('/profile');
     }
@@ -1605,14 +1680,14 @@ router.post('/delete-post/:postId', authCheck, async (req, res) => {
     req.flash('success_msg', 'Post deleted successfully');
     res.redirect('/profile');
   } catch (err) {
-    logger.error(`Error deleting post: ${err.message}`);
+    logger.error(`Error deleting post in /delete-post/:postId: ${err.message}`);
     req.flash('error_msg', 'Error deleting post');
     res.status(500).redirect('/profile');
   }
 });
-
 // Admin delete post with reason
-router.post('/admin-delete-post/:postId', authCheck, [
+router.post('/admin-delete-post/:postId', authCheck, HighSensitivityLimiter, [
+    body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
   body('reason')
     .trim()
     .notEmpty().withMessage('Reason for deletion is required')
@@ -1687,7 +1762,8 @@ router.post('/admin-delete-post/:postId', authCheck, [
 });
 
 // Create a new subscription bundle
-router.post('/create-bundle', authCheck, upload.none(), [
+router.post('/create-bundle', authCheck, upload.none(), HighSensitivityLimiter, [
+    body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
   body('price')
     .isFloat({ min: 0.01 }).withMessage('Price must be a positive number'),
   body('duration')
@@ -1842,7 +1918,8 @@ router.post('/create-bundle', authCheck, upload.none(), [
     }
   }
 });
-router.post('/edit-bundle/:bundleId', authCheck, upload.none(), [
+router.post('/edit-bundle/:bundleId', authCheck, upload.none(), HighSensitivityLimiter, [
+    body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
   body('price')
     .isFloat({ min: 0.01 }).withMessage('Price must be a positive number'),
   body('description')
@@ -1962,18 +2039,29 @@ router.post('/edit-bundle/:bundleId', authCheck, upload.none(), [
     });
   }
 });
+router.post('/delete-bundle/:bundleId', authCheck, HighSensitivityLimiter, [
+  param('bundleId').isMongoId().withMessage('Invalid bundle ID'),
+  body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn(`Validation errors in /delete-bundle/:bundleId: ${JSON.stringify(errors.array())}`);
+    req.flash('error_msg', errors.array().map(err => err.msg).join(', '));
+    return res.status(400).redirect('/profile');
+  }
 
-router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
   try {
     const bundle = await SubscriptionBundle.findById(req.params.bundleId);
     if (!bundle) {
-      logger.warn('Bundle not found in delete-bundle/:bundleId');
-      return res.status(404).send('Bundle not found');
+      logger.warn(`Bundle not found in /delete-bundle/:bundleId: ${req.params.bundleId}`);
+      req.flash('error_msg', 'Bundle not found');
+      return res.status(404).redirect('/profile');
     }
 
     if (bundle.creatorId.toString() !== req.user._id.toString()) {
-      logger.warn('Unauthorized bundle deletion attempt in delete-bundle/:bundleId');
-      return res.status(403).send('You do not have permission to delete this bundle');
+      logger.warn(`Unauthorized bundle deletion attempt in /delete-bundle/:bundleId: ${req.params.bundleId}`);
+      req.flash('error_msg', 'You do not have permission to delete this bundle');
+      return res.status(403).redirect('/profile');
     }
 
     await SubscriptionBundle.findByIdAndDelete(bundle._id);
@@ -1981,14 +2069,15 @@ router.post('/delete-bundle/:bundleId', authCheck, async (req, res) => {
     req.flash('success_msg', 'Bundle deleted successfully');
     res.redirect('/profile');
   } catch (err) {
-    logger.error(`Error deleting bundle: ${err.message}`);
+    logger.error(`Error deleting bundle in /delete-bundle/:bundleId: ${err.message}`);
     req.flash('error_msg', 'Error deleting bundle');
     res.status(500).redirect('/profile');
   }
 });
 
 // POST /profile/subscribe-free (subscribe to a free bundle)
-router.post('/subscribe-free', authCheck, [
+router.post('/subscribe-free', authCheck, LowSensitivityLimiter, [
+    body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
   body('creatorId')
     .isMongoId().withMessage('Invalid creator ID'),
   body('creatorUsername')
@@ -2104,7 +2193,8 @@ router.post('/subscribe-free', authCheck, [
 
 
 // POST /profile/subscribe
-router.post('/subscribe', [
+router.post('/subscribe', MediumSensitivityLimiter, [
+  body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
   body('creatorId')
     .isMongoId().withMessage('Invalid creator ID'),
   body('bundleId')
@@ -2298,18 +2388,28 @@ router.post('/subscribe', [
     });
   }
 });
-router.post('/unsubscribe/:creatorId', authCheck, async (req, res) => {
+router.post('/unsubscribe/:creatorId', authCheck, MediumSensitivityLimiter, [
+  param('creatorId').isMongoId().withMessage('Invalid creator ID'),
+  body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn(`Validation errors in /unsubscribe/:creatorId: ${JSON.stringify(errors.array())}`);
+    if (req.is('json')) {
+      return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+    }
+    req.flash('error_msg', errors.array().map(err => err.msg).join(', '));
+    return res.status(400).redirect('/profile');
+  }
+
   try {
     const creatorId = req.params.creatorId;
-    if (!mongoose.Types.ObjectId.isValid(creatorId)) {
-      logger.warn(`Invalid creatorId: ${creatorId} in unsubscribe`);
-      req.flash('error_msg', 'Invalid creator ID');
-      return res.status(400).redirect('/profile');
-    }
-
     const user = await User.findById(req.user._id);
     if (!user) {
       logger.error(`User not found: ${req.user._id} in unsubscribe`);
+      if (req.is('json')) {
+        return res.status(404).json({ status: 'error', message: 'User not found' });
+      }
       req.flash('error_msg', 'User not found');
       return res.status(404).redirect('/profile');
     }
@@ -2322,6 +2422,9 @@ router.post('/unsubscribe/:creatorId', authCheck, async (req, res) => {
     );
     if (!subscription) {
       logger.warn(`No active subscription found for creator ${creatorId} in unsubscribe`);
+      if (req.is('json')) {
+        return res.status(400).json({ status: 'error', message: 'You are not subscribed to this creator' });
+      }
       req.flash('error_msg', 'You are not subscribed to this creator');
       return res.redirect(`/profile/${creatorId}`);
     }
@@ -2329,6 +2432,9 @@ router.post('/unsubscribe/:creatorId', authCheck, async (req, res) => {
     const bundle = await SubscriptionBundle.findById(subscription.subscriptionBundle);
     if (!bundle || !bundle.isFree) {
       logger.warn(`Subscription is not to a free bundle for creator ${creatorId} in unsubscribe`);
+      if (req.is('json')) {
+        return res.status(400).json({ status: 'error', message: 'You can only unsubscribe from free subscriptions' });
+      }
       req.flash('error_msg', 'You can only unsubscribe from free subscriptions');
       return res.redirect(`/profile/${creatorId}`);
     }
@@ -2348,16 +2454,37 @@ router.post('/unsubscribe/:creatorId', authCheck, async (req, res) => {
 
     await user.removeBookmarksForExpiredSubscriptions();
 
+    if (req.is('json')) {
+      return res.json({
+        status: 'success',
+        message: 'Unsubscribed successfully',
+        redirect: `/profile/${creator.username}`,
+      });
+    }
     req.flash('success_msg', 'Unsubscribed successfully');
     res.redirect(`/profile/${creator.username}`);
   } catch (err) {
     logger.error(`Error unsubscribing: ${err.message}, Stack: ${err.stack}`);
+    if (req.is('json')) {
+      return res.status(500).json({ status: 'error', message: 'Error unsubscribing' });
+    }
     req.flash('error_msg', 'Error unsubscribing');
     res.status(500).redirect(`/profile/${creatorId}`);
   }
 });
-// Toggle free subscription mode
-router.post('/toggle-free-subscription', authCheck, async (req, res) => {
+router.post('/toggle-free-subscription', authCheck, HighSensitivityLimiter, [
+  body('fingerprint').notEmpty().withMessage('Device fingerprint is required').isString().withMessage('Invalid fingerprint'),
+], async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    logger.warn(`Validation errors in /toggle-free-subscription: ${JSON.stringify(errors.array())}`);
+    if (req.headers['content-type'] === 'application/json') {
+      return res.status(400).json({ status: 'error', message: errors.array().map(err => err.msg).join(', ') });
+    }
+    req.flash('error_msg', errors.array().map(err => err.msg).join(', '));
+    return res.status(400).redirect('/profile');
+  }
+
   try {
     if (req.user.role !== 'creator') {
       logger.warn('Unauthorized free subscription toggle attempt by non-creator');
@@ -2399,13 +2526,13 @@ router.post('/toggle-free-subscription', authCheck, async (req, res) => {
             sub.status === 'active'
           ) {
             sub.status = 'expired';
-            sub.subscriptionExpiry = now; // Set expiry to now to ensure immediate expiration
+            sub.subscriptionExpiry = now;
             subscriptionsChanged = true;
           }
         });
         if (subscriptionsChanged) {
-          await subscriber.save(); // Triggers pre('save') hook
-          await subscriber.removeBookmarksForExpiredSubscriptions(); // Clean bookmarks
+          await subscriber.save();
+          await subscriber.removeBookmarksForExpiredSubscriptions();
         }
       });
 
@@ -2447,7 +2574,7 @@ router.post('/toggle-free-subscription', authCheck, async (req, res) => {
     req.flash('success_msg', message);
     res.redirect('/profile');
   } catch (err) {
-    logger.error(`Error toggling free subscription: ${err.message}`);
+    logger.error(`Error toggling free subscription: ${err.message}, Stack: ${err.stack}`);
     const errorMsg = 'Error toggling free subscription';
     if (req.headers['content-type'] === 'application/json') {
       return res.status(500).json({ status: 'error', message: errorMsg });
@@ -2552,7 +2679,7 @@ router.get('/creator-suggestions', async (req, res) => {
   }
 });
 // View another user's profile by username
-router.get('/:username', async (req, res) => {
+router.get('/:username', PageLoadLimiter, async (req, res) => {
   logger.info(`Request URL: ${req.originalUrl}, Route: /:username, Referer: ${req.get('Referer') || 'none'}`);
   try {
     const username = req.params.username;
@@ -2740,7 +2867,7 @@ router.get('/:username', async (req, res) => {
   }
 });
 // View a single post
-router.get('/:username/post/:postId', async (req, res) => {
+router.get('/:username/post/:postId', PageLoadLimiter, async (req, res) => {
   try {
     const { username, postId } = req.params;
     const ownerUser = await User.findOne({ username });
@@ -2824,7 +2951,7 @@ router.get('/:username/post/:postId', async (req, res) => {
 });
 // View another user's profile by ID
 // View another user's profile by ID
-router.get('/view/:id', authCheck, async (req, res) => {
+router.get('/view/:id', authCheck, PageLoadLimiter, async (req, res) => {
   logger.info(`Request URL: ${req.originalUrl}, Route: /view/:id, Referer: ${req.get('Referer') || 'none'}`);
   try {
     const ownerUser = await User.findById(req.params.id);

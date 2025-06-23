@@ -6,7 +6,8 @@ const Post = require('../models/Post');
 const { generateSignedUrl, createSignedUrlSession } = require('../utilis/cloudStorage');
 const logger = require('../logs/logger');
 const { query, validationResult } = require('express-validator');
-
+const rateLimit = require('express-rate-limit');
+const MongoStore = require('rate-limit-mongo');
 // Authentication middleware
 const authCheck = (req, res, next) => {
   if (!req.user) {
@@ -15,6 +16,100 @@ const authCheck = (req, res, next) => {
   }
   next();
 };
+
+// Rate limiters
+const HighSensitivityGetLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 3,                  // 3 requests per minute
+  keyGenerator: (req) => req.query.fingerprint || req.ip,
+  handler: (req, res) => {
+    const key = req.query.fingerprint || req.ip;
+    logger.warn(`Rate limit exceeded for ${req.originalUrl}: ${key}`);
+    if (req.is('json') || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(429).json({
+        status: 'error',
+        message: 'Too many requests. Please try again in a minute.',
+      });
+    }
+    req.flash('error_msg', 'Too many requests. Please try again in a minute.');
+    return res.redirect('/home');
+  },
+});
+
+const MediumSensitivityGetLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 5,                  // 5 requests per minute
+  keyGenerator: (req) => req.query.fingerprint || req.ip,
+  handler: (req, res) => {
+    const key = req.query.fingerprint || req.ip;
+    logger.warn(`Rate limit exceeded for ${req.originalUrl}: ${key}`);
+    if (req.is('json') || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(429).json({
+        status: 'error',
+        message: 'Too many requests. Please try again in a minute.',
+      });
+    }
+    req.flash('error_msg', 'Too many requests. Please try again in a minute.');
+    return res.redirect('/home');
+  },
+});
+
+const LowSensitivityGetLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 10,                 // 10 requests per minute
+  keyGenerator: (req) => req.query.fingerprint || req.ip,
+  handler: (req, res) => {
+    const key = req.query.fingerprint || req.ip;
+    logger.warn(`Rate limit exceeded for ${req.originalUrl}: ${key}`);
+    if (req.is('json') || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(429).json({
+        status: 'error',
+        message: 'Too many requests. Please try again in a minute.',
+      });
+    }
+    req.flash('error_msg', 'Too many requests. Please try again in a minute.');
+    return res.redirect('/home');
+  },
+});
+
+// Rate limiters
+const VeryLooseSearchGetLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000, // 1 minute
+  max: 200,                // 100 requests per minute
+  keyGenerator: (req) => req.query.fingerprint || req.ip,
+  handler: (req, res) => {
+    const key = req.query.fingerprint || req.ip;
+    logger.warn(`Rate limit exceeded for ${req.originalUrl}: ${key}`);
+    if (req.is('json') || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(429).json({
+        status: 'error',
+        message: 'Too many requests. Please try again in a minute.',
+      });
+    }
+    req.flash('error_msg', 'Too many requests. Please try again in a minute.');
+    return res.redirect('/home');
+  },
+});
+
+const PageLoadLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,  // 1 minute
+  max:      30,             // 30 full‐page loads per minute
+  keyGenerator: (req) => req.ip,  // fingerprint not used on full‐page GETs
+  handler: (req, res) => {
+    const key = req.ip;
+    logger.warn(`Rate limit exceeded for ${req.originalUrl}: ${key}`);
+    if (req.is('json') || req.headers['x-requested-with'] === 'XMLHttpRequest') {
+      return res.status(429).json({
+        status: 'error',
+        message: 'Too many requests. Please try again in a minute.',
+      });
+    }
+    req.flash('error_msg', 'Too many requests. Please try again in a minute.');
+    return res.redirect('/home');
+  },
+});
+
+
 
 // Helper function to parse @username tags and convert to HTML links
 const renderTaggedWriteUp = (writeUp, taggedUsers) => {
@@ -36,10 +131,9 @@ const renderTaggedWriteUp = (writeUp, taggedUsers) => {
     return match;
   });
 };
-
 const processPostUrlForFeed = async (post, currentUser) => {
   // Determine if the user can view the full content
-  const hasPurchased = currentUser.purchasedContent?.some(
+  const hasPurchased = currentUser?.purchasedContent?.some(
     (p) => p.contentId.toString() === post._id.toString()
   );
   const canViewFullContent = !post.special || hasPurchased;
@@ -49,75 +143,76 @@ const processPostUrlForFeed = async (post, currentUser) => {
 
   // Handle multiple media items
   if (post.mediaItems && post.mediaItems.length > 0) {
-    for (const item of post.mediaItems) {
-      // Process the media URL
+    const limitedMediaItems = post.mediaItems.slice(0, 3); // Limit to 3 media items, matching profile.js
+    post.mediaItems = limitedMediaItems; // Update post to enforce limit
+    for (const item of limitedMediaItems) {
+      // Store original URLs for client-side fetching
       if (item.url && !item.url.startsWith('http')) {
-        try {
-          if (canViewFullContent) {
-            const sessionId = await createSignedUrlSession(currentUser._id, item.url);
-            item.url = `/media/${sessionId}`;
-          } else if (item.previewUrl && !item.previewUrl.startsWith('http')) {
-            const sessionId = await createSignedUrlSession(currentUser._id, item.previewUrl);
-            item.url = `/media/${sessionId}`;
-          } else {
-            item.url = `/Uploads/placeholder-${item.type}.png`;
-          }
-        } catch (err) {
-          logger.error(`Failed to create signed URL session for mediaItem: ${err.message}`);
-          item.url = `/Uploads/placeholder-${item.type}.png`;
+        item.originalUrl = item.url;
+        if (!post.special || canViewFullContent) {
+          item.url = null; // Client will fetch signed URL
+        } else if (item.previewUrl && !item.previewUrl.startsWith('http')) {
+          item.originalUrl = item.previewUrl; // Use preview for non-purchased special content
+          item.url = null;
+          post.isLocked = true;
+        } else {
+          item.url = null;
+          post.isLocked = true;
+          post.isNonSubscriber = !currentUser?.subscriptions?.some(
+            (sub) =>
+              sub.creatorId.toString() === post.creator.toString() &&
+              sub.status === 'active' &&
+              sub.subscriptionExpiry > new Date()
+          );
         }
       }
 
-      // Process the poster URL for videos
+      // Store original poster URL for videos
       if (item.type === 'video' && item.posterUrl && !item.posterUrl.startsWith('http')) {
-        try {
-          const sessionId = await createSignedUrlSession(currentUser._id, item.posterUrl);
-          item.posterUrl = `/media/${sessionId}`;
-        } catch (err) {
-          logger.error(`Failed to create signed URL session for media item poster: ${err.message}`);
-          item.posterUrl = null;
-        }
+        item.originalPosterUrl = item.posterUrl;
+        item.posterUrl = null; // Client will fetch signed URL
       }
     }
   } else {
     // Handle single media posts
     if (post.contentUrl && !post.contentUrl.startsWith('http')) {
-      try {
-        if (canViewFullContent) {
-          const sessionId = await createSignedUrlSession(currentUser._id, post.contentUrl);
-          post.contentUrl = `/media/${sessionId}`;
-        } else if (post.previewUrl && !post.previewUrl.startsWith('http')) {
-          const sessionId = await createSignedUrlSession(currentUser._id, post.previewUrl);
-          post.contentUrl = `/media/${sessionId}`;
-        } else {
-          post.contentUrl = '/Uploads/placeholder.png';
-        }
-      } catch (err) {
-        logger.error(`Failed to create signed URL session for post: ${err.message}`);
-        post.contentUrl = '/Uploads/placeholder.png';
+      post.originalContentUrl = post.contentUrl;
+      if (!post.special || canViewFullContent) {
+        post.contentUrl = null; // Client will fetch signed URL
+      } else if (post.previewUrl && !post.previewUrl.startsWith('http')) {
+        post.originalContentUrl = post.previewUrl; // Use preview for non-purchased special content
+        post.contentUrl = null;
+        post.isLocked = true;
+      } else {
+        post.contentUrl = null;
+        post.isLocked = true;
+        post.isNonSubscriber = !currentUser?.subscriptions?.some(
+          (sub) =>
+            sub.creatorId.toString() === post.creator.toString() &&
+            sub.status === 'active' &&
+            sub.subscriptionExpiry > new Date()
+        );
       }
     }
 
-    // Process the poster URL for single video posts
+    // Store original poster URL for single video posts
     if (post.type === 'video' && post.posterUrl && !post.posterUrl.startsWith('http')) {
-      try {
-        const sessionId = await createSignedUrlSession(currentUser._id, post.posterUrl);
-        post.posterUrl = `/media/${sessionId}`;
-      } catch (err) {
-        logger.error(`Failed to create signed URL session for post poster: ${err.message}`);
-        post.posterUrl = null;
-      }
+      post.originalPosterUrl = post.posterUrl;
+      post.posterUrl = null; // Client will fetch signed URL
     }
   }
 
   // Render tagged users in the write-up
   if (post.writeUp && post.taggedUsers) {
-    post.renderedWriteUp = renderTaggedWriteUp(post.writeUp, post.taggedUsers);
+    post.renderedWriteUp = await renderTaggedWriteUp(post.writeUp, post.taggedUsers);
   } else {
     post.renderedWriteUp = post.writeUp || '';
   }
+
+  // Ensure post._id is a string
+  post._id = post._id.toString();
 };
-router.get('/', authCheck, [
+router.get('/', authCheck, PageLoadLimiter, [
   query('query')
     .optional()
     .trim()
@@ -242,7 +337,7 @@ router.get('/', authCheck, [
   }
 });
 
-router.get('/search-suggestions', authCheck, [
+router.get('/search-suggestions', authCheck, VeryLooseSearchGetLimiter, [
   query('query')
     .trim()
     .notEmpty().withMessage('Search query is required')
@@ -279,7 +374,7 @@ router.get('/search-suggestions', authCheck, [
   }
 });
 
-router.get('/search-creators', authCheck, [
+router.get('/search-creators', authCheck, LowSensitivityGetLimiter,[
   query('query')
     .trim()
     .notEmpty().withMessage('Search query is required')

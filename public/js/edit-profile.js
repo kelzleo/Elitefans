@@ -6,8 +6,24 @@ document.addEventListener('DOMContentLoaded', function () {
   const instagramUrlInput = document.getElementById('instagramUrl');
   const twitterUrlInput = document.getElementById('twitterUrl');
 
+  // Initialize FingerprintJS (global, no import)
+  let fingerprint = null;
+  if (typeof FingerprintJS !== 'undefined') {
+    FingerprintJS.load()
+      .then(fp => fp.get())
+      .then(result => {
+        fingerprint = result.visitorId;
+        if (isDevEnv) console.log('Fingerprint initialized:', fingerprint);
+      })
+      .catch(err => {
+        if (isDevEnv) console.error('Failed to get fingerprint:', err);
+      });
+  } else {
+    if (isDevEnv) console.error('FingerprintJS is not loaded. Ensure FingerprintJS script is included.');
+  }
+
   form.addEventListener('submit', async function (e) {
-    e.preventDefault(); // Prevent default submission
+    e.preventDefault();
 
     // Validation
     const newUsername = usernameInput.value.trim();
@@ -41,27 +57,38 @@ document.addEventListener('DOMContentLoaded', function () {
       return;
     }
 
-    // Create FormData
-    const formData = new FormData(form);
+    // Check for fingerprint
+    if (!fingerprint) {
+      if (isDevEnv) console.error('Fingerprint not initialized');
+      alert('Error: Device identification failed. Please try again.');
+      return;
+    }
+
+    // Create JSON payload
+    const data = {
+      username: newUsername,
+      instagramUrl,
+      twitterUrl,
+      fingerprint
+    };
 
     // Submit via fetchWithCsrf
     try {
       const response = await fetchWithCsrf(form.action, {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
       });
 
-      // Check for redirect
       if (response.redirected) {
         window.location.href = response.url;
         return;
       }
 
-      // Handle JSON response (in case of error)
       const text = await response.text();
-      let data;
+      let dataResponse;
       try {
-        data = JSON.parse(text);
+        dataResponse = JSON.parse(text);
       } catch (parseError) {
         if (isDevEnv) console.error('Non-JSON response:', text, parseError);
         if (response.ok) {
@@ -72,11 +99,11 @@ document.addEventListener('DOMContentLoaded', function () {
         throw new Error(`Failed to parse server response: ${parseError.message}`);
       }
 
-      if (response.ok && data.status === 'success') {
+      if (response.ok && dataResponse.status === 'success') {
         alert('Profile updated successfully!');
         window.location.href = '/profile';
       } else {
-        alert(data.message || 'Error updating profile.');
+        alert(dataResponse.message || 'Error updating profile.');
       }
     } catch (error) {
       if (isDevEnv) console.error('Form submission error:', error);
@@ -84,8 +111,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-  // Debug FetchWithCsrf Availability
   if (isDevEnv && typeof fetchWithCsrf !== 'function') {
-    console.error('fetchWithCsrf is not defined. Ensure utils.js is loaded before edit-profile.js');
+    console.error('fetchWithCsrf is not defined. Ensure utils.js or profile.js is loaded before edit-profile.js');
   }
 });

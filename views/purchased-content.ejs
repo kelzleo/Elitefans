@@ -8,7 +8,7 @@
   <% if (posts && posts.length > 0) { %>
     <% posts.forEach(post => { %>
       <% if (post && post.creator) { %>
-        <div class="post-card" id="post-<%= post._id %>" data-category="<%= post.category || 'none' %>">
+        <div class="post-card" id="post-<%= post._id %>" data-post-id="<%= post._id %>" data-is-locked="false">
           <!-- Creator Header -->
           <div class="profile-post-header">
             <div class="profile-creator-info">
@@ -44,27 +44,31 @@
                   <% 
                     const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
                       post.mediaItems : 
-                      (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType || 'video/mp4', posterUrl: post.posterUrl }] : []);
+                      (post.originalContentUrl ? [{ type: post.type, originalUrl: post.originalContentUrl, contentType: post.contentType || 'video/mp4', originalPosterUrl: post.originalPosterUrl || null }] : []);
                   %>
                   <% mediaItems.forEach((media, index) => { %>
                     <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                       <% if (media.type === 'image') { %>
-                        <img src="<%= media.url %>"
+                        <img id="media-<%= post._id %>-<%= index %>"
+                             src="/images/loading.png"
                              alt="Post Image"
-                             class="post-image fullscreenable"
-                             data-fullscreen-src="<%= media.url %>"
+                             class="post-image fullscreenable lazy-media"
+                             data-original-url="<%= media.originalUrl %>"
+                             data-fullscreen-src=""
                              draggable="false"
                              oncontextmenu="return false;">
                       <% } else if (media.type === 'video') { %>
-                        <video
-                          class="post-video fullscreenable"
-                          controlsList="nodownload noremoteplayback"
-                          data-fullscreen-src="<%= media.url %>"
-                          disablePictureInPicture
-                          draggable="false"
-                          oncontextmenu="return false;"
-                          poster="<%= media.posterUrl || '' %>">
-                          <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+                        <video id="media-<%= post._id %>-<%= index %>"
+                               class="post-video fullscreenable lazy-media"
+                               controlsList="nodownload noremoteplayback"
+                               data-fullscreen-src=""
+                               disablePictureInPicture
+                               draggable="false"
+                               oncontextmenu="return false;"
+                               poster="/images/loading.png"
+                               data-original-url="<%= media.originalUrl %>"
+                               data-original-poster="<%= media.originalPosterUrl || '' %>">
+                          <source src="" type="<%= media.contentType || 'video/mp4' %>">
                           Your browser does not support the video tag.
                         </video>
                       <% } %>
@@ -145,23 +149,21 @@
   <% } %>
 
   <!-- Lightbox HTML with custom controls -->
-<div id="lightbox" class="hidden">
-  <div id="lb-backdrop"></div>
-  <div id="lb-content">
-    <button id="lb-close" aria-label="Close fullscreen">×</button>
-    <img id="lb-img" class="lb-media" alt="">
-    <video id="lb-vid" class="lb-media" controlsList="nodownload noremoteplayback" disablePictureInPicture></video>
-    
-    <!-- Custom video controls -->
-    <div class="custom-controls" id="custom-controls">
-      <button class="control-btn" id="play-pause">▶</button>
-      <div class="progress-container" id="progress-container">
-        <progress class="progress-bar" id="progress-bar" value="0" max="100"></progress>
+  <div id="lightbox" class="hidden">
+    <div id="lb-backdrop"></div>
+    <div id="lb-content">
+      <button id="lb-close" aria-label="Close fullscreen">×</button>
+      <img id="lb-img" class="lb-media" alt="">
+      <video id="lb-vid" class="lb-media" controlsList="nodownload noremoteplayback" disablePictureInPicture></video>
+      <div class="custom-controls" id="custom-controls">
+        <button class="control-btn" id="play-pause">▶</button>
+        <div class="progress-container" id="progress-container">
+          <progress class="progress-bar" id="progress-bar" value="0" max="100"></progress>
+        </div>
+        <button class="control-btn" id="mute-unmute">🔊</button>
       </div>
-      <button class="control-btn" id="mute-unmute">🔊</button>
     </div>
   </div>
-</div>
 
   <!-- Post Action Modal -->
   <div id="postActionModal" class="post-action-modal hidden">
@@ -227,8 +229,8 @@
       </form>
     </div>
   </div>
+
   <script src="/scripts/utils.js"></script>
-  <script src="/js/purchased-content.js" defer>
-  
-  </script>
+   <script src="https://cdn.jsdelivr.net/npm/@fingerprintjs/fingerprintjs@3/dist/fp.min.js"></script>
+  <script src="/js/purchased-content.js" defer></script>
 </div>

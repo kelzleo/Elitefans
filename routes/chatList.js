@@ -10,7 +10,7 @@ const authCheck = (req, res, next) => {
   if (!req.user) {
     logger.warn('Unauthorized access attempt to chat list page');
     req.flash('error_msg', 'You must be logged in to view your chats.');
-    return res.redirect('/users/login');
+    return res.redirect('/'); // Changed from /users/login
   }
   next();
 };
@@ -71,7 +71,7 @@ router.get('/', authCheck, async (req, res) => {
       };
     });
 
-    res.render('chatList', { chats: chatsWithStatus, currentUser });
+    res.render('chatList', { chats: chatsWithStatus, currentUser }); // Case-sensitive: chatList
   } catch (error) {
     logger.error(`Error loading chat list: ${error.message}`);
     req.flash('error_msg', 'Error loading chat list.');

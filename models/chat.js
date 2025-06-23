@@ -1,3 +1,4 @@
+// models/chat.js
 const mongoose = require('mongoose');
 
 const messageSchema = new mongoose.Schema({
@@ -6,11 +7,12 @@ const messageSchema = new mongoose.Schema({
   media: {
     type: { type: String, enum: ['image', 'video', null], default: null },
     url: { type: String },
+   
   },
   timestamp: { type: Date, default: Date.now },
   isTip: { type: Boolean, default: false },
   tipAmount: { type: Number },
-  readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }], // Array of user IDs who have read the message
+  readBy: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User', default: [] }],
 });
 
 const chatSchema = new mongoose.Schema({
