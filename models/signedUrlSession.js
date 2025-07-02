@@ -41,6 +41,11 @@ const signedUrlSessionSchema = new Schema({
     type: Boolean,
     default: true,
   },
+   chatId: { // Add this field
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Chat',
+    required: false,
+  },
   bucketName: { type: String, required: false },
 });
 

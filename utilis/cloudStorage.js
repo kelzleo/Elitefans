@@ -242,24 +242,101 @@ const cleanupExpiredSessions = async () => {
 const generateSignedUrlForChatMedia = async (filename, userId, chatId) => {
   const Chat = require('../models/chat');
   try {
+    // Log the incoming request
+    logger.info(`Generating signed URL for: filename=${filename}, userId=${userId}, chatId=${chatId}`);
+    
     const chat = await Chat.findById(chatId);
     if (!chat || !chat.participants.some(p => p.toString() === userId.toString())) {
       logger.warn('Unauthorized access attempt to chat media');
       throw new Error('Unauthorized access to chat media');
     }
+    
+    // Check if file exists in bucket
+    const file = chatBucket.file(filename);
+    const [exists] = await file.exists();
+    if (!exists) {
+      logger.warn(`File does not exist in bucket: ${filename}`);
+      throw new Error('File not found in storage');
+    }
+    
     const options = {
       version: 'v4',
       action: 'read',
       expires: Date.now() + 15 * 60 * 1000, // 15 minutes
     };
+    
     const [url] = await chatBucket.file(filename).getSignedUrl(options);
+    logger.info(`Signed URL generated successfully for: ${filename}`);
     return url;
   } catch (err) {
     logger.error(`Error generating signed URL for chat media: ${err.message}`);
     throw err;
   }
 };
+const createSignedUrlSessionForChatMedia = async (userId, filename, chatId) => {
+  const SignedUrlSession = require('../models/signedUrlSession');
+  const now = Date.now();
 
+  try {
+    // Check if the user is a participant in the chat
+    const Chat = require('../models/chat');
+    const chat = await Chat.findById(chatId);
+    if (!chat || !chat.participants.some(p => p.toString() === userId.toString())) {
+      logger.warn(`Unauthorized attempt to create session for chat media: user ${userId}, chat ${chatId}`);
+      throw new Error('Unauthorized access to chat media');
+    }
+
+    // Check for existing session
+    const existing = await SignedUrlSession.findOne({
+      userId,
+      filename,
+      chatId,
+      isActive: true,
+      sessionExpiresAt: { $gt: now },
+      createdAt: { $gt: now - ABSOLUTE_MS },
+    });
+
+    if (existing) {
+      existing.lastAccessed = new Date();
+      existing.sessionExpiresAt = new Date(now + INACTIVITY_MS);
+      await existing.save();
+      logger.info(`Reused existing chat media session ${existing._id} for user ${userId}, chat ${chatId}`);
+      return existing._id;
+    }
+
+    // Generate signed URL for the chat media
+    const signedUrl = await generateSignedUrlForChatMedia(filename, userId, chatId);
+    const signedUrlExpiresAt = new Date(now + 15 * 60 * 1000); // Match the 15-minute expiration
+    const sessionExpiresAt = new Date(now + INACTIVITY_MS);
+
+    // Clean up expired sessions for this user and filename
+    await SignedUrlSession.deleteMany({
+      userId,
+      filename,
+      chatId,
+      sessionExpiresAt: { $lt: now },
+    });
+
+    // Create new session
+    const session = new SignedUrlSession({
+      userId,
+      filename,
+      signedUrl,
+      signedUrlExpiresAt,
+      sessionExpiresAt,
+      lastAccessed: new Date(),
+      isActive: true,
+      chatId, // Store chatId to differentiate from post-related sessions
+    });
+
+    await session.save();
+    logger.info(`Created chat media session ${session._id} for user ${userId}, chat ${chatId}`);
+    return session._id;
+  } catch (err) {
+    logger.error(`Error creating chat media session for user ${userId}, filename ${filename}, chat ${chatId}: ${err.message}`);
+    throw err;
+  }
+};
 const generateSignedUrlForCreatorRequest = async (filename) => {
   const options = {
     version: 'v4',
@@ -450,6 +527,7 @@ module.exports = {
   generateSignedUrlForCreatorRequest,
   chatBucket,
   generateSignedUrlForChatMedia,
+  createSignedUrlSessionForChatMedia,
   uploadMediaWithPreview,
   cleanupExpiredSessions,
 };

@@ -1,3 +1,4 @@
+// public/js/chatlist.js
 const socket = io();
 const isDevEnv = '<%= process.env.NODE_ENV %>' === 'development';
 

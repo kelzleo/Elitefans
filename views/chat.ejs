@@ -45,53 +45,72 @@
       <span class="initial-circle"><%= creator ? creator.username.charAt(0).toUpperCase() : 'G' %></span>
     </div>
   </div>
-  <div id="chatWindow" class="chat-window">
-    <% if (chat.messages && chat.messages.length > 0) { %>
-      <% let lastDate = null; %>
-      <% chat.messages.forEach(function(message) { %>
-        <% 
-          const messageDate = new Date(message.timestamp).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-          if (lastDate !== messageDate) { %>
-            <div class="date-divider"><%= messageDate %></div>
-        <% 
-            lastDate = messageDate;
-          }
-        %>
-        <div class="message-container <%= message.sender.toString() === currentUser._id.toString() ? 'sent' : 'received' %>">
-          <img src="<%= message.sender.toString() === currentUser._id.toString() ? (currentUser.profilePicture || '/images/default-profile.png') : (creator && creator.profilePicture ? creator.profilePicture : '/images/default-profile.png') %>" alt="Profile Picture" class="message-profile-pic">
-          <div class="message-wrapper">
-            <div class="message">
-              <% if (message.media && message.media.type) { %>
-                <% if (message.media.type === 'image') { %>
-                  <img src="" data-url="<%= message.media.url %>" alt="Chat Image" class="chat-media fullscreenable" data-fullscreen-url="">
-                <% } else if (message.media.type === 'video') { %>
-                  <video src="" data-url="<%= message.media.url %>" controls class="chat-media fullscreenable" data-fullscreen-url=""></video>
-                  <p class="video-fallback hidden">Failed to load video</p>
-                <% } %>
-              <% } %>
-              <% if (message.text) { %>
-                <span class="text"><%= message.text %></span>
-              <% } %>
-              <% if (message.isTip) { %>
-                <span class="tip-info">
-                  <i class="fa fa-gift" title="Sent with a tip"></i>
-                  <span class="tip-amount">₦<%= message.tipAmount %></span>
-                </span>
-              <% } %>
-            </div>
-            <div class="info">
-              <span class="time"><%= new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) %></span>
-              <% if (message.sender.toString() === currentUser._id.toString()) { %>
-                <span class="status"><%= message.readBy && message.readBy.length > 0 ? 'Read' : 'Sent' %></span>
-              <% } %>
-            </div>
+ <div id="chatWindow" class="chat-window">
+  <% if (chat.messages && chat.messages.length > 0) { %>
+    <% let lastDate = null; %>
+    <% chat.messages.forEach(function(message) { %>
+      <%
+        const messageDate = new Date(message.timestamp).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+        if (lastDate !== messageDate) { %>
+          <div class="date-divider"><%= messageDate %></div>
+      <%
+        lastDate = messageDate;
+        }
+      %>
+      <div class="message-container <%= message.sender.toString() === currentUser._id.toString() ? 'sent' : 'received' %>">
+        <img src="<%= message.sender.toString() === currentUser._id.toString() ? (currentUser.profilePicture || '/images/default-profile.png') : (creator && creator.profilePicture ? creator.profilePicture : '/images/default-profile.png') %>" alt="Profile Picture" class="message-profile-pic">
+        <div class="message-wrapper">
+          <div class="message">
+            <% if (message.media && message.media.type) { %>
+              <% if (message.media.type === 'image') { %>
+  <img 
+    src="" 
+    data-url="<%= message.media.url %>" 
+    alt="Chat Image" 
+    class="chat-media fullscreenable" 
+    data-fullscreen-url="" 
+    draggable="false" 
+    oncontextmenu="return false;">
+<% } else if (message.media.type === 'video') { %>
+  <video 
+    src="" 
+    data-url="<%= message.media.url %>" 
+    controls 
+    class="chat-media fullscreenable" 
+    data-fullscreen-url="" 
+    controlsList="nodownload noremoteplayback" 
+    disablePictureInPicture 
+    draggable="false" 
+    oncontextmenu="return false;">
+    Your browser does not support the video tag.
+  </video>
+  <p class="video-fallback" style="display: none;">Failed to load video</p>
+<% } %>
+
+            <% } %>
+            <% if (message.text) { %>
+              <span class="text"><%= message.text %></span>
+            <% } %>
+            <% if (message.isTip) { %>
+              <span class="tip-info">
+                <i class="fa fa-gift" title="Sent with a tip"></i>
+                <span class="tip-amount">₦<%= message.tipAmount %></span>
+              </span>
+            <% } %>
+          </div>
+          <div class="info">
+            <span class="time"><%= new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true }) %></span>
+            <% if (message.sender.toString() === currentUser._id.toString()) { %>
+              <span class="status"><%= message.readBy && message.readBy.length > 0 ? 'Read' : 'Sent' %></span>
+            <% } %>
           </div>
         </div>
-      <% }); %>
-    <% } else { %>
-      <p>No messages yet. Start the conversation!</p>
-    <% } %>
-  </div>
+      </div>
+    <% }); %>
+  <% } else { %>
+    <p>No messages yet. Start the conversation!</p>
+  <% } %>
+</div>
   <form id="messageForm" class="message-form" enctype="multipart/form-data">
   <input type="hidden" id="chatId" value="<%= chat._id %>">
   <input type="hidden" id="sender" value="<%= currentUser._id %>">

@@ -20,7 +20,7 @@
 
   <% if (chats.length > 0) { %>
     <% chats.forEach(function(chat) { 
-         let otherParticipant = chat.participants.find(p => p._id.toString() !== currentUser._id.toString());
+         let otherParticipant = chat.otherParticipant || chat.participants.find(p => p._id.toString() !== currentUser._id.toString());
          let hasUnread = chat.hasUnread; // Computed in chatlist.js
     %>
       <div class="chat-item <%= hasUnread ? 'unread' : '' %>" 
@@ -39,6 +39,9 @@
                 <h3>
                   <% if (otherParticipant) { %>
                     <%= otherParticipant.username %>
+                    <% if (otherParticipant.role === 'creator') { %>
+                      <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
+                    <% } %>
                   <% } else { %>
                     Group Chat
                   <% } %>
@@ -46,29 +49,14 @@
                 <span class="chat-timestamp"><%= chat.lastMessageTime || '' %></span>
               </div>
               <div class="chat-preview-wrapper">
-                <% if (chat.mediaType && !chat.previewText) { %>
-                  <p class="chat-preview <%= chat.isTip ? 'tip-preview' : '' %>">
-                    <% if (chat.mediaType === 'image') { %>
-                      sent a photo
-                    <% } else if (chat.mediaType === 'video') { %>
-                      sent a video
-                    <% } %>
-                    <% if (chat.isTip) { %>
-                      <span class="tip-indicator">
-                        <i class="fa fa-gift"></i> ₦<%= chat.tipAmount %>
-                      </span>
-                    <% } %>
-                  </p>
-                <% } else { %>
-                  <p class="chat-preview <%= chat.isTip ? 'tip-preview' : '' %>">
-                    <%= chat.previewText %>
-                    <% if (chat.isTip) { %>
-                      <span class="tip-indicator">
-                        <i class="fa fa-gift"></i> ₦<%= chat.tipAmount %>
-                      </span>
-                    <% } %>
-                  </p>
-                <% } %>
+                <p class="chat-preview <%= chat.isTip ? 'tip-preview' : '' %>">
+                  <%= chat.previewText %>
+                  <% if (chat.isTip) { %>
+                    <span class="tip-indicator">
+                      <i class="fa fa-gift"></i> ₦<%= chat.tipAmount %>
+                    </span>
+                  <% } %>
+                </p>
               </div>
             </div>
             <% if (hasUnread) { %>

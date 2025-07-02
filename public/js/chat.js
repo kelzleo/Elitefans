@@ -6,13 +6,6 @@ document.addEventListener('DOMContentLoaded', () => {
   let userHasScrolled = false;
   const isDevEnv = '<%= process.env.NODE_ENV %>' === 'development';
 
-  // Verify emoji button presence
-  const emojiToggle = document.getElementById('emojiToggle');
-  if (emojiToggle) {
-    if (isDevEnv) console.log('Emoji toggle button found in DOM');
-  } else {
-    console.error('Emoji toggle button NOT found in DOM');
-  }
 
   // Function to check if the user has scrolled up
   function checkScrollPosition() {
@@ -22,52 +15,76 @@ document.addEventListener('DOMContentLoaded', () => {
     return scrollPosition >= scrollHeight - 10;
   }
 
+  // Load signed URLs for all existing media elements
+ async function loadSignedUrlsForExistingMessages() {
+  const mediaElements = document.querySelectorAll('.chat-media');
+  if (isDevEnv) console.log(`Total media elements: ${mediaElements.length}`);
+  const videoElements = Array.from(mediaElements).filter(el => el.tagName.toLowerCase() === 'video');
+  if (isDevEnv) console.log(`Of those, ${videoElements.length} are video tags.`);
+
+  for (const element of mediaElements) {
+    const rawUrl = element.dataset.url;
+    if (!rawUrl) {
+      console.error('No data-url on element:', element.outerHTML);
+      continue;
+    }
+    if (isDevEnv) console.log('Raw URL:', rawUrl);
+
+    const filename = rawUrl.split('/').pop();
+    try {
+      const res = await fetch(`/chat/media-session/${chatId}/${encodeURIComponent(filename)}`);
+      if (!res.ok) throw new Error(`Failed to fetch proxy URL: ${res.status} ${res.statusText}`);
+      const { url } = await res.json();
+      if (isDevEnv) console.log('Proxy URL fetched:', url);
+
+      element.src = url;
+      element.dataset.fullscreenUrl = url;
+      element.classList.add('fullscreenable');
+
+      if (element.tagName.toLowerCase() === 'video') {
+        element.setAttribute('controls', '');
+        element.style.display = 'block';
+        element.style.maxWidth = '100%';
+        element.style.height = 'auto';
+        element.load();
+        setTimeout(() => {
+          if (isDevEnv) console.log(`Video readyState for ${filename}: ${element.readyState}`);
+        }, 1000);
+      }
+    } catch (err) {
+      console.error(`Error loading media ${filename}: ${err.message}`);
+      element.src = '/images/fallback-image.png';
+      element.alt = 'Failed to load media';
+      if (element.tagName.toLowerCase() === 'video') {
+        element.style.display = 'none';
+        element.nextElementSibling.style.display = 'block';
+      }
+    }
+  }
+}
   socket.on('connect', () => {
-    if (isDevEnv) console.log('Connected to Socket.io server');
+    if (isDevEnv) console.log('Connected!');
     socket.emit('joinRoom', { chatId });
+    setInterval(() => { socket.emit('heartbeat'); }, 15000);
 
-    // Send heartbeat every 15 seconds
-    setInterval(() => {
-      socket.emit('heartbeat');
-    }, 15000);
-
-    // Scroll to the bottom after the DOM is fully loaded
+    // scroll to bottom
     const chatWindow = document.getElementById('chatWindow');
     chatWindow.scrollTop = chatWindow.scrollHeight;
-
-    // Add scroll event listener to detect if the user has scrolled up
     chatWindow.addEventListener('scroll', () => {
       userHasScrolled = !checkScrollPosition();
     });
+
+    // **Load all existing images & videos**
+    loadSignedUrlsForExistingMessages();
   });
 
-  socket.on('connect_error', (error) => {
-    console.error('Socket.io connection error:', error);
-    alert('Failed to connect to the chat server. Please try refreshing the page.');
-  });
-
-  // Fetch signed URLs for existing messages on page load and add fullscreen attributes
-  document.querySelectorAll('.chat-media').forEach(async (element) => {
-    const rawUrl = element.getAttribute('data-url');
-    const filename = rawUrl.split('/').pop();
-    try {
-      const response = await fetch(`/chat/media/${chatId}/${encodeURIComponent(filename)}`);
-      if (!response.ok) throw new Error(`Failed to fetch signed URL: ${response.status} ${response.statusText}`);
-      const data = await response.json();
-      element.src = data.url;
-      element.setAttribute('data-fullscreen-url', data.url);
-      element.classList.add('fullscreenable');
-      element.onerror = () => {
-        console.error('Image failed to load:', data.url);
-        element.src = '/images/fallback-image.png';
-        element.alt = 'Failed to load media';
-      };
-    } catch (err) {
-      console.error('Error fetching signed URL for existing message:', err.message);
-      element.src = '/images/fallback-image.png';
-      element.alt = 'Failed to load media';
-    }
-  });
+  // Verify emoji button presence
+  const emojiToggle = document.getElementById('emojiToggle');
+  if (emojiToggle) {
+    if (isDevEnv) console.log('Emoji toggle button found in DOM');
+  } else {
+    console.error('Emoji toggle button NOT found in DOM');
+  }
 
   // Initialize Emoji Picker
   async function initializeEmojiPicker() {
@@ -238,175 +255,192 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeTipModal();
 
   // Function to append a message to the chat window
-  async function appendMessage(message, isSender = false) {
-    const chatWindow = document.getElementById('chatWindow');
-    if (!chatWindow) {
-      console.error('chatWindow element not found');
-      return;
-    }
-
-    if (isDevEnv) console.log('Appending message:', message, 'isSender:', isSender);
-
-    // Check if we need a date divider
-    const messageDate = new Date(message.timestamp).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-    if (lastDate !== messageDate) {
-      const dateDivider = document.createElement('div');
-      dateDivider.className = 'date-divider';
-      dateDivider.textContent = messageDate;
-      chatWindow.appendChild(dateDivider);
-      lastDate = messageDate;
-      if (isDevEnv) console.log('Added date divider:', messageDate);
-    }
-
-    // Remove "No messages yet" message if present
-    const noMessages = chatWindow.querySelector('p');
-    if (noMessages && noMessages.textContent === 'No messages yet. Start the conversation!') {
-      noMessages.remove();
-      if (isDevEnv) console.log('Removed "No messages yet" placeholder');
-    }
-
-    // Create the message container
-    const container = document.createElement('div');
-    container.className = 'message-container ' + (message.sender === sender ? 'sent' : 'received');
-
-    // Add profile picture for both sent and received messages
-    const img = document.createElement('img');
-    img.src = message.sender === sender ?
-      '<%= currentUser.profilePicture || "/images/default-profile.png" %>' :
-      '<%= creator && creator.profilePicture ? creator.profilePicture : "/images/default-profile.png" %>';
-    img.alt = 'Profile Picture';
-    img.className = 'message-profile-pic';
-    container.appendChild(img);
-
-    // Create a wrapper for the message and info
-    const messageWrapper = document.createElement('div');
-    messageWrapper.className = 'message-wrapper';
-
-    const bubble = document.createElement('div');
-    bubble.className = 'message';
-    let messageContent = '';
-    if (message.media && message.media.type) {
-      let mediaUrl = '';
-      const filename = message.media.url.split('/').pop();
-      try {
-        const response = await fetch(`/chat/media/${chatId}/${encodeURIComponent(filename)}`);
-        if (!response.ok) throw new Error(`Failed to fetch signed URL: ${response.status} ${response.statusText}`);
-        const data = await response.json();
-        mediaUrl = data.url;
-      } catch (err) {
-        console.error('Error fetching signed URL for new message:', err.message);
-        try {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          const retryResponse = await fetch(`/chat/media/${chatId}/${encodeURIComponent(filename)}`);
-          if (!retryResponse.ok) throw new Error(`Retry failed: ${retryResponse.status} ${response.statusText}`);
-          const retryData = await retryResponse.json();
-          mediaUrl = retryData.url;
-        } catch (retryErr) {
-          console.error('Retry failed for signed URL:', retryErr.message);
-          mediaUrl = '/images/fallback-image.png';
-        }
-      }
-      if (message.media.type === 'image') {
-        messageContent += `<img src="${mediaUrl}" alt="Chat Image" class="chat-media fullscreenable" data-fullscreen-url="${mediaUrl}" onerror="this.src='/images/fallback-image.png'; this.alt='Failed to load media';">`;
-      } else if (message.media.type === 'video') {
-        messageContent += `<video src="${mediaUrl}" controls class="chat-media fullscreenable" data-fullscreen-url="${mediaUrl}" onerror="this.nextSibling.style.display='block';"><p style="display: none;">Failed to load video</p></video>`;
-      }
-    }
-    if (message.text) {
-      messageContent += `<span class="text">${message.text}</span>`;
-    }
-    if (message.isTip) {
-      messageContent += `
-        <span class="tip-info">
-          <i class="fa fa-gift" title="Sent with a tip"></i>
-          <span class="tip-amount">₦${message.tipAmount}</span>
-        </span>`;
-    }
-    bubble.innerHTML = messageContent;
-
-    const info = document.createElement('div');
-    info.className = 'info';
-    info.innerHTML = `<span class="time">${new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</span>`;
-    if (message.sender === sender) {
-      info.innerHTML += `<span class="status">${message.readBy && message.readBy.length > 0 ? 'Read' : 'Sent'}</span>`;
-    }
-
-    messageWrapper.appendChild(bubble);
-    messageWrapper.appendChild(info);
-    container.appendChild(messageWrapper);
-    chatWindow.appendChild(container);
-
-    // Only auto-scroll to bottom if the user is already at the bottom or hasn't scrolled up
-    if (!userHasScrolled) {
-      chatWindow.scrollTop = chatWindow.scrollHeight;
-    }
-
-    if (isDevEnv) console.log('Message appended to DOM:', message);
-
-    // Force a DOM repaint to ensure visibility
-    chatWindow.style.display = 'none';
-    chatWindow.offsetHeight; // Trigger reflow
-    chatWindow.style.display = 'flex';
+ async function appendMessage(message, isSender = false) {
+  const chatWindow = document.getElementById('chatWindow');
+  if (!chatWindow) {
+    console.error('chatWindow element not found');
+    return;
   }
 
-  // Handle form submission
-  document.getElementById('messageForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const messageInput = document.getElementById('messageInput');
-    const mediaInput = document.getElementById('mediaInput');
-    const text = messageInput.value.trim();
-    const file = mediaInput.files[0];
+  if (isDevEnv) console.log('Appending message:', message, 'isSender:', isSender);
 
-    if (!text && !file) return;
+  // Check if we need a date divider
+  const messageDate = new Date(message.timestamp).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  if (lastDate !== messageDate) {
+    const dateDivider = document.createElement('div');
+    dateDivider.className = 'date-divider';
+    dateDivider.textContent = messageDate;
+    chatWindow.appendChild(dateDivider);
+    lastDate = messageDate;
+    if (isDevEnv) console.log('Added date divider:', messageDate);
+  }
 
-    const message = {
-      chatId,
-      sender,
-      text: text || null,
-      media: null,
-      timestamp: new Date(),
-      isTip: false,
-      tipAmount: null,
-      read: false,
-    };
+  // Remove "No messages yet" message if present
+  const noMessages = chatWindow.querySelector('p');
+  if (noMessages && noMessages.textContent === 'No messages yet. Start the conversation!') {
+    noMessages.remove();
+    if (isDevEnv) console.log('Removed "No messages yet" placeholder');
+  }
 
-    if (file) {
-      const formData = new FormData();
-      formData.append('media', file);
+  // Create the message container
+  const container = document.createElement('div');
+  container.className = 'message-container ' + (message.sender === sender ? 'sent' : 'received');
 
+  // Add profile picture
+  const img = document.createElement('img');
+  img.src = message.sender === sender ?
+    '<%= currentUser.profilePicture || "/images/default-profile.png" %>' :
+    '<%= creator && creator.profilePicture ? creator.profilePicture : "/images/default-profile.png" %>';
+  img.alt = 'Profile Picture';
+  img.className = 'message-profile-pic';
+  container.appendChild(img);
+
+  // Create message wrapper
+  const messageWrapper = document.createElement('div');
+  messageWrapper.className = 'message-wrapper';
+
+  const bubble = document.createElement('div');
+  bubble.className = 'message';
+  let messageContent = '';
+
+  if (message.media && message.media.type) {
+    let mediaUrl = '';
+    const filename = message.media.url.split('/').pop();
+    try {
+      const response = await fetch(`/chat/media-session/${chatId}/${encodeURIComponent(filename)}`);
+      if (!response.ok) throw new Error(`Failed to fetch proxy URL: ${response.status} ${response.statusText}`);
+      const data = await response.json();
+      mediaUrl = data.url;
+      if (isDevEnv) console.log('Proxy URL fetched for new message:', mediaUrl);
+    } catch (err) {
+      console.error('Error fetching proxy URL for new message:', err.message);
       try {
-        if (typeof fetchWithCsrf !== 'function') {
-          throw new Error('fetchWithCsrf is not defined');
-        }
-        const response = await fetchWithCsrf('/chat/upload-media', {
-          method: 'POST',
-          body: formData,
-        });
-        const result = await response.json();
-        if (result.success) {
-          message.media = {
-            type: file.type.startsWith('image/') ? 'image' : 'video',
-            url: result.url,
-          };
-          if (isDevEnv) console.log('Media uploaded successfully:', result.url);
-        } else {
-          alert('Failed to upload media: ' + result.message);
-          return;
-        }
-      } catch (err) {
-        if (isDevEnv) console.error('Media upload error:', err);
-        alert('Error uploading media.');
-        return;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        const retryResponse = await fetch(`/chat/media-session/${chatId}/${encodeURIComponent(filename)}`);
+        if (!retryResponse.ok) throw new Error(`Retry failed: ${retryResponse.status} ${retryResponse.statusText}`);
+        const retryData = await retryResponse.json();
+        mediaUrl = retryData.url;
+        if (isDevEnv) console.log('Proxy URL fetched on retry:', mediaUrl);
+      } catch (retryErr) {
+        console.error('Retry failed for proxy URL:', retryErr.message);
+        mediaUrl = '/images/fallback-image.png';
       }
     }
 
-    if (isDevEnv) console.log('Sending message:', message);
-    appendMessage(message, true); // Append immediately for sender
-    socket.emit('sendMessage', message);
-    messageInput.value = '';
-    mediaInput.value = '';
-    document.getElementById('mediaPreview').innerHTML = '';
-  });
+    if (message.media.type === 'image') {
+      messageContent += `<img src="${mediaUrl}" alt="Chat Image" class="chat-media fullscreenable" data-fullscreen-url="${mediaUrl}" onerror="this.src='/images/fallback-image.png'; this.alt='Failed to load media';">`;
+    } else if (message.media.type === 'video') {
+      messageContent += `
+        <video src="${mediaUrl}" controls class="chat-media fullscreenable" data-fullscreen-url="${mediaUrl}" 
+               onerror="console.error('Video failed to load:', this.src); this.style.display='none'; this.nextElementSibling.style.display='block';"
+               onloadeddata="console.log('Video loaded successfully:', this.src);">
+          Your browser does not support the video tag.
+        </video>
+        <p class="video-fallback" style="display: none;">Failed to load video</p>`;
+    }
+  }
+
+  if (message.text) {
+    messageContent += `<span class="text">${message.text}</span>`;
+  }
+
+  if (message.isTip) {
+    messageContent += `
+      <span class="tip-info">
+        <i class="fa fa-gift" title="Sent with a tip"></i>
+        <span class="tip-amount">₦${message.tipAmount}</span>
+      </span>`;
+  }
+
+  bubble.innerHTML = messageContent;
+
+  const info = document.createElement('div');
+  info.className = 'info';
+  info.innerHTML = `<span class="time">${new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true })}</span>`;
+  if (message.sender === sender) {
+    info.innerHTML += `<span class="status">${message.readBy && message.readBy.length > 0 ? 'Read' : 'Sent'}</span>`;
+  }
+
+  messageWrapper.appendChild(bubble);
+  messageWrapper.appendChild(info);
+  container.appendChild(messageWrapper);
+  chatWindow.appendChild(container);
+
+  // Auto-scroll to bottom if user hasn't scrolled up
+  if (!userHasScrolled) {
+    chatWindow.scrollTop = chatWindow.scrollHeight;
+  }
+
+  if (isDevEnv) console.log('Message appended to DOM:', message);
+
+  // Force DOM repaint
+  chatWindow.style.display = 'none';
+  chatWindow.offsetHeight;
+  chatWindow.style.display = 'flex';
+}
+  // Handle form submission
+  document.getElementById('messageForm').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  const messageInput = document.getElementById('messageInput');
+  const mediaInput = document.getElementById('mediaInput');
+  const text = messageInput.value.trim();
+  const file = mediaInput.files[0];
+
+  if (!text && !file) return;
+
+  const message = {
+    chatId,
+    sender,
+    text: text || null,
+    media: null,
+    timestamp: new Date(),
+    isTip: false,
+    tipAmount: null,
+    read: false,
+  };
+
+  if (file) {
+    const formData = new FormData();
+    formData.append('media', file);
+
+    try {
+      if (typeof fetchWithCsrf !== 'function') {
+        throw new Error('fetchWithCsrf is not defined');
+      }
+      const response = await fetchWithCsrf('/chat/upload-media', {
+        method: 'POST',
+        body: formData,
+      });
+      const result = await response.json();
+      if (result.success) {
+        const filename = result.url.split('/').pop();
+        // Fetch proxy URL for the uploaded media
+        const sessionResponse = await fetch(`/chat/media-session/${chatId}/${encodeURIComponent(filename)}`);
+        if (!sessionResponse.ok) throw new Error(`Failed to fetch proxy URL: ${sessionResponse.status} ${sessionResponse.statusText}`);
+        const sessionData = await sessionResponse.json();
+        message.media = {
+          type: file.type.startsWith('image/') ? 'image' : 'video',
+          url: result.url, // Store original URL for reference
+        };
+        if (isDevEnv) console.log('Media uploaded and proxy URL fetched:', sessionData.url);
+      } else {
+        alert('Failed to upload media: ' + result.message);
+        return;
+      }
+    } catch (err) {
+      if (isDevEnv) console.error('Media upload error:', err);
+      alert('Error uploading media.');
+      return;
+    }
+  }
+
+  if (isDevEnv) console.log('Sending message:', message);
+  appendMessage(message, true); // Append immediately for sender
+  socket.emit('sendMessage', message);
+  messageInput.value = '';
+  mediaInput.value = '';
+  document.getElementById('mediaPreview').innerHTML = '';
+});
 
   socket.on('newMessage', function(message) {
     if (isDevEnv) console.log('Received new message from server:', message);

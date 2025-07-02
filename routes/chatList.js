@@ -10,7 +10,7 @@ const authCheck = (req, res, next) => {
   if (!req.user) {
     logger.warn('Unauthorized access attempt to chat list page');
     req.flash('error_msg', 'You must be logged in to view your chats.');
-    return res.redirect('/'); // Changed from /users/login
+    return res.redirect('/');
   }
   next();
 };
@@ -20,10 +20,10 @@ router.get('/', authCheck, async (req, res) => {
     const currentUser = req.user;
     // Find all chats where the current user is a participant
     const chats = await Chat.find({ participants: currentUser._id })
-      .populate('participants', 'username profilePicture isOnline lastSeen')
+      .populate('participants', 'username profilePicture isOnline lastSeen role')
       .sort({ updatedAt: -1 });
 
-    // Add unread status, latest message details, and timestamp to each chat
+    // Add unread status, latest message details, and participant data to each chat
     const chatsWithStatus = chats.map(chat => {
       // Check for unread messages
       const hasUnread = chat.messages.some(
@@ -37,6 +37,11 @@ router.get('/', authCheck, async (req, res) => {
         ? chat.messages.sort((a, b) => b.timestamp - a.timestamp)[0]
         : null;
 
+      // Find the other participant (for 1:1 chats)
+      const otherParticipant = chat.participants.find(
+        p => p._id.toString() !== currentUser._id.toString()
+      );
+
       // Determine preview content and timestamp
       let previewText = 'No messages yet.';
       let mediaType = null;
@@ -49,10 +54,12 @@ router.get('/', authCheck, async (req, res) => {
           previewText = latestMessage.text;
         } else if (latestMessage.media && latestMessage.media.url) {
           mediaType = latestMessage.media.type; // 'image' or 'video'
+          previewText = 'Media attachment'; // Fix for media-only messages
+          // Optional: For more specificity, use:
+          // previewText = `sent a ${mediaType === 'image' ? 'photo' : 'video'}`;
         }
         isTip = latestMessage.isTip || false;
         tipAmount = isTip ? latestMessage.tipAmount : null;
-        // Format the timestamp to "hour:minute AM/PM"
         lastMessageTime = new Date(latestMessage.timestamp).toLocaleTimeString([], {
           hour: 'numeric',
           minute: '2-digit',
@@ -67,7 +74,8 @@ router.get('/', authCheck, async (req, res) => {
         mediaType,
         isTip,
         tipAmount,
-        lastMessageTime
+        lastMessageTime,
+        otherParticipant // Include participant data for username and role
       };
     });
 

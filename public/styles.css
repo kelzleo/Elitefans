@@ -52,6 +52,7 @@ h1, h2 {
   box-sizing: border-box;
   position: relative;
 }
+
 header.logo-header {
   position: absolute !important;
   top: 30px;              /* increased space from top */

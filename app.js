@@ -83,7 +83,7 @@ mongoose.connection.on('reconnected', () => {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 10 * 1024 * 1024 },
+  
 });
 
 app.use(expressLayouts);
@@ -120,6 +120,10 @@ app.use(
           "https://cdnjs.cloudflare.com",
           "https://storage.googleapis.com",
         ],
+        mediaSrc: [  // <--- ADD THIS**
+        "'self'",
+        "https://storage.googleapis.com",
+      ],
         connectSrc: ["'self'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
@@ -598,6 +602,11 @@ app.post('/chat/upload-media', upload.single('media'), async (req, res) => {
     return res.status(400).json({ success: false, message: 'No file uploaded.' });
   }
 
+  if (!req.user) {
+    logger.warn('Unauthorized upload attempt in /chat/upload-media');
+    return res.status(401).json({ success: false, message: 'Authentication required.' });
+  }
+
   try {
     const file = req.file;
     const allowedTypes = ['image/jpeg', 'image/png', 'video/mp4'];
@@ -605,6 +614,7 @@ app.post('/chat/upload-media', upload.single('media'), async (req, res) => {
       logger.warn(`Invalid file type in /chat/upload-media: ${file.mimetype}`);
       return res.status(400).json({ success: false, message: 'Invalid file type. Only JPEG, PNG, and MP4 are allowed.' });
     }
+
     const fileName = `${Date.now()}-${file.originalname}`;
     const blob = bucket.file(fileName);
     const blobStream = blob.createWriteStream({
@@ -623,8 +633,17 @@ app.post('/chat/upload-media', upload.single('media'), async (req, res) => {
     });
 
     blobStream.on('finish', async () => {
-      const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-      res.json({ success: true, url: publicUrl });
+      // Create a session for the uploaded media
+      const { createSignedUrlSessionForChatMedia } = require('./utilis/cloudStorage');
+      try {
+        // Note: chatId is not available here, so we'll need to handle it differently
+        // For now, we'll return the filename and let the client create the session when needed
+        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+        res.json({ success: true, url: publicUrl });
+      } catch (err) {
+        logger.error(`Error creating session for uploaded chat media: ${err.message}`);
+        res.status(500).json({ success: false, message: 'Error creating media session' });
+      }
     });
 
     blobStream.end(file.buffer);
