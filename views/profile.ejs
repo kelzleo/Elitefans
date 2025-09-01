@@ -576,19 +576,20 @@ data-username="<%= user.username %>">
                                      draggable="false"
                                      oncontextmenu="return false;">
                               <% } else if (media.type === 'video') { %>
-                                <video
-                                  class="post-video fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
-                                  controlsList="nodownload noremoteplayback"
-                                  data-fullscreen-src=""
-                                  data-original-url="<%= media.originalUrl %>"
-                                  disablePictureInPicture
-                                  draggable="false"
-                                  oncontextmenu="return false;"
-                                  poster="/images/placeholder.png"
-                                  data-original-poster="<%= media.originalPosterUrl || '' %>">
-                                  <source src="" type="<%= media.contentType || 'video/mp4' %>">
-                                  Your browser does not support the video tag.
-                                </video>
+                                 <video
+    class="post-video fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
+    controlsList="nodownload noremoteplayback"
+    data-fullscreen-src=""
+    data-original-url="<%= media.originalUrl %>"
+    data-original-poster="<%= media.originalPosterUrl || 'thumbnails/default-thumb.jpg' %>"
+    disablePictureInPicture
+    draggable="false"
+    oncontextmenu="return false;"
+    preload="metadata"
+    poster="<%= media.posterUrl || 'https://storage.googleapis.com/my-public-profile-pictures/thumbnails/default-thumb.jpg' %>">
+    <source src="" type="<%= media.contentType || 'video/mp4' %>">
+    Your browser does not support the video tag.
+  </video>
                               <% } %>
                             </div>
                           <% }); %>
@@ -1294,21 +1295,24 @@ data-username="<%= user.username %>">
                 <% } %>
               </div>
             <% } else if (mediaItems.length > 0) { %>
-              <% mediaItems.forEach((media, index) => { %>
-                <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
-                  <video
-                  class="post-video fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                  controlsList="nodownload noremoteplayback"
-                  data-fullscreen-src="<%= media.url %>"
-                  disablePictureInPicture
-                  draggable="false"
-                  oncontextmenu="return false;"
-                  poster="<%= media.posterUrl %>">
-                  <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
-                  Your browser does not support the video tag.
-                </video>
-                </div>
-              <% }); %>
+             <% mediaItems.forEach((media, index) => { %>
+  <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
+    <video
+      class="post-video fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
+      controlsList="nodownload noremoteplayback"
+      data-fullscreen-src="<%= media.url %>"
+      data-original-url="<%= media.originalUrl %>"
+      data-original-poster="<%= media.originalPosterUrl || 'thumbnails/default-thumb.jpg' %>"
+      disablePictureInPicture
+      draggable="false"
+      oncontextmenu="return false;"
+      preload="metadata"
+      poster="<%= media.posterUrl || 'https://storage.googleapis.com/my-public-profile-pictures/thumbnails/default-thumb.jpg' %>">
+      <source src="<%= media.url %>" type="<%= media.contentType || 'video/mp4' %>">
+      Your browser does not support the video tag.
+    </video>
+  </div>
+<% }); %>
             <% } %>
           <% }); %>
         </div>
