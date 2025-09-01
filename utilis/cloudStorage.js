@@ -428,9 +428,7 @@ const createVideoThumbnail = async (buffer, originalBlobName) => {
   try {
     const tempInputPath = path.join(os.tmpdir(), `input-thumb-${Date.now()}.mp4`);
     const tempOutputPath = path.join(os.tmpdir(), `thumb-${Date.now()}.jpg`);
-
     await fs.writeFile(tempInputPath, buffer);
-
     await new Promise((resolve, reject) => {
       ffmpeg(tempInputPath)
         .screenshots({
@@ -438,7 +436,7 @@ const createVideoThumbnail = async (buffer, originalBlobName) => {
           folder: os.tmpdir(),
           filename: path.basename(tempOutputPath),
           timestamps: ['1'],
-          size: '480x?',
+          size: '320x?', // Smaller for mobile
         })
         .on('end', resolve)
         .on('error', (err) => {
@@ -446,30 +444,28 @@ const createVideoThumbnail = async (buffer, originalBlobName) => {
           reject(err);
         });
     });
-
     let thumbnailBuffer = await fs.readFile(tempOutputPath);
-    thumbnailBuffer = await sharp(thumbnailBuffer).jpeg({ quality: 80 }).toBuffer();
-
+    thumbnailBuffer = await sharp(thumbnailBuffer)
+      .jpeg({ quality: 80, progressive: false, force: true, mozjpeg: true }) // WebKit-compatible
+      .toBuffer();
     const thumbnailBlobName = originalBlobName.replace('uploads/', 'thumbnails/').replace(/\.[^/.]+$/, '.jpg');
     const thumbnailBlob = bucket.file(thumbnailBlobName);
     const thumbnailStream = thumbnailBlob.createWriteStream({
       resumable: false,
       contentType: 'image/jpeg',
+      metadata: { cacheControl: 'public, max-age=3600' },
     });
-
     await new Promise((resolve, reject) => {
       thumbnailStream.on('finish', resolve);
       thumbnailStream.on('error', reject);
       thumbnailStream.end(thumbnailBuffer);
     });
-
     await Promise.all([fs.unlink(tempInputPath), fs.unlink(tempOutputPath)]);
-
-    logger.info(`Created video thumbnail for ${originalBlobName}: ${thumbnailBlobName}`);
+    logger.info(`Created video thumbnail: ${thumbnailBlobName}`);
     return thumbnailBlobName;
   } catch (err) {
     logger.error(`Error creating video thumbnail: ${err.message}`);
-    throw err;
+    return 'thumbnails/default-thumb.jpg'; // GCS fallback
   }
 };
 
