@@ -578,14 +578,15 @@ data-username="<%= user.username %>">
                               <% } else if (media.type === 'video') { %>
                                  <video
     class="post-video fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
+    playsinline
     controlsList="nodownload noremoteplayback"
     data-fullscreen-src=""
     data-original-url="<%= media.originalUrl %>"
-    data-original-poster="<%= media.originalPosterUrl || 'thumbnails/default-thumb.jpg' %>"
+    data-original-poster="<%= media.originalPosterUrl || 'https://storage.googleapis.com/my-public-profile-pictures/thumbnails/default-thumb.jpg' %>"
     disablePictureInPicture
     draggable="false"
     oncontextmenu="return false;"
-    preload="metadata"
+    preload="none"
     poster="<%= media.posterUrl || 'https://storage.googleapis.com/my-public-profile-pictures/thumbnails/default-thumb.jpg' %>">
     <source src="" type="<%= media.contentType || 'video/mp4' %>">
     Your browser does not support the video tag.
