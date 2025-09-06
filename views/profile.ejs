@@ -920,84 +920,102 @@ data-username="<%= user.username %>">
                 <% } %>
               </div>
             </div>
-            <!-- Compact View: One media-item per media item -->
-            <% if (showLocked) { %>
-              <div class="media-item post-card compact-view locked" 
-                   data-post-id="<%= post._id %>-locked" 
-                   data-actual-post-id="<%= post._id %>"
-                   data-is-locked="true" 
-                   id="media-post-<%= post._id %>-locked">
-                <% if (mediaItems.length > 0) { %>
-                  <% mediaItems.forEach((media, index) => { %>
-                    <div class="preview-media">
-                      <% if (media.type === 'image') { %>
-                        <img src="/images/placeholder.png" 
-                             alt="Preview Image" 
-                             class="post-image lazy-media blurred"
-                             data-original-url="<%= media.originalUrl %>">
-                      <% } else if (media.type === 'video') { %>
-                       <div class="video-wrapper">
-          <video class="post-video lazy-media"
-                 controlsList="nodownload"
-                 disablePictureInPicture
-                 oncontextmenu="return false;"
-                 draggable="false"
-                 data-original-url="<%= media.originalUrl %>"
-                 <% if (media.originalPosterUrl) { %>
-                   data-original-poster="<%= media.originalPosterUrl %>"
-                 <% } %>
-                 poster="/images/placeholder.png">
-            <source src="/images/placeholder.png"
-                    type="<%= media.contentType || 'video/mp4' %>">
-            Your browser does not support the video tag.
-          </video>
-          <img class="video-poster-img" src="/images/placeholder.png" alt="Video poster">
-          <div class="video-play-overlay">▶</div>
-        </div>
-                      <% } %>
-                    </div>
-                  <% }); %>
-                <% } %>
-              </div>
-            <% } else if (mediaItems.length > 0) { %>
-              <% mediaItems.forEach((media, index) => { %>
-                <div class="media-item post-card compact-view" 
-                     data-post-id="<%= post._id %>-item-<%= index %>"
-                     
-                     data-actual-post-id="<%= post._id %>" 
-                     data-is-locked="false" 
-                     id="media-post-<%= post._id %>-item-<%= index %>">
-                  <% if (media.type === 'image') { %>
-                    <img src="/images/placeholder.png" 
-                         alt="Post Image" 
-                         class="post-image lazy-media fullscreenable" 
-                         data-original-url="<%= media.originalUrl %>"
-                         data-fullscreen-src="<%= media.originalUrl %>" 
-                         draggable="false" 
-                         oncontextmenu="return false;">
-                  <% } else if (media.type === 'video') { %>
-                   <div class="video-wrapper">
-          <video class="post-video lazy-media"
-                 controlsList="nodownload"
-                 disablePictureInPicture
-                 oncontextmenu="return false;"
-                 draggable="false"
-                 data-original-url="<%= media.originalUrl %>"
-                 <% if (media.originalPosterUrl) { %>
-                   data-original-poster="<%= media.originalPosterUrl %>"
-                 <% } %>
-                 poster="/images/placeholder.png">
-            <source src="/images/placeholder.png"
-                    type="<%= media.contentType || 'video/mp4' %>">
-            Your browser does not support the video tag.
-          </video>
-          <img class="video-poster-img" src="/images/placeholder.png" alt="Video poster">
-          <div class="video-play-overlay">▶</div>
-        </div>
-                  <% } %>
+           <!-- Compact View: One media-item per media item -->
+<% if (showLocked) { %>
+  <div class="media-item post-card compact-view locked"
+       id="media-post-<%= post._id %>-locked"
+       data-actual-post-id="<%= post._id %>"
+       data-is-locked="true">
+    <% if (mediaItems.length > 0) { %>
+      <% mediaItems.forEach((media, index) => { %>
+        <div class="preview-media">
+          <% if (media.type === 'image') { %>
+            <img src="/images/placeholder.png"
+                 alt="Preview Image"
+                 class="post-image lazy-media blurred"
+                 data-original-url="<%= media.originalUrl %>">
+          <% } else if (media.type === 'video') { %>
+            <div class="video-wrapper">
+              <!-- Play overlay like normal view -->
+              <div class="video-play-overlay" aria-hidden="true">
+                <div class="play-btn" role="button" aria-label="Play video">
+                  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                    <path d="M8 5v14l11-7z" fill="currentColor"></path>
+                  </svg>
                 </div>
-              <% }); %>
-            <% } %>
+              </div>
+
+              <!-- Hidden poster for consistency -->
+              <img class="video-poster-img visually-hidden"
+                   alt="video poster"
+                   data-original-poster="<%= media.originalPosterUrl || '' %>" />
+
+              <video class="post-video lazy-media blurred"
+                     controlsList="nodownload noremoteplayback"
+                     disablePictureInPicture
+                     oncontextmenu="return false;"
+                     draggable="false"
+                     data-actual-post-id="<%= post._id %>"
+                     data-original-url="<%= media.originalUrl %>"
+                     data-original-poster="<%= media.originalPosterUrl || '' %>"
+                     poster="">
+                <source src="/images/placeholder.png" type="<%= media.contentType || 'video/mp4' %>">
+                Your browser does not support the video tag.
+              </video>
+            </div>
+          <% } %>
+        </div>
+      <% }); %>
+    <% } %>
+  </div>
+<% } else if (mediaItems.length > 0) { %>
+  <% mediaItems.forEach((media, index) => { %>
+    <div class="media-item post-card compact-view"
+         id="media-post-<%= post._id %>-item-<%= index %>"
+         data-actual-post-id="<%= post._id %>"
+         data-is-locked="false">
+      <% if (media.type === 'image') { %>
+        <img src="/images/placeholder.png"
+             alt="Post Image"
+             class="post-image lazy-media fullscreenable"
+             data-original-url="<%= media.originalUrl %>"
+             data-fullscreen-src="<%= media.originalUrl %>"
+             draggable="false"
+             oncontextmenu="return false;">
+      <% } else if (media.type === 'video') { %>
+        <div class="video-wrapper">
+          <!-- Play overlay -->
+          <div class="video-play-overlay" aria-hidden="true">
+            <div class="play-btn" role="button" aria-label="Play video">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <path d="M8 5v14l11-7z" fill="currentColor"></path>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Hidden poster -->
+          <img class="video-poster-img visually-hidden"
+               alt="video poster"
+               data-original-poster="<%= media.originalPosterUrl || '' %>" />
+
+          <video class="post-video lazy-media fullscreenable"
+                 controlsList="nodownload noremoteplayback"
+                 disablePictureInPicture
+                 oncontextmenu="return false;"
+                 draggable="false"
+                 data-actual-post-id="<%= post._id %>"
+                 data-original-url="<%= media.originalUrl %>"
+                 data-original-poster="<%= media.originalPosterUrl || '' %>"
+                 poster="">
+            <source src="/images/placeholder.png" type="<%= media.contentType || 'video/mp4' %>">
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      <% } %>
+    </div>
+  <% }); %>
+<% } %>
+
           <% }); %>
         </div>
       <% } else { %>
@@ -1164,41 +1182,40 @@ data-username="<%= user.username %>">
                 <% } %>
               </div>
             </div>
-            <!-- Compact View -->
-            <% if (showLocked) { %>
-              <div class="media-item post-card compact-view locked" 
-                   data-post-id="<%= post._id %>-locked" 
-                   data-actual-post-id="<%= post._id %>"
-                   data-is-locked="true" 
-                   id="media-post-<%= post._id %>-locked">
-                <% if (mediaItems.length > 0) { %>
-                  <% mediaItems.forEach((media, index) => { %>
-                    <div class="preview-media">
-                      <img src="/images/placeholder.png" 
-                           alt="Preview Image" 
-                           class="post-image lazy-media blurred"
-                           data-original-url="<%= media.originalUrl %>">
-                    </div>
-                  <% }); %>
-                <% } %>
-              </div>
-            <% } else if (mediaItems.length > 0) { %>
-              <% mediaItems.forEach((media, index) => { %>
-                <div class="media-item post-card compact-view" 
-                     data-post-id="<%= post._id %>-item-<%= index %>" 
-                     data-actual-post-id="<%= post._id %>"
-                     data-is-locked="false" 
-                     id="media-post-<%= post._id %>-item-<%= index %>">
-                  <img src="/images/placeholder.png" 
-                       alt="Post Image" 
-                       class="post-image lazy-media fullscreenable" 
-                       data-original-url="<%= media.originalUrl %>"
-                       data-fullscreen-src="<%= media.originalUrl %>" 
-                       draggable="false" 
-                       oncontextmenu="return false;">
-                </div>
-              <% }); %>
-            <% } %>
+           <!-- Compact View: Pictures -->
+<% if (showLocked) { %>
+  <div class="media-item post-card compact-view locked"
+       id="media-post-<%= post._id %>-locked"
+       data-actual-post-id="<%= post._id %>"
+       data-is-locked="true">
+    <% if (mediaItems.length > 0) { %>
+      <% mediaItems.forEach((media, index) => { %>
+        <div class="preview-media">
+          <img src="/images/placeholder.png"
+               alt="Preview Image"
+               class="post-image lazy-media blurred"
+               data-original-url="<%= media.originalUrl %>">
+        </div>
+      <% }); %>
+    <% } %>
+  </div>
+<% } else if (mediaItems.length > 0) { %>
+  <% mediaItems.forEach((media, index) => { %>
+    <div class="media-item post-card compact-view"
+         id="media-post-<%= post._id %>-item-<%= index %>"
+         data-actual-post-id="<%= post._id %>"
+         data-is-locked="false">
+      <img src="/images/placeholder.png"
+           alt="Post Image"
+           class="post-image lazy-media fullscreenable"
+           data-original-url="<%= media.originalUrl %>"
+           data-fullscreen-src="<%= media.originalUrl %>"
+           draggable="false"
+           oncontextmenu="return false;">
+    </div>
+  <% }); %>
+<% } %>
+
           <% }); %>
         </div>
       <% } else { %>
@@ -1362,58 +1379,67 @@ data-username="<%= user.username %>">
                 <% } %>
               </div>
             </div>
-            <!-- Compact View -->
-            <% if (showLocked) { %>
-              <div class="media-item compact-view locked" id="media-post-<%= post._id %>-locked">
-                <% if (mediaItems.length > 0) { %>
-                  <% mediaItems.forEach((media, index) => { %>
-                    <div class="preview-media">
-                     <div class="video-wrapper">
-          <video class="post-video lazy-media"
-                 controlsList="nodownload"
-                 disablePictureInPicture
-                 oncontextmenu="return false;"
-                 draggable="false"
-                 data-original-url="<%= media.originalUrl %>"
-                 <% if (media.originalPosterUrl) { %>
-                   data-original-poster="<%= media.originalPosterUrl %>"
-                 <% } %>
-                 poster="/images/placeholder.png">
-            <source src="/images/placeholder.png"
-                    type="<%= media.contentType || 'video/mp4' %>">
-            Your browser does not support the video tag.
-          </video>
-          <img class="video-poster-img" src="/images/placeholder.png" alt="Video poster">
-          <div class="video-play-overlay">▶</div>
+           <!-- Compact View: Video -->
+<% if (showLocked) { %>
+  <div class="media-item post-card compact-view locked"
+       data-post-id="<%= post._id %>-locked"
+       data-actual-post-id="<%= post._id %>"
+       data-is-locked="true"
+       id="media-post-<%= post._id %>-locked">
+    <% if (mediaItems.length > 0) { %>
+      <% mediaItems.forEach((media, index) => { %>
+        <div class="preview-media">
+          <div class="video-wrapper">
+            <video class="post-video lazy-media blurred"
+                   controlsList="nodownload"
+                   disablePictureInPicture
+                   oncontextmenu="return false;"
+                   draggable="false"
+                   data-original-url="<%= media.originalUrl %>"
+                   <% if (media.originalPosterUrl) { %>
+                     data-original-poster="<%= media.originalPosterUrl %>"
+                   <% } %>
+                   poster="/images/placeholder.png">
+              <source src="/images/placeholder.png"
+                      type="<%= media.contentType || 'video/mp4' %>">
+              Your browser does not support the video tag.
+            </video>
+            <img class="video-poster-img" src="/images/placeholder.png" alt="Video poster">
+            <div class="video-play-overlay">▶</div>
+          </div>
         </div>
-                    </div>
-                  <% }); %>
-                <% } %>
-              </div>
-            <% } else if (mediaItems.length > 0) { %>
-             <% mediaItems.forEach((media, index) => { %>
-  <div class="media-item compact-view" id="media-post-<%= post._id %>-item-<%= index %>">
-   <div class="video-wrapper">
-          <video class="post-video lazy-media"
-                 controlsList="nodownload"
-                 disablePictureInPicture
-                 oncontextmenu="return false;"
-                 draggable="false"
-                 data-original-url="<%= media.originalUrl %>"
-                 <% if (media.originalPosterUrl) { %>
-                   data-original-poster="<%= media.originalPosterUrl %>"
-                 <% } %>
-                 poster="/images/placeholder.png">
-            <source src="/images/placeholder.png"
-                    type="<%= media.contentType || 'video/mp4' %>">
-            Your browser does not support the video tag.
-          </video>
-          <img class="video-poster-img" src="/images/placeholder.png" alt="Video poster">
-          <div class="video-play-overlay">▶</div>
-        </div>
+      <% }); %>
+    <% } %>
   </div>
-<% }); %>
-            <% } %>
+<% } else if (mediaItems.length > 0) { %>
+  <% mediaItems.forEach((media, index) => { %>
+    <div class="media-item post-card compact-view"
+         data-post-id="<%= post._id %>-item-<%= index %>"
+         data-actual-post-id="<%= post._id %>"
+         data-is-locked="false"
+         id="media-post-<%= post._id %>-item-<%= index %>">
+      <div class="video-wrapper">
+        <video class="post-video lazy-media"
+               controlsList="nodownload"
+               disablePictureInPicture
+               oncontextmenu="return false;"
+               draggable="false"
+               data-original-url="<%= media.originalUrl %>"
+               <% if (media.originalPosterUrl) { %>
+                 data-original-poster="<%= media.originalPosterUrl %>"
+               <% } %>
+               poster="/images/placeholder.png">
+          <source src="/images/placeholder.png"
+                  type="<%= media.contentType || 'video/mp4' %>">
+          Your browser does not support the video tag.
+        </video>
+        <img class="video-poster-img" src="/images/placeholder.png" alt="Video poster">
+        <div class="video-play-overlay">▶</div>
+      </div>
+    </div>
+  <% }); %>
+<% } %>
+
           <% }); %>
         </div>
       <% } else { %>
