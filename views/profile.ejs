@@ -427,9 +427,9 @@ data-username="<%= user.username %>">
   <img
     src="/images/placeholder.png"
     alt=""
-    class="post-image fullscreenable lazy-media"
+      class="post-image fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
     data-fullscreen-src=""
-    data-original-url="<%= media.originalUrl %>"
+      data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
     draggable="false"
     oncontextmenu="return false;"
   />
@@ -456,8 +456,8 @@ data-username="<%= user.username %>">
       class="post-video fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
       controlsList="nodownload noremoteplayback"
       data-fullscreen-src=""
-      data-original-url="<%= media.originalUrl %>"
-      data-original-poster="<%= media.originalPosterUrl || '' %>"
+      data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
+  data-original-poster="<%= showLocked && media.previewUrl ? media.posterUrl : media.originalPosterUrl %>"
       data-fallback-poster="<%= media.posterUrl || '/images/placeholder.png' %>"
       disablePictureInPicture
       draggable="false"
@@ -796,7 +796,7 @@ data-username="<%= user.username %>">
                           <img src="/images/placeholder.png" 
                                alt="" 
                                class="post-image lazy-media fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                               data-original-url="<%= media.originalUrl %>"
+                                 data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
                                data-fullscreen-src="<%= media.originalUrl %>" 
                                draggable="false" 
                                oncontextmenu="return false;">
@@ -823,8 +823,8 @@ data-username="<%= user.username %>">
       class="post-video fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
       controlsList="nodownload noremoteplayback"
       data-fullscreen-src=""
-      data-original-url="<%= media.originalUrl %>"
-      data-original-poster="<%= media.originalPosterUrl || '' %>"
+      data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
+  data-original-poster="<%= showLocked && media.previewUrl ? media.posterUrl : media.originalPosterUrl %>"
       data-fallback-poster="<%= media.posterUrl || '/images/placeholder.png' %>"
       disablePictureInPicture
       draggable="false"
@@ -933,8 +933,9 @@ data-username="<%= user.username %>">
           <% if (media.type === 'image') { %>
             <img src="/images/placeholder.png"
                  alt=""
-                 class="post-image lazy-media blurred"
-                 data-original-url="<%= media.originalUrl %>">
+                   class="post-image fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
+                 data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
+                 >
           <% } else if (media.type === 'video') { %>
             <div class="video-wrapper">
               <!-- Play overlay like normal view -->
@@ -951,15 +952,16 @@ data-username="<%= user.username %>">
                    alt="video poster"
                    data-original-poster="<%= media.originalPosterUrl || '' %>" />
 
-              <video class="post-video lazy-media blurred"
+              <video  
+               class="post-video fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
                      controlsList="nodownload noremoteplayback"
                      disablePictureInPicture
                      oncontextmenu="return false;"
                      draggable="false"
                      data-post-id="<%= post._id %>"
                      data-actual-post-id="<%= post._id %>"
-                     data-original-url="<%= media.originalUrl %>"
-                     data-original-poster="<%= media.originalPosterUrl || '' %>"
+                     data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
+  data-original-poster="<%= showLocked && media.previewUrl ? media.posterUrl : media.originalPosterUrl %>"
                      poster="">
                 <source src="/images/placeholder.png" type="<%= media.contentType || 'video/mp4' %>">
                 Your browser does not support the video tag.
@@ -980,8 +982,9 @@ data-username="<%= user.username %>">
       <% if (media.type === 'image') { %>
         <img src="/images/placeholder.png"
              alt=""
-             class="post-image lazy-media fullscreenable"
-             data-original-url="<%= media.originalUrl %>"
+               class="post-image fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
+
+            data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
              data-fullscreen-src="<%= media.originalUrl %>"
              draggable="false"
              oncontextmenu="return false;">
@@ -1001,15 +1004,15 @@ data-username="<%= user.username %>">
                alt="video poster"
                data-original-poster="<%= media.originalPosterUrl || '' %>" />
 
-          <video class="post-video lazy-media fullscreenable"
+          <video   class="post-video fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
                  controlsList="nodownload noremoteplayback"
                  disablePictureInPicture
                  oncontextmenu="return false;"
                  draggable="false"
                  data-post-id="<%= post._id %>"
                  data-actual-post-id="<%= post._id %>"
-                 data-original-url="<%= media.originalUrl %>"
-                 data-original-poster="<%= media.originalPosterUrl || '' %>"
+                  data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
+  data-original-poster="<%= showLocked && media.previewUrl ? media.posterUrl : media.originalPosterUrl %>"
                  poster="">
             <source src="/images/placeholder.png" type="<%= media.contentType || 'video/mp4' %>">
             Your browser does not support the video tag.
@@ -1099,8 +1102,9 @@ data-username="<%= user.username %>">
                       <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                         <img src="/images/placeholder.png" 
                              alt="" 
-                             class="post-image lazy-media fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                             data-original-url="<%= media.originalUrl %>"
+                             class="post-image lazy-media <%= showLocked ? 'blurred' : '' %>"
+                             data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
+  draggable="false"
                              data-fullscreen-src="<%= media.originalUrl %>" 
                              draggable="false" 
                              oncontextmenu="return false;">
@@ -1200,9 +1204,11 @@ data-username="<%= user.username %>">
         <div class="preview-media">
           <img src="/images/placeholder.png"
                alt=""
-               class="post-image lazy-media blurred"
+              class="post-image  lazy-media <%= showLocked ? 'blurred' : '' %>"
                data-post-id="<%= post._id %>"
-               data-original-url="<%= media.originalUrl %>">
+               data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
+  draggable="false"
+               >
         </div>
       <% }); %>
     <% } %>
@@ -1216,9 +1222,9 @@ data-username="<%= user.username %>">
          data-is-locked="false">
       <img src="/images/placeholder.png"
            alt=""
-           class="post-image lazy-media fullscreenable"
+           class="post-image fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
            data-post-id="<%= post._id %>"
-           data-original-url="<%= media.originalUrl %>"
+           data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
            data-fullscreen-src="<%= media.originalUrl %>"
            draggable="false"
            oncontextmenu="return false;">
@@ -1288,14 +1294,14 @@ data-username="<%= user.username %>">
                     <% mediaItems.forEach((media, index) => { %>
                       <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
                        <div class="video-wrapper">
-          <video class="post-video lazy-media"
+          <video class="post-video lazy-media <%= showLocked ? 'blurred' : '' %>"
                  controlsList="nodownload"
                  disablePictureInPicture
                  oncontextmenu="return false;"
                  draggable="false"
-                 data-original-url="<%= media.originalUrl %>"
+                   data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
                  <% if (media.originalPosterUrl) { %>
-                   data-original-poster="<%= media.originalPosterUrl %>"
+                   data-original-poster="<%= showLocked && media.previewUrl ? media.posterUrl : media.originalPosterUrl %>"
                  <% } %>
                  poster="/images/placeholder.png">
             <source src="/images/placeholder.png"
@@ -1400,15 +1406,15 @@ data-username="<%= user.username %>">
       <% mediaItems.forEach((media, index) => { %>
         <div class="preview-media">
           <div class="video-wrapper">
-            <video class="post-video lazy-media blurred"
+            <video   class="post-video lazy-media <%= showLocked ? 'blurred' : '' %>"
                    controlsList="nodownload noremoteplayback"
                    disablePictureInPicture
                    oncontextmenu="return false"
                    draggable="false"
                    data-post-id="<%= post._id %>"
-                   data-original-url="<%= media.originalUrl %>"
+                   data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
                    <% if (media.originalPosterUrl) { %>
-                     data-original-poster="<%= media.originalPosterUrl %>"
+                     data-original-poster="<%= showLocked && media.previewUrl ? media.posterUrl : media.originalPosterUrl %>"
                    <% } %>
                    poster="/images/placeholder.png">
               <source src="/images/placeholder.png"
