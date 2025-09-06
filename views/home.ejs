@@ -174,7 +174,7 @@
                          <% if (media.type === 'image') { %>
   <img
     src="<%= media.url || '/Uploads/placeholder-image.png' %>"
-    alt="Post Image"
+    alt=""
     class="post-image <%= showLocked ? 'blurred' : 'fullscreenable lazy-media' %>"
     data-original-url="<%= media.originalUrl %>"
     data-fullscreen-src="<%= media.url || media.originalUrl %>"
@@ -196,7 +196,7 @@
   <!-- Optional poster img kept for debugging but hidden by default -->
   <img
     class="video-poster-img visually-hidden"
-    alt="video poster"
+    alt=""
     aria-hidden="true"
     data-original-poster="<%= media.originalPosterUrl || '' %>"
   />
