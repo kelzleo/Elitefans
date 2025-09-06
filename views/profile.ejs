@@ -920,10 +920,11 @@ data-username="<%= user.username %>">
                 <% } %>
               </div>
             </div>
-           <!-- Compact View: One media-item per media item -->
+          <!-- Compact View: One media-item per media item -->
 <% if (showLocked) { %>
   <div class="media-item post-card compact-view locked"
        id="media-post-<%= post._id %>-locked"
+       data-post-id="<%= post._id %>"
        data-actual-post-id="<%= post._id %>"
        data-is-locked="true">
     <% if (mediaItems.length > 0) { %>
@@ -955,6 +956,7 @@ data-username="<%= user.username %>">
                      disablePictureInPicture
                      oncontextmenu="return false;"
                      draggable="false"
+                     data-post-id="<%= post._id %>"
                      data-actual-post-id="<%= post._id %>"
                      data-original-url="<%= media.originalUrl %>"
                      data-original-poster="<%= media.originalPosterUrl || '' %>"
@@ -972,6 +974,7 @@ data-username="<%= user.username %>">
   <% mediaItems.forEach((media, index) => { %>
     <div class="media-item post-card compact-view"
          id="media-post-<%= post._id %>-item-<%= index %>"
+         data-post-id="<%= post._id %>"
          data-actual-post-id="<%= post._id %>"
          data-is-locked="false">
       <% if (media.type === 'image') { %>
@@ -1003,6 +1006,7 @@ data-username="<%= user.username %>">
                  disablePictureInPicture
                  oncontextmenu="return false;"
                  draggable="false"
+                 data-post-id="<%= post._id %>"
                  data-actual-post-id="<%= post._id %>"
                  data-original-url="<%= media.originalUrl %>"
                  data-original-poster="<%= media.originalPosterUrl || '' %>"
@@ -1015,6 +1019,8 @@ data-username="<%= user.username %>">
     </div>
   <% }); %>
 <% } %>
+
+
 
           <% }); %>
         </div>
@@ -1182,10 +1188,11 @@ data-username="<%= user.username %>">
                 <% } %>
               </div>
             </div>
-           <!-- Compact View: Pictures -->
+          <!-- Compact View: Pictures -->
 <% if (showLocked) { %>
   <div class="media-item post-card compact-view locked"
        id="media-post-<%= post._id %>-locked"
+       data-post-id="<%= post._id %>"
        data-actual-post-id="<%= post._id %>"
        data-is-locked="true">
     <% if (mediaItems.length > 0) { %>
@@ -1194,6 +1201,7 @@ data-username="<%= user.username %>">
           <img src="/images/placeholder.png"
                alt="Preview Image"
                class="post-image lazy-media blurred"
+               data-post-id="<%= post._id %>"
                data-original-url="<%= media.originalUrl %>">
         </div>
       <% }); %>
@@ -1203,11 +1211,13 @@ data-username="<%= user.username %>">
   <% mediaItems.forEach((media, index) => { %>
     <div class="media-item post-card compact-view"
          id="media-post-<%= post._id %>-item-<%= index %>"
+         data-post-id="<%= post._id %>"
          data-actual-post-id="<%= post._id %>"
          data-is-locked="false">
       <img src="/images/placeholder.png"
            alt="Post Image"
            class="post-image lazy-media fullscreenable"
+           data-post-id="<%= post._id %>"
            data-original-url="<%= media.originalUrl %>"
            data-fullscreen-src="<%= media.originalUrl %>"
            draggable="false"
@@ -1379,22 +1389,23 @@ data-username="<%= user.username %>">
                 <% } %>
               </div>
             </div>
-           <!-- Compact View: Video -->
+          <!-- Compact View: Video -->
 <% if (showLocked) { %>
   <div class="media-item post-card compact-view locked"
-       data-post-id="<%= post._id %>-locked"
+       id="media-post-<%= post._id %>-locked"
+       data-post-id="<%= post._id %>"
        data-actual-post-id="<%= post._id %>"
-       data-is-locked="true"
-       id="media-post-<%= post._id %>-locked">
+       data-is-locked="true">
     <% if (mediaItems.length > 0) { %>
       <% mediaItems.forEach((media, index) => { %>
         <div class="preview-media">
           <div class="video-wrapper">
             <video class="post-video lazy-media blurred"
-                   controlsList="nodownload"
+                   controlsList="nodownload noremoteplayback"
                    disablePictureInPicture
-                   oncontextmenu="return false;"
+                   oncontextmenu="return false"
                    draggable="false"
+                   data-post-id="<%= post._id %>"
                    data-original-url="<%= media.originalUrl %>"
                    <% if (media.originalPosterUrl) { %>
                      data-original-poster="<%= media.originalPosterUrl %>"
@@ -1414,16 +1425,17 @@ data-username="<%= user.username %>">
 <% } else if (mediaItems.length > 0) { %>
   <% mediaItems.forEach((media, index) => { %>
     <div class="media-item post-card compact-view"
-         data-post-id="<%= post._id %>-item-<%= index %>"
+         id="media-post-<%= post._id %>-item-<%= index %>"
+         data-post-id="<%= post._id %>"
          data-actual-post-id="<%= post._id %>"
-         data-is-locked="false"
-         id="media-post-<%= post._id %>-item-<%= index %>">
+         data-is-locked="false">
       <div class="video-wrapper">
         <video class="post-video lazy-media"
-               controlsList="nodownload"
+               controlsList="nodownload noremoteplayback"
                disablePictureInPicture
-               oncontextmenu="return false;"
+               oncontextmenu="return false"
                draggable="false"
+               data-post-id="<%= post._id %>"
                data-original-url="<%= media.originalUrl %>"
                <% if (media.originalPosterUrl) { %>
                  data-original-poster="<%= media.originalPosterUrl %>"
@@ -1439,6 +1451,7 @@ data-username="<%= user.username %>">
     </div>
   <% }); %>
 <% } %>
+
 
           <% }); %>
         </div>
