@@ -631,6 +631,24 @@ body {
 .rc-hidden {
   display: none;
 }
+.video-wrapper { position: relative; overflow: hidden; }
+.video-wrapper .video-poster-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none; /* important so clicks go to the video */
+  z-index: 1;
+}
+.video-wrapper video {
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  height: auto;
+}
+
 /********************************************
  * EDIT PROFILE PAGE
  ********************************************/

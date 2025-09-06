@@ -171,29 +171,45 @@
                       %>
                       <% mediaItems.forEach((media, index) => { %>
                         <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                          <% if (media.type === 'image') { %>
-                            <img src="<%= media.url || '/Uploads/placeholder-image.png' %>"
-                                 alt="Post Image"
-                                 class="post-image <%= showLocked ? 'blurred' : 'fullscreenable lazy-media' %>"
-                                 data-original-url="<%= media.originalUrl %>"
-                                 data-fullscreen-src="<%= media.url || media.originalUrl %>"
-                                 draggable="false"
-                                 oncontextmenu="return false;">
-                          <% } else if (media.type === 'video') { %>
-                            <video
-                              class="post-video fullscreenable <%= showLocked ? 'blurred' : 'lazy-media' %>"
-                              controlsList="nodownload noremoteplayback"
-                              data-original-url="<%= media.originalUrl %>"
-                              data-original-poster="<%= media.originalPosterUrl || '' %>"
-                              data-fullscreen-src="<%= media.url || media.originalUrl %>"
-                              disablePictureInPicture
-                              draggable="false"
-                              oncontextmenu="return false;"
-                              poster="<%= media.posterUrl || '/Uploads/placeholder-video.png' %>">
-                              <source src="<%= media.url || '' %>" type="<%= media.contentType || 'video/mp4' %>">
-                              Your browser does not support the video tag.
-                            </video>
-                          <% } %>
+                         <% if (media.type === 'image') { %>
+  <img
+    src="<%= media.url || '/Uploads/placeholder-image.png' %>"
+    alt="Post Image"
+    class="post-image <%= showLocked ? 'blurred' : 'fullscreenable lazy-media' %>"
+    data-original-url="<%= media.originalUrl %>"
+    data-fullscreen-src="<%= media.url || media.originalUrl %>"
+    draggable="false"
+    oncontextmenu="return false;"
+  />
+<% } else if (media.type === 'video') { %>
+  <div class="video-wrapper">
+    <!-- Overlay poster image (fallback & reliable on mobile) -->
+    <img
+      class="video-poster-img"
+      alt="video poster"
+      aria-hidden="true"
+      src="<%= media.posterUrl || '/Uploads/placeholder-video.png' %>"
+      data-original-poster="<%= media.originalPosterUrl || '' %>"
+    />
+
+    <video
+      class="post-video fullscreenable <%= showLocked ? 'blurred' : 'lazy-media' %>"
+      controlsList="nodownload noremoteplayback"
+      data-original-url="<%= media.originalUrl %>"
+      data-original-poster="<%= media.originalPosterUrl || '' %>"
+      data-fullscreen-src="<%= media.url || media.originalUrl %>"
+      data-fallback-poster="<%= media.posterUrl || '/Uploads/placeholder-video.png' %>"
+      disablePictureInPicture
+      draggable="false"
+      oncontextmenu="return false;"
+      poster=""  <!-- client populates this -->
+    >
+      <source src="" type="<%= media.contentType || 'video/mp4' %>">
+      Your browser does not support the video tag.
+    </video>
+  </div>
+<% } %>
+
                         </div>
                       <% }); %>
                     </div>
