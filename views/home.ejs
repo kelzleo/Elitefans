@@ -183,31 +183,41 @@
   />
 <% } else if (media.type === 'video') { %>
   <div class="video-wrapper">
-    <!-- Overlay poster image (fallback & reliable on mobile) -->
-    <img
-      class="video-poster-img"
-      alt="video poster"
-      aria-hidden="true"
-      src="<%= media.posterUrl || '/Uploads/placeholder-video.png' %>"
-      data-original-poster="<%= media.originalPosterUrl || '' %>"
-    />
-
-    <video
-      class="post-video fullscreenable <%= showLocked ? 'blurred' : 'lazy-media' %>"
-      controlsList="nodownload noremoteplayback"
-      data-original-url="<%= media.originalUrl %>"
-      data-original-poster="<%= media.originalPosterUrl || '' %>"
-      data-fullscreen-src="<%= media.url || media.originalUrl %>"
-      data-fallback-poster="<%= media.posterUrl || '/Uploads/placeholder-video.png' %>"
-      disablePictureInPicture
-      draggable="false"
-      oncontextmenu="return false;"
-      poster=""  <!-- client populates this -->
-    >
-      <source src="" type="<%= media.contentType || 'video/mp4' %>">
-      Your browser does not support the video tag.
-    </video>
+  <!-- Play icon overlay (centered) -->
+  <div class="video-play-overlay" aria-hidden="true">
+    <div class="play-btn" role="button" aria-label="Play video">
+      <!-- inline SVG play icon -->
+      <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false">
+        <path d="M8 5v14l11-7z" fill="currentColor"></path>
+      </svg>
+    </div>
   </div>
+
+  <!-- Optional poster img kept for debugging but hidden by default -->
+  <img
+    class="video-poster-img visually-hidden"
+    alt="video poster"
+    aria-hidden="true"
+    data-original-poster="<%= media.originalPosterUrl || '' %>"
+  />
+
+  <video
+    class="post-video fullscreenable <%= showLocked ? 'blurred' : 'lazy-media' %>"
+    controlsList="nodownload noremoteplayback"
+    data-original-url="<%= media.originalUrl %>"
+    data-original-poster="<%= media.originalPosterUrl || '' %>"
+    data-fullscreen-src="<%= media.url || media.originalUrl %>"
+    data-fallback-poster="<%= media.posterUrl || '/Uploads/placeholder-video.png' %>"
+    disablePictureInPicture
+    draggable="false"
+    oncontextmenu="return false;"
+    poster=""  
+  >
+    <source src="" type="<%= media.contentType || 'video/mp4' %>">
+    Your browser does not support the video tag.
+  </video>
+</div>
+
 <% } %>
 
                         </div>

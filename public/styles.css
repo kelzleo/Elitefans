@@ -631,23 +631,72 @@ body {
 .rc-hidden {
   display: none;
 }
-.video-wrapper { position: relative; overflow: hidden; }
-.video-wrapper .video-poster-img {
+/* Video wrapper & overlays */
+.video-wrapper {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  display: block;
+}
+
+/* Hidden poster image kept only for debugging (not visible) */
+.video-wrapper .video-poster-img,
+.visually-hidden {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
-  pointer-events: none; /* important so clicks go to the video */
-  z-index: 1;
-}
-.video-wrapper video {
-  position: relative;
+  display: none; /* hidden by default to avoid the top-left thumbnail issue */
+  pointer-events: none;
   z-index: 0;
+}
+
+/* Video element sits below overlay */
+.video-wrapper video {
   width: 100%;
   height: auto;
+  display: block;
+  z-index: 1;
+  background: #000; /* black background so empty area isn't white on some browsers */
 }
+
+/* Centered play overlay */
+.video-play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+  pointer-events: none; /* allow taps to go to the video element */
+}
+
+/* Play button appearance */
+.video-play-overlay .play-btn {
+  width: 64px;
+  height: 64px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.45);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+  color: #fff;
+}
+
+/* Make the SVG use the current color (white) */
+.video-play-overlay .play-btn svg {
+  fill: currentColor;
+  width: 28px;
+  height: 28px;
+}
+
+/* Optional: hide overlay when the video is playing (class toggled by JS) */
+.video-wrapper.playing .video-play-overlay {
+  display: none;
+}
+
 
 /********************************************
  * EDIT PROFILE PAGE

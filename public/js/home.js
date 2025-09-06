@@ -33,8 +33,7 @@ document.addEventListener('DOMContentLoaded', function() {
     return await fingerprintPromise;
   };
 
-
-  // --- Lazy-Loading + Signed URL Batching ---
+// --- Lazy-Loading + Signed URL Batching ---
 const batchSize = 3;
 let pendingPosts = new Set();
 let isProcessing = false;
@@ -126,7 +125,12 @@ async function processBatch() {
       if (!postSessions.length) {
         console.warn(`No sessions returned for post ${postId}`);
         post.querySelectorAll('.lazy-media').forEach((el) => {
-          el.src = '/images/error.png';
+          if (el.tagName === 'IMG') {
+            el.src = '/images/error.png';
+          } else if (el.tagName === 'VIDEO') {
+            // try to set poster fallback for videos if present
+            el.poster = '/images/error.png';
+          }
           el.classList.remove('lazy-media');
         });
         pendingPosts.delete(post);
@@ -137,7 +141,11 @@ async function processBatch() {
         const session = postSessions.find((s) => s.elementId === el.id);
         if (!session) {
           console.warn(`No session for element ${el.id} in post ${postId}`);
-          el.src = '/images/error.png';
+          if (el.tagName === 'IMG') {
+            el.src = '/images/error.png';
+          } else if (el.tagName === 'VIDEO') {
+            el.poster = '/images/error.png';
+          }
           el.classList.remove('lazy-media');
           return;
         }
@@ -151,9 +159,9 @@ async function processBatch() {
           el.addEventListener(
             'error',
             () => {
-              if (parseInt(el.dataset.retryCount) < 3) {
+              if (parseInt(el.dataset.retryCount || '0', 10) < 3) {
                 console.warn(`Image error for ${el.id}, retry ${el.dataset.retryCount}`);
-                el.dataset.retryCount = parseInt(el.dataset.retryCount) + 1;
+                el.dataset.retryCount = (parseInt(el.dataset.retryCount || '0', 10) + 1).toString();
                 pendingPosts.add(post);
               } else {
                 el.src = '/images/error.png';
@@ -170,37 +178,91 @@ async function processBatch() {
             { once: true }
           );
         } else if (el.tagName === 'VIDEO') {
+          // --- iOS-friendly poster-first approach + optional overlay image ---
+          // Set poster first (important for iOS/Safari)
+          if (session.posterUrl && session.posterUrl.trim()) {
+            try {
+              el.poster = `${session.posterUrl}?t=${Date.now()}`;
+            } catch (err) {
+              console.warn('Failed to set video.poster:', err);
+            }
+          } else if (el.dataset.fallbackPoster) {
+            el.poster = el.dataset.fallbackPoster;
+          }
+
+          // If there's an overlay img (recommended fallback), update it too
+          let posterImg = null;
+          try {
+            const wrapper = el.closest('.video-wrapper');
+            posterImg = wrapper ? wrapper.querySelector('.video-poster-img') : null;
+            if (posterImg && session.posterUrl) {
+              posterImg.src = `${session.posterUrl}?t=${Date.now()}`;
+              posterImg.style.display = ''; // ensure visible until play
+            }
+          } catch (err) {
+            // silently ignore DOM traversal errors
+          }
+
+          // Now set up the source AFTER poster is set
           const source = el.querySelector('source') || document.createElement('source');
           source.src = `${session.url}?t=${Date.now()}`;
           source.type = el.querySelector('source')?.type || 'video/mp4';
           if (!el.querySelector('source')) el.appendChild(source);
+
+          // Let the browser paint poster, then load the video (requestAnimationFrame helps on mobile)
+          requestAnimationFrame(() => {
+            try {
+              el.load();
+            } catch (err) {
+              console.warn('Video load() threw an error:', err);
+            }
+          });
+
           el.dataset.fullscreenSrc = session.url;
-          if (session.posterUrl) el.poster = `${session.posterUrl}?t=${Date.now()}`;
-          el.load();
+
           el.addEventListener(
             'error',
             () => {
-              if (parseInt(el.dataset.retryCount) < 3) {
+              if (parseInt(el.dataset.retryCount || '0', 10) < 3) {
                 console.warn(`Video error for ${el.id}, retry ${el.dataset.retryCount}`);
-                el.dataset.retryCount = parseInt(el.dataset.retryCount) + 1;
+                el.dataset.retryCount = (parseInt(el.dataset.retryCount || '0', 10) + 1).toString();
                 pendingPosts.add(post);
               } else {
                 el.poster = '/images/error.png';
+                if (posterImg) posterImg.src = '/images/error.png';
                 el.classList.remove('lazy-media');
               }
             },
             { once: true }
           );
+
+          // Remove lazy marker when playable; keep poster until user plays
           el.addEventListener(
             'canplay',
             () => {
               el.classList.remove('lazy-media');
+              // optionally keep poster visible until play
             },
             { once: true }
           );
+
+          // Hide overlay poster image when user actually plays the video
+          if (posterImg) {
+            el.addEventListener(
+              'play',
+              () => {
+                posterImg.style.display = 'none';
+              },
+              { once: true }
+            );
+          }
+
         }
 
-        extendSessionActivity(session.sessionId);
+        // Extend the session for the proxied media
+        if (session.sessionId) {
+          extendSessionActivity(session.sessionId);
+        }
       });
 
       pendingPosts.delete(post);
@@ -208,11 +270,18 @@ async function processBatch() {
   } catch (error) {
     console.error('Batch processing error:', error);
     batch.forEach((post) => {
-      if (parseInt(post.dataset.batchRetryCount || 0) < 3) {
-        post.dataset.batchRetryCount = parseInt(post.dataset.batchRetryCount || 0) + 1;
+      if (parseInt(post.dataset.batchRetryCount || '0', 10) < 3) {
+        post.dataset.batchRetryCount = (parseInt(post.dataset.batchRetryCount || '0', 10) + 1).toString();
       } else {
         post.querySelectorAll('.lazy-media').forEach((el) => {
-          el.src = '/images/error.png';
+          if (el.tagName === 'IMG') {
+            el.src = '/images/error.png';
+          } else if (el.tagName === 'VIDEO') {
+            el.poster = '/images/error.png';
+            const wrapper = el.closest('.video-wrapper');
+            const posterImg = wrapper ? wrapper.querySelector('.video-poster-img') : null;
+            if (posterImg) posterImg.src = '/images/error.png';
+          }
           el.classList.remove('lazy-media');
         });
         pendingPosts.delete(post);
@@ -249,6 +318,7 @@ const observer = new IntersectionObserver(
 document.querySelectorAll('.post-card').forEach((post) => {
   observer.observe(post);
 });
+
 
 // Select all required elements
 const lightbox = document.getElementById('lightbox');
