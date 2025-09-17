@@ -76,11 +76,6 @@ async function processBatch() {
     const batch = Array.from(pendingPosts).slice(0, batchSize);
     const postData = batch
       .map((post) => {
-        if (post.dataset.isLocked === 'true') {
-          console.log(`Skipping locked post ${post.dataset.postId}`);
-          pendingPosts.delete(post);
-          return null;
-        }
         const mediaEls = post.querySelectorAll('.lazy-media');
         if (!mediaEls.length) {
           console.log(`No media for post ${post.dataset.postId}`);
@@ -128,8 +123,10 @@ async function processBatch() {
           if (el.tagName === 'IMG') {
             el.src = '/images/error.png';
           } else if (el.tagName === 'VIDEO') {
-            // try to set poster fallback for videos if present
             el.poster = '/images/error.png';
+            const wrapper = el.closest('.video-wrapper');
+            const posterImg = wrapper ? wrapper.querySelector('.video-poster-img') : null;
+            if (posterImg) posterImg.src = '/images/error.png';
           }
           el.classList.remove('lazy-media');
         });
@@ -145,13 +142,16 @@ async function processBatch() {
             el.src = '/images/error.png';
           } else if (el.tagName === 'VIDEO') {
             el.poster = '/images/error.png';
+            const wrapper = el.closest('.video-wrapper');
+            const posterImg = wrapper ? wrapper.querySelector('.video-poster-img') : null;
+            if (posterImg) posterImg.src = '/images/error.png';
           }
           el.classList.remove('lazy-media');
           return;
         }
 
         console.log(`Updating ${el.tagName} ${el.id} with URL: ${session.url}`);
-        el.dataset.retryCount = el.dataset.retryCount || 0;
+        el.dataset.retryCount = el.dataset.retryCount || '0';
 
         if (el.tagName === 'IMG') {
           el.src = `${session.url}?t=${Date.now()}`;
@@ -159,9 +159,9 @@ async function processBatch() {
           el.addEventListener(
             'error',
             () => {
-              if (parseInt(el.dataset.retryCount || '0', 10) < 3) {
+              if (parseInt(el.dataset.retryCount, 10) < 3) {
                 console.warn(`Image error for ${el.id}, retry ${el.dataset.retryCount}`);
-                el.dataset.retryCount = (parseInt(el.dataset.retryCount || '0', 10) + 1).toString();
+                el.dataset.retryCount = (parseInt(el.dataset.retryCount, 10) + 1).toString();
                 pendingPosts.add(post);
               } else {
                 el.src = '/images/error.png';
@@ -178,8 +178,7 @@ async function processBatch() {
             { once: true }
           );
         } else if (el.tagName === 'VIDEO') {
-          // --- iOS-friendly poster-first approach + optional overlay image ---
-          // Set poster first (important for iOS/Safari)
+          // iOS-friendly poster-first approach + optional overlay image
           if (session.posterUrl && session.posterUrl.trim()) {
             try {
               el.poster = `${session.posterUrl}?t=${Date.now()}`;
@@ -190,26 +189,20 @@ async function processBatch() {
             el.poster = el.dataset.fallbackPoster;
           }
 
-          // If there's an overlay img (recommended fallback), update it too
-          let posterImg = null;
-          try {
-            const wrapper = el.closest('.video-wrapper');
-            posterImg = wrapper ? wrapper.querySelector('.video-poster-img') : null;
-            if (posterImg && session.posterUrl) {
-              posterImg.src = `${session.posterUrl}?t=${Date.now()}`;
-              posterImg.style.display = ''; // ensure visible until play
-            }
-          } catch (err) {
-            // silently ignore DOM traversal errors
+          const wrapper = el.closest('.video-wrapper');
+          const posterImg = wrapper ? wrapper.querySelector('.video-poster-img') : null;
+          if (posterImg && session.posterUrl) {
+            posterImg.src = `${session.posterUrl}?t=${Date.now()}`;
+            posterImg.style.display = ''; // Ensure visible until play
           }
 
-          // Now set up the source AFTER poster is set
+          // Set source AFTER poster is set
           const source = el.querySelector('source') || document.createElement('source');
           source.src = `${session.url}?t=${Date.now()}`;
           source.type = el.querySelector('source')?.type || 'video/mp4';
           if (!el.querySelector('source')) el.appendChild(source);
 
-          // Let the browser paint poster, then load the video (requestAnimationFrame helps on mobile)
+          // Let browser paint poster, then load
           requestAnimationFrame(() => {
             try {
               el.load();
@@ -223,9 +216,9 @@ async function processBatch() {
           el.addEventListener(
             'error',
             () => {
-              if (parseInt(el.dataset.retryCount || '0', 10) < 3) {
+              if (parseInt(el.dataset.retryCount, 10) < 3) {
                 console.warn(`Video error for ${el.id}, retry ${el.dataset.retryCount}`);
-                el.dataset.retryCount = (parseInt(el.dataset.retryCount || '0', 10) + 1).toString();
+                el.dataset.retryCount = (parseInt(el.dataset.retryCount, 10) + 1).toString();
                 pendingPosts.add(post);
               } else {
                 el.poster = '/images/error.png';
@@ -236,17 +229,14 @@ async function processBatch() {
             { once: true }
           );
 
-          // Remove lazy marker when playable; keep poster until user plays
           el.addEventListener(
             'canplay',
             () => {
               el.classList.remove('lazy-media');
-              // optionally keep poster visible until play
             },
             { once: true }
           );
 
-          // Hide overlay poster image when user actually plays the video
           if (posterImg) {
             el.addEventListener(
               'play',
@@ -256,10 +246,8 @@ async function processBatch() {
               { once: true }
             );
           }
-
         }
 
-        // Extend the session for the proxied media
         if (session.sessionId) {
           extendSessionActivity(session.sessionId);
         }
@@ -271,7 +259,7 @@ async function processBatch() {
     console.error('Batch processing error:', error);
     batch.forEach((post) => {
       if (parseInt(post.dataset.batchRetryCount || '0', 10) < 3) {
-        post.dataset.batchRetryCount = (parseInt(post.dataset.batchRetryCount || '0', 10) + 1).toString();
+        post.dataset.batchRetryCount = (parseInt(post.dataset.batchRetryCount, 10) + 1).toString();
       } else {
         post.querySelectorAll('.lazy-media').forEach((el) => {
           if (el.tagName === 'IMG') {
@@ -883,7 +871,7 @@ document.querySelectorAll('.comment-form').forEach(form => {
   });
 });
 
-// --- Bookmark Button (Updated) ---
+// --- Bookmark Button (Updated with Debug) ---
 document.querySelectorAll('.bookmark-button').forEach(button => {
   button.addEventListener('click', async function() {
     const postId = this.dataset.postId;
@@ -893,11 +881,20 @@ document.querySelectorAll('.bookmark-button').forEach(button => {
         throw new Error('fetchWithCsrf is not defined');
       }
       const fingerprintId = await getFingerprint();
+
+      // 🔍 Debug logging
+      console.log('BOOKMARK DEBUG (home.js) >>>', {
+        postId,
+        fingerprintId,
+        csrf: document.querySelector('meta[name="csrf-token"]')?.content
+      });
+
       const res = await fetchWithCsrf(`/profile/posts/${postId}/bookmark`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fingerprint: fingerprintId })
       });
+
       const text = await res.text();
       let data;
       try {
@@ -906,6 +903,7 @@ document.querySelectorAll('.bookmark-button').forEach(button => {
         if (isDevEnv) console.error('Non-JSON response:', text);
         throw new Error(`Failed to parse server response: ${parseError.message}`);
       }
+
       if (res.ok) {
         bookmarkIcon.classList.toggle('bookmarked', data.isBookmarked);
       } else {
@@ -920,6 +918,7 @@ document.querySelectorAll('.bookmark-button').forEach(button => {
     }
   });
 });
+
   // --- Tip Button ---
   document.querySelectorAll('.tip-button').forEach(button => {
     button.addEventListener('click', async function() {

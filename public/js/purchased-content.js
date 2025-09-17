@@ -31,9 +31,9 @@ document.addEventListener('DOMContentLoaded', function() {
   };
 
   
- // --- Lazy-Loading + Signed URL Batching ---
+// --- Lazy-Loading + Signed URL Batching ---
 const batchSize = 3;
-let lazyPendingPosts = new Set();
+let pendingPosts = new Set();
 let isProcessing = false;
 let lastBatchTime = 0;
 const batchThrottle = 1000; // 1s throttle to reduce overlap
@@ -65,19 +65,19 @@ const extendSessionActivity = debounce(async (sessionId) => {
 
 async function processBatch() {
   const now = Date.now();
-  if (isProcessing || lazyPendingPosts.size === 0 || now - lastBatchTime < batchThrottle) return;
-  if (isDevEnv) console.log(`Starting batch, lazyPendingPosts size: ${lazyPendingPosts.size}`);
+  if (isProcessing || pendingPosts.size === 0 || now - lastBatchTime < batchThrottle) return;
+  console.log(`Starting batch, pendingPosts size: ${pendingPosts.size}`);
   isProcessing = true;
   lastBatchTime = now;
 
   try {
-    const batch = Array.from(lazyPendingPosts).slice(0, batchSize);
+    const batch = Array.from(pendingPosts).slice(0, batchSize);
     const postData = batch
       .map((post) => {
         const mediaEls = post.querySelectorAll('.lazy-media');
         if (!mediaEls.length) {
-          if (isDevEnv) console.log(`No media for post ${post.dataset.postId}`);
-          lazyPendingPosts.delete(post);
+          console.log(`No media for post ${post.dataset.postId}`);
+          pendingPosts.delete(post);
           return null;
         }
         return {
@@ -87,7 +87,7 @@ async function processBatch() {
             .map((el) => {
               const elementId = el.id || `media-${Math.random().toString(36).substr(2, 9)}`;
               el.id = elementId;
-              const item = { originalUrl: el.dataset.originalUrl, elementId }; // Fix: Use dataset.originalUrl
+              const item = { originalUrl: el.dataset.originalUrl, elementId };
               if (el.dataset.originalPoster?.trim()) item.originalPoster = el.dataset.originalPoster;
               return item;
             }),
@@ -96,12 +96,10 @@ async function processBatch() {
       .filter((post) => post !== null);
 
     if (!postData.length) {
-      batch.forEach((post) => lazyPendingPosts.delete(post));
+      batch.forEach((post) => pendingPosts.delete(post));
       isProcessing = false;
       return;
     }
-
-    if (isDevEnv) console.log('postData:', JSON.stringify(postData, null, 2)); // Debug log
 
     const sessions = await fetchWithCsrf('/api/generate-signed-urls', {
       method: 'POST',
@@ -118,26 +116,40 @@ async function processBatch() {
       const postId = post.dataset.postId;
       const postSessions = sessions[postId] || [];
       if (!postSessions.length) {
-        if (isDevEnv) console.warn(`No sessions returned for post ${postId}`);
+        console.warn(`No sessions returned for post ${postId}`);
         post.querySelectorAll('.lazy-media').forEach((el) => {
-          el.src = '/images/error.png';
+          if (el.tagName === 'IMG') {
+            el.src = '/images/error.png';
+          } else if (el.tagName === 'VIDEO') {
+            el.poster = '/images/error.png';
+            const wrapper = el.closest('.video-wrapper');
+            const posterImg = wrapper ? wrapper.querySelector('.video-poster-img') : null;
+            if (posterImg) posterImg.src = '/images/error.png';
+          }
           el.classList.remove('lazy-media');
         });
-        lazyPendingPosts.delete(post);
+        pendingPosts.delete(post);
         return;
       }
 
       post.querySelectorAll('.lazy-media').forEach((el) => {
         const session = postSessions.find((s) => s.elementId === el.id);
         if (!session) {
-          if (isDevEnv) console.warn(`No session for element ${el.id} in post ${postId}`);
-          el.src = '/images/error.png';
+          console.warn(`No session for element ${el.id} in post ${postId}`);
+          if (el.tagName === 'IMG') {
+            el.src = '/images/error.png';
+          } else if (el.tagName === 'VIDEO') {
+            el.poster = '/images/error.png';
+            const wrapper = el.closest('.video-wrapper');
+            const posterImg = wrapper ? wrapper.querySelector('.video-poster-img') : null;
+            if (posterImg) posterImg.src = '/images/error.png';
+          }
           el.classList.remove('lazy-media');
           return;
         }
 
-        if (isDevEnv) console.log(`Updating ${el.tagName} ${el.id} with URL: ${session.url}`);
-        el.dataset.retryCount = el.dataset.retryCount || 0;
+        console.log(`Updating ${el.tagName} ${el.id} with URL: ${session.url}`);
+        el.dataset.retryCount = el.dataset.retryCount || '0';
 
         if (el.tagName === 'IMG') {
           el.src = `${session.url}?t=${Date.now()}`;
@@ -145,10 +157,10 @@ async function processBatch() {
           el.addEventListener(
             'error',
             () => {
-              if (parseInt(el.dataset.retryCount) < 3) {
-                if (isDevEnv) console.warn(`Image error for ${el.id}, retry ${el.dataset.retryCount}`);
-                el.dataset.retryCount = parseInt(el.dataset.retryCount) + 1;
-                lazyPendingPosts.add(post);
+              if (parseInt(el.dataset.retryCount, 10) < 3) {
+                console.warn(`Image error for ${el.id}, retry ${el.dataset.retryCount}`);
+                el.dataset.retryCount = (parseInt(el.dataset.retryCount, 10) + 1).toString();
+                pendingPosts.add(post);
               } else {
                 el.src = '/images/error.png';
                 el.classList.remove('lazy-media');
@@ -164,27 +176,57 @@ async function processBatch() {
             { once: true }
           );
         } else if (el.tagName === 'VIDEO') {
+          // iOS-friendly poster-first approach + optional overlay image
+          if (session.posterUrl && session.posterUrl.trim()) {
+            try {
+              el.poster = `${session.posterUrl}?t=${Date.now()}`;
+            } catch (err) {
+              console.warn('Failed to set video.poster:', err);
+            }
+          } else if (el.dataset.fallbackPoster) {
+            el.poster = el.dataset.fallbackPoster;
+          }
+
+          const wrapper = el.closest('.video-wrapper');
+          const posterImg = wrapper ? wrapper.querySelector('.video-poster-img') : null;
+          if (posterImg && session.posterUrl) {
+            posterImg.src = `${session.posterUrl}?t=${Date.now()}`;
+            posterImg.style.display = ''; // Ensure visible until play
+          }
+
+          // Set source AFTER poster is set
           const source = el.querySelector('source') || document.createElement('source');
           source.src = `${session.url}?t=${Date.now()}`;
           source.type = el.querySelector('source')?.type || 'video/mp4';
           if (!el.querySelector('source')) el.appendChild(source);
+
+          // Let browser paint poster, then load
+          requestAnimationFrame(() => {
+            try {
+              el.load();
+            } catch (err) {
+              console.warn('Video load() threw an error:', err);
+            }
+          });
+
           el.dataset.fullscreenSrc = session.url;
-          if (session.posterUrl) el.poster = `${session.posterUrl}?t=${Date.now()}`;
-          el.load();
+
           el.addEventListener(
             'error',
             () => {
-              if (parseInt(el.dataset.retryCount) < 3) {
-                if (isDevEnv) console.warn(`Video error for ${el.id}, retry ${el.dataset.retryCount}`);
-                el.dataset.retryCount = parseInt(el.dataset.retryCount) + 1;
-                lazyPendingPosts.add(post);
+              if (parseInt(el.dataset.retryCount, 10) < 3) {
+                console.warn(`Video error for ${el.id}, retry ${el.dataset.retryCount}`);
+                el.dataset.retryCount = (parseInt(el.dataset.retryCount, 10) + 1).toString();
+                pendingPosts.add(post);
               } else {
                 el.poster = '/images/error.png';
+                if (posterImg) posterImg.src = '/images/error.png';
                 el.classList.remove('lazy-media');
               }
             },
             { once: true }
           );
+
           el.addEventListener(
             'canplay',
             () => {
@@ -192,30 +234,49 @@ async function processBatch() {
             },
             { once: true }
           );
+
+          if (posterImg) {
+            el.addEventListener(
+              'play',
+              () => {
+                posterImg.style.display = 'none';
+              },
+              { once: true }
+            );
+          }
         }
 
-        extendSessionActivity(session.sessionId);
+        if (session.sessionId) {
+          extendSessionActivity(session.sessionId);
+        }
       });
 
-      lazyPendingPosts.delete(post);
+      pendingPosts.delete(post);
     });
   } catch (error) {
-    if (isDevEnv) console.error('Batch processing error:', error);
+    console.error('Batch processing error:', error);
     batch.forEach((post) => {
-      if (parseInt(post.dataset.batchRetryCount || 0) < 3) {
-        post.dataset.batchRetryCount = parseInt(post.dataset.batchRetryCount || 0) + 1;
+      if (parseInt(post.dataset.batchRetryCount || '0', 10) < 3) {
+        post.dataset.batchRetryCount = (parseInt(post.dataset.batchRetryCount, 10) + 1).toString();
       } else {
         post.querySelectorAll('.lazy-media').forEach((el) => {
-          el.src = '/images/error.png';
+          if (el.tagName === 'IMG') {
+            el.src = '/images/error.png';
+          } else if (el.tagName === 'VIDEO') {
+            el.poster = '/images/error.png';
+            const wrapper = el.closest('.video-wrapper');
+            const posterImg = wrapper ? wrapper.querySelector('.video-poster-img') : null;
+            if (posterImg) posterImg.src = '/images/error.png';
+          }
           el.classList.remove('lazy-media');
         });
-        lazyPendingPosts.delete(post);
+        pendingPosts.delete(post);
       }
     });
   } finally {
     isProcessing = false;
-    if (isDevEnv) console.log(`Batch done, remaining: ${lazyPendingPosts.size}`);
-    if (lazyPendingPosts.size > 0) setTimeout(processBatch, batchThrottle);
+    console.log(`Batch done, remaining: ${pendingPosts.size}`);
+    if (pendingPosts.size > 0) setTimeout(processBatch, batchThrottle);
   }
 }
 
@@ -223,9 +284,9 @@ async function processBatch() {
 const observer = new IntersectionObserver(
   (entries) => {
     entries.forEach((entry) => {
-      if (isDevEnv) console.log(`Post ${entry.target.dataset.postId} intersecting: ${entry.isIntersecting}`);
+      console.log(`Post ${entry.target.dataset.postId} intersecting: ${entry.isIntersecting}`);
       if (entry.isIntersecting && !entry.target.dataset.processed) {
-        lazyPendingPosts.add(entry.target);
+        pendingPosts.add(entry.target);
         entry.target.dataset.processed = 'true';
         observer.unobserve(entry.target);
         processBatch();
@@ -243,6 +304,7 @@ const observer = new IntersectionObserver(
 document.querySelectorAll('.post-card').forEach((post) => {
   observer.observe(post);
 });
+
  // Select all required elements
 const lightbox = document.getElementById('lightbox');
 const lbBackdrop = document.getElementById('lb-backdrop');

@@ -23,6 +23,7 @@ const { body, param, validationResult } = require('express-validator');
 const SignedUrlSession = require('./models/signedUrlSession');
 const axios = require('axios');
 const cron = require('node-cron');
+const supportRoutes = require('./routes/support');
 
 const { regenerateSignedUrl, extendSessionActivity, regenerateExpiring, createSignedUrlSession, cleanupExpiredSessions } = require('./utilis/cloudStorage');
 
@@ -101,6 +102,7 @@ app.use(
           "'self'",
           "https://cdn.jsdelivr.net",
           "https://cdnjs.cloudflare.com",
+          "https://embed.tawk.to",
         ],
         styleSrc: [
           "'self'",
@@ -119,12 +121,30 @@ app.use(
           "https://cdn.jsdelivr.net",
           "https://cdnjs.cloudflare.com",
           "https://storage.googleapis.com",
+           "https://*.tawk.to",
         ],
         mediaSrc: [  // <--- ADD THIS**
         "'self'",
         "https://storage.googleapis.com",
       ],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'",
+           "https://*.tawk.to",
+          "wss://*.tawk.to"
+        ],
+          // IMPORTANT: allow Tawk iframes
+    frameSrc: [
+      "'self'",
+      "https://embed.tawk.to",
+      "https://tawk.to",
+      "https://*.tawk.to"
+    ],
+    // child-src is for older user agents
+    childSrc: [
+      "'self'",
+      "https://embed.tawk.to",
+      "https://tawk.to",
+      "https://*.tawk.to"
+    ],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         frameAncestors: ["'none'"],
@@ -196,11 +216,10 @@ app.use((req, res, next) => {
   if (!req.sessionID) {
     logger.warn('No sessionID generated');
   }
-  req.session.save((err) => {
-    if (err) logger.error(`Error saving session: ${err.message}`);
-    next();
-  });
+  // DON'T force save every request
+  next();
 });
+
 
 app.use(updateUserStatus);
 app.use((req, res, next) => {
@@ -314,7 +333,8 @@ app.post(
       .notEmpty()
       .withMessage('Element ID required'),
   ],
-  async (req, res) => {
+  async (req, res, next) => {
+    
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       logger.warn(
@@ -331,7 +351,7 @@ app.post(
         .json({ message: 'Authentication required' });
     }
 
-    const userId   = req.user._id;
+    const userId = req.user._id;
     const postData = req.body;
 
     logger.debug(
@@ -350,12 +370,40 @@ app.post(
           continue;
         }
 
-        if (!canAccessPost(post, req.user)) {
-          logger.warn(`Unauthorized access to post ${postId} by user ${userId}`);
+        // Base access: must be owner, admin, or subscribed (for previews)
+        const isOwner = req.user._id.toString() === post.creator.toString();
+        const isSubscribed =
+          req.user.subscriptions &&
+          req.user.subscriptions.some(
+            (sub) =>
+              sub.creatorId.toString() === post.creator.toString() &&
+              sub.status === 'active' &&
+              sub.subscriptionExpiry > new Date()
+          );
+        const hasPurchased =
+          req.user.purchasedContent &&
+          req.user.purchasedContent.some((p) => p.contentId.toString() === post._id.toString());
+        const adminView = req.user.role === 'admin'; // Assuming you pass or check this if needed
+
+        const canViewSpecialContent = isOwner || hasPurchased || adminView;
+
+        if (!isOwner && !isSubscribed && !adminView) {
+          logger.warn(`Unauthorized base access to post ${postId} by user ${userId}`);
           continue;
         }
 
         sessions[postId] = [];
+
+        // Handle single-media case by treating as mediaItems array
+        let dbMediaItems = post.mediaItems || [];
+        if (dbMediaItems.length === 0 && post.contentUrl) {
+          dbMediaItems = [{
+            url: post.contentUrl,
+            previewUrl: post.previewUrl,
+            posterUrl: post.posterUrl,
+            type: post.type,
+          }];
+        }
 
         // Limit to at most 3 items
         const limitedMedia = media.slice(0, 3);
@@ -373,7 +421,33 @@ app.post(
 
         for (const { originalUrl, originalPoster, elementId } of limitedMedia) {
           try {
-            // reuse or create a new SignedUrlSession
+            // Validate requested originalUrl matches a DB media item's url or previewUrl
+            const dbMedia = dbMediaItems.find(
+              m => m.url === originalUrl || m.previewUrl === originalUrl
+            );
+            if (!dbMedia) {
+              logger.warn(`Invalid originalUrl ${originalUrl} for post ${postId}`);
+              continue;
+            }
+
+            const isPreviewRequest = dbMedia.previewUrl === originalUrl;
+            const isThumbnail = originalUrl.startsWith('thumbnails/');
+
+            // Access check for main media
+            let allowAccess = isOwner || adminView;
+            if (!allowAccess) {
+              if (isPreviewRequest || isThumbnail) {
+                allowAccess = isSubscribed;
+              } else {
+                allowAccess = hasPurchased || (!post.special && isSubscribed);
+              }
+            }
+            if (!allowAccess) {
+              logger.warn(`Denied access to ${originalUrl} for post ${postId} by user ${userId}`);
+              continue;
+            }
+
+            // Create/reuse session for main media
             let sessionId = sessionMap.get(originalUrl);
             if (!sessionId) {
               sessionId = (await createSignedUrlSession(userId, originalUrl, postId)).toString();
@@ -385,13 +459,25 @@ app.post(
               url: `/media/${sessionId}`,
             };
 
-            // handle poster if present
+            // Handle poster if provided
             if (originalPoster) {
+              // Validate poster matches DB
+              if (originalPoster !== dbMedia.posterUrl) {
+                logger.warn(`Invalid originalPoster ${originalPoster} for post ${postId}`);
+                continue; // Skip poster or whole? Here skip poster.
+              }
+
+              const isPosterThumbnail = originalPoster.startsWith('thumbnails/');
+
+              // Access check for poster (allow for subscribers)
+              let allowPoster = isOwner || adminView || isSubscribed;
+              if (!allowPoster) continue; // Skip poster
+
               let posterSessionId = sessionMap.get(originalPoster);
               if (!posterSessionId) {
                 posterSessionId = (await createSignedUrlSession(userId, originalPoster, postId)).toString();
               }
-              sessObj.posterUrl       = `/media/${posterSessionId}`;
+              sessObj.posterUrl = `/media/${posterSessionId}`;
               sessObj.posterSessionId = posterSessionId;
             }
 
@@ -621,38 +707,36 @@ app.post('/chat/upload-media', upload.single('media'), async (req, res) => {
       metadata: { contentType: file.mimetype },
     });
 
-    blobStream.on('error', (err) => {
-      logger.error(`Blob stream error: ${err.message}`);
-      let message = 'Error uploading file.';
-      if (err.message.includes('billing')) {
-        message = 'Billing account issue. Please contact support.';
-      } else if (err.message.includes('permission')) {
-        message = 'Permission denied for storage operation.';
-      }
-      res.status(500).json({ success: false, message, error: err.message });
+    await new Promise((resolve, reject) => {
+      blobStream.on('error', (err) => {
+        logger.error(`Blob stream error: ${err.message}`);
+        reject(err);
+      });
+      blobStream.on('finish', resolve);
+      blobStream.end(file.buffer);
     });
 
-    blobStream.on('finish', async () => {
-      // Create a session for the uploaded media
-      const { createSignedUrlSessionForChatMedia } = require('./utilis/cloudStorage');
-      try {
-        // Note: chatId is not available here, so we'll need to handle it differently
-        // For now, we'll return the filename and let the client create the session when needed
-        const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
-        res.json({ success: true, url: publicUrl });
-      } catch (err) {
-        logger.error(`Error creating session for uploaded chat media: ${err.message}`);
-        res.status(500).json({ success: false, message: 'Error creating media session' });
-      }
-    });
+    // Add delay and verify existence
+    await new Promise(resolve => setTimeout(resolve, 2000)); // 2-second delay for propagation
+    const [exists] = await blob.exists();
+    if (!exists) {
+      logger.error(`Uploaded file not found after upload: ${fileName}`);
+      throw new Error('File upload failed verification');
+    }
 
-    blobStream.end(file.buffer);
+    const publicUrl = `https://storage.googleapis.com/${bucket.name}/${fileName}`;
+    res.json({ success: true, url: publicUrl });
   } catch (err) {
     logger.error(`Upload error in /chat/upload-media: ${err.message}`);
-    res.status(500).json({ success: false, message: 'Server error.' });
+    let message = 'Error uploading file.';
+    if (err.message.includes('billing')) {
+      message = 'Billing account issue. Please contact support.';
+    } else if (err.message.includes('permission')) {
+      message = 'Permission denied for storage operation.';
+    }
+    res.status(500).json({ success: false, message, error: err.message });
   }
 });
-
 
 app.use('/', indexRoutes);
 app.use('/users', usersRoutes);
@@ -670,6 +754,7 @@ app.use('/dashboard', dashboardRoutes);
 app.use('/bookmarks', bookmarksRoutes);
 app.use('/referrals', referralsRoutes);
 app.use('/purchased-content', purchasedContentRoutes);
+app.use('/support', supportRoutes);
 
 app.get('/storage-example', async (req, res) => {
   try {
@@ -687,8 +772,11 @@ app.get('/storage-example', async (req, res) => {
 });
 
 app.use((err, req, res, next) => {
-  if (err.code !== 'EBADCSRFTOKEN') return next(err);
-  res.status(403).send('Form tampered with');
+  if (err && err.code === 'EBADCSRFTOKEN') {
+    logger.warn(`CSRF token mismatch: sessionID=${req.sessionID}, x-csrf=${req.headers['x-csrf-token']}`);
+    return res.status(403).send('Form tampered with');
+  }
+  next(err);
 });
 
 const server = http.createServer(app);

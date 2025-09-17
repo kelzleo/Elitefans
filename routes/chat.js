@@ -243,8 +243,10 @@ router.get('/media-session/:chatId/:filename', authCheck, async (req, res) => {
     const proxyUrl = `/chat/media/${sessionId}`;
     res.json({ url: proxyUrl });
   } catch (err) {
-    logger.error(`Error generating chat media session for user ${req.user._id}, chat ${chatId}, filename ${filename}: ${err.message}`);
-    res.status(500).json({ error: 'Failed to generate media session' });
+    const chatId = req.params?.chatId || 'unknown';
+  const filename = req.params?.filename || 'unknown';
+  logger.error(`Error generating chat media session for user ${req.user?._id || 'unknown'}, chat ${chatId}, filename ${filename}: ${err.message}`);
+  res.status(500).json({ error: 'Failed to generate media session' });
   }
 });
 

@@ -23,9 +23,30 @@ h1, h2 {
   font-weight: 400;
   font-family: 'Roboto Slab', serif !important;
   text-align: justify !important;
-  color: black !important;
+  color: red !important;
+  font-weight: bold !important;
 }
-
+.support-container {
+  max-width: 800px;
+  margin: 20px auto;
+  padding: 20px;
+  text-align: center;
+}
+.support-container h1 {
+  font-family: 'Roboto Slab', serif;
+  font-size: 2rem;
+  margin-bottom: 1rem;
+}
+.support-container p {
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+}
+#tawk-widget-container {
+  min-height: 400px;
+}
+.tawk-min-container {
+  bottom: 60px !important; /* Above bottom navbar */
+}
 /* Utility Classes */
 .hidden {
     display: none;

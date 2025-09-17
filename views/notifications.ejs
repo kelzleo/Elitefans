@@ -7,9 +7,9 @@
       <% notifications.forEach(notif => { %>
         <li class="notification-item">
           <% if (notif.type === 'new_post') { %>
-            <!-- Updated the link to /posts instead of /post -->
-            New <a href="/posts/<%= notif.postId %>">post</a> from
-            <a href="/profile/view/<%= notif.creatorId %>"><%= notif.creatorName %></a>!
+            <!-- Updated link to point to single post route -->
+            New <a href="/profile/<%= encodeURIComponent(notif.creatorName) %>/post/<%= notif.postId %>">post</a> from
+            <a href="/profile/<%= encodeURIComponent(notif.creatorName) %>"><%= notif.creatorName %></a>!
           <% } else { %>
             <span class="notif-message"><%= notif.message %></span>
           <% } %>

@@ -22,6 +22,7 @@
 
   <!-- Your main CSS file -->
   <link rel="stylesheet" href="/styles.css" />
+    
 
   <title>APP</title>
 </head>
@@ -71,7 +72,7 @@
         <% } %>
         <li><a href="/dashboard">Dashboards</a></li>
         <li><a href="">Subscriptions</a></li>
-        <li><a href="">Help and Support</a></li>
+        <li><a href="/support">Help and Support</a></li>
         <% if (currentUser && currentUser.role === 'creator') { %>
           <li><a href="/referrals">Referrals</a></li>
         <% } %>
@@ -84,5 +85,7 @@
   <!-- Load fetchWithCsrf and other scripts -->
   <script src="/scripts/utils.js"></script>
   <script src="/js/layout.js"></script>
+   <script src="/js/tawk-logout.js"></script>
+
 </body>
 </html>

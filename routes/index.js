@@ -486,7 +486,8 @@ router.get('/logout', async (req, res, next) => {
           logger.error('Error destroying session on logout', err);
         }
         res.clearCookie('connect.sid', { path: '/' });
-        res.redirect('/');
+        // Redirect with flag so client can run tawk cleanup before widget re-inits
+        res.redirect('/?tawk_logout=1');
       });
     });
   } catch (error) {
@@ -494,6 +495,7 @@ router.get('/logout', async (req, res, next) => {
     res.redirect('/');
   }
 });
+
 
 router.get('/google', (req, res, next) => {
   if (req.query.ref) {

@@ -1,0 +1,11 @@
+<div class="support-container"
+     data-current-user="<%= currentUser ? 'true' : 'false' %>"
+     data-user-email="<%= currentUser ? currentUser.email : '' %>"
+     data-user-id="<%= currentUser ? currentUser._id : '' %>"
+     data-user-name="<%= currentUser ? (currentUser.displayName || currentUser.username || currentUser.name) : '' %>"
+     data-user-hash="<%= typeof tawkHash !== 'undefined' ? tawkHash : '' %>">
+  <h1>Help and Support</h1>
+  <p>Chat with our support team for help with subscriptions, payments, accounts, or to report issues.</p>
+  <div id="tawk-widget-container"></div>
+  <script src="/js/support.js" defer></script>
+</div>
