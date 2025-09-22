@@ -1289,31 +1289,33 @@ data-username="<%= user.username %>">
                 </div>
               </div>
               <% if (mediaItems.length > 0) { %>
-                <div class="media-carousel-container <%= showLocked ? 'locked' : '' %>">
-                  <div class="media-carousel">
-                    <% mediaItems.forEach((media, index) => { %>
-                      <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
-                       <div class="video-wrapper">
+               <!-- Fix the media carousel container -->
+<div class="media-carousel-container <%= showLocked ? 'locked' : '' %>" data-post-id="<%= post._id %>">
+  <div class="media-carousel" data-post-id="<%= post._id %>">
+    <% mediaItems.forEach((media, index) => { %>
+      <div class="carousel-item <%= index === 0 ? 'active' : '' %>" data-post-id="<%= post._id %>">
+        <div class="video-wrapper" data-post-id="<%= post._id %>">
           <video class="post-video lazy-media <%= showLocked ? 'blurred' : '' %>"
+                 data-post-id="<%= post._id %>"
                  controlsList="nodownload"
                  disablePictureInPicture
                  oncontextmenu="return false;"
                  draggable="false"
-                   data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
+                 data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
                  <% if (media.originalPosterUrl) { %>
                    data-original-poster="<%= showLocked && media.previewUrl ? media.posterUrl : media.originalPosterUrl %>"
                  <% } %>
                  poster="">
-            <source 
-                    type="<%= media.contentType || 'video/mp4' %>">
+            <source type="<%= media.contentType || 'video/mp4' %>">
             Your browser does not support the video tag.
           </video>
-          <img class="video-poster-img"  alt="Video poster">
-          <div class="video-play-overlay">▶</div>
+          <img class="video-poster-img" data-post-id="<%= post._id %>" alt="Video poster">
+          <div class="video-play-overlay" data-post-id="<%= post._id %>">▶</div>
         </div>
-                      </div>
-                    <% }); %>
-                  </div>
+      </div>
+    <% }); %>
+  </div>
+</div>
                   <% if (mediaItems.length > 1) { %>
                     <div class="carousel-nav">
                       <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>

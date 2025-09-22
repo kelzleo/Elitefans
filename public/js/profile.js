@@ -87,6 +87,7 @@ async function fetchSignedUrlSessions(postData) {
     throw new Error(`Fetch failed: ${response.status} - ${errorBody.message || response.statusText}`);
   }
   const result = await response.json();
+  if (isDevEnv) console.log('Signed URL sessions:', JSON.stringify(result.sessions, null, 2));
   return result.sessions || {};
 }
 
@@ -109,8 +110,11 @@ const extendSessionActivity = debounce(async (sessionId) => {
 // Process batch function with consistent use of pendingPosts and fetchSignedUrlSessions
 async function processBatch() {
   const now = Date.now();
-  if (isProcessing || pendingPosts.size === 0 || now - lastBatchTime < batchThrottle) return;
-  if (typeof isDevEnv !== 'undefined' && isDevEnv) console.log(`Starting batch, pendingPosts size: ${pendingPosts.size}`);
+  if (isProcessing || pendingPosts.size === 0 || now - lastBatchTime < batchThrottle) {
+    if (isDevEnv) console.log(`Batch skipped: isProcessing=${isProcessing}, pendingPosts=${pendingPosts.size}, timeSinceLast=${now - lastBatchTime}`);
+    return;
+  }
+  if (isDevEnv) console.log(`Starting batch, pendingPosts: ${Array.from(pendingPosts).map(el => `${el.className} [${el.dataset.postId}]`).join(', ')}`);
   isProcessing = true;
   lastBatchTime = now;
 
@@ -120,7 +124,7 @@ async function processBatch() {
       .map((post) => {
         const mediaEls = post.querySelectorAll('.lazy-media');
         if (!mediaEls.length) {
-          if (typeof isDevEnv !== 'undefined' && isDevEnv) console.log(`No media for post ${post.dataset.postId}`);
+          if (isDevEnv) console.log(`No media for element ${post.className} [${post.dataset.postId}]`);
           pendingPosts.delete(post);
           return null;
         }
@@ -133,6 +137,7 @@ async function processBatch() {
               el.id = elementId;
               const item = { originalUrl: el.dataset.originalUrl, elementId };
               if (el.dataset.originalPoster?.trim()) item.originalPoster = el.dataset.originalPoster;
+              if (isDevEnv) console.log(`Processing media: ${el.tagName}, ID: ${elementId}, URL: ${el.dataset.originalUrl}`);
               return item;
             }),
         };
@@ -151,12 +156,12 @@ async function processBatch() {
       const postId = post.dataset.postId;
       const postSessions = sessions[postId] || [];
       if (!postSessions.length) {
-        if (typeof isDevEnv !== 'undefined' && isDevEnv) console.warn(`No sessions returned for post ${postId}`);
+        if (isDevEnv) console.warn(`No sessions returned for ${post.className} [${postId}]`);
         post.querySelectorAll('.lazy-media').forEach((el) => {
           if (el.tagName === 'IMG') {
             el.src = '/images/error.png';
           } else if (el.tagName === 'VIDEO') {
-            // poster fallback for videos
+            // Poster fallback for videos
             el.poster = '/images/error.png';
             const wrapper = el.closest('.video-wrapper');
             const posterImg = wrapper ? wrapper.querySelector('.video-poster-img') : null;
@@ -172,7 +177,7 @@ async function processBatch() {
       post.querySelectorAll('.lazy-media').forEach((el) => {
         const session = postSessions.find((s) => s.elementId === el.id);
         if (!session) {
-          if (typeof isDevEnv !== 'undefined' && isDevEnv) console.warn(`No session for element ${el.id} in post ${postId}`);
+          if (isDevEnv) console.warn(`No session for element ${el.id} in ${post.className} [${postId}]`);
           if (el.tagName === 'IMG') {
             el.src = '/images/error.png';
           } else if (el.tagName === 'VIDEO') {
@@ -186,11 +191,11 @@ async function processBatch() {
           return;
         }
 
-        if (typeof isDevEnv !== 'undefined' && isDevEnv) console.log(`Updating ${el.tagName} ${el.id} with URL: ${session.url}`);
+        if (isDevEnv) console.log(`Updating ${el.tagName} ${el.id} with URL: ${session.url}`);
         el.dataset.retryCount = el.dataset.retryCount || '0';
 
         if (el.tagName === 'IMG') {
-          // Image handling (same as before)
+          // Image handling
           el.src = `${session.url}?t=${Date.now()}`;
           el.dataset.fullscreenSrc = session.url;
           el.addEventListener(
@@ -198,7 +203,7 @@ async function processBatch() {
             () => {
               const retryCount = parseInt(el.dataset.retryCount || '0', 10);
               if (retryCount < 3) {
-                if (typeof isDevEnv !== 'undefined' && isDevEnv) console.warn(`Image error for ${el.id}, retry ${retryCount}`);
+                if (isDevEnv) console.warn(`Image error for ${el.id}, retry ${retryCount}`);
                 el.dataset.retryCount = (retryCount + 1).toString();
                 pendingPosts.add(post);
               } else {
@@ -216,22 +221,27 @@ async function processBatch() {
             { once: true }
           );
         } else if (el.tagName === 'VIDEO') {
-          // --- iOS-friendly poster-first approach + centered play overlay ---
+          // iOS-friendly poster-first approach + centered play overlay
           const wrapper = el.closest('.video-wrapper');
           const posterImg = wrapper ? wrapper.querySelector('.video-poster-img') : null;
           const overlay = wrapper ? wrapper.querySelector('.video-play-overlay') : null;
 
           // Set video poster (internal), but keep visible poster img hidden by default
           if (session.posterUrl && session.posterUrl.trim()) {
-            try { el.poster = `${session.posterUrl}?t=${Date.now()}`; } catch (err) { if (typeof isDevEnv !== 'undefined' && isDevEnv) console.warn('Failed to set video.poster:', err); }
+            try {
+              el.poster = `${session.posterUrl}?t=${Date.now()}`;
+            } catch (err) {
+              if (isDevEnv) console.warn('Failed to set video.poster:', err);
+            }
           } else if (el.dataset.fallbackPoster) {
-            try { el.poster = el.dataset.fallbackPoster; } catch (e) {}
+            try {
+              el.poster = el.dataset.fallbackPoster;
+            } catch (e) {}
           }
 
-          // Update overlay posterImg if present (kept hidden by CSS unless you enable it)
+          // Update overlay posterImg if present (kept hidden by CSS unless enabled)
           if (posterImg && session.posterUrl) {
             posterImg.src = `${session.posterUrl}?t=${Date.now()}`;
-            // Keep it visually hidden (we rely on the play overlay)
             posterImg.style.display = 'none';
           }
 
@@ -239,47 +249,65 @@ async function processBatch() {
           const source = el.querySelector('source') || document.createElement('source');
           source.src = `${session.url}?t=${Date.now()}`;
           source.type = el.querySelector('source')?.type || 'video/mp4';
-          if (!el.querySelector('source')) el.appendChild(source);
+          if (!el.querySelector('source')) {
+            if (isDevEnv) console.log(`Appending new source for video ${el.id}`);
+            el.appendChild(source);
+          }
 
           // Ensure dark background to avoid white flash
           el.style.background = el.style.background || '#000';
 
           // Let the browser register poster/background, then load the video
           requestAnimationFrame(() => {
-            try { el.load(); } catch (err) { if (typeof isDevEnv !== 'undefined' && isDevEnv) console.warn('Video load() threw an error:', err); }
+            try {
+              el.load();
+            } catch (err) {
+              if (isDevEnv) console.warn('Video load() threw an error:', err);
+            }
           });
 
           el.dataset.fullscreenSrc = session.url;
 
           // Keep the play overlay visible until user plays; hide overlay on play
-          el.addEventListener('play', () => {
-            if (wrapper) wrapper.classList.add('playing'); // CSS should hide .video-play-overlay when .playing
-            if (posterImg) posterImg.style.display = 'none';
-          }, { once: true });
+          el.addEventListener(
+            'play',
+            () => {
+              if (wrapper) wrapper.classList.add('playing');
+              if (posterImg) posterImg.style.display = 'none';
+            },
+            { once: true }
+          );
 
-          // Optional: show overlay again on pause (if at start)
+          // Show overlay again on pause (if at start or ended)
           el.addEventListener('pause', () => {
             if (wrapper && (el.currentTime === 0 || el.ended)) wrapper.classList.remove('playing');
           });
 
-          el.addEventListener('error', () => {
-            const retryCount = parseInt(el.dataset.retryCount || '0', 10);
-            if (retryCount < 3) {
-              if (typeof isDevEnv !== 'undefined' && isDevEnv) console.warn(`Video error for ${el.id}, retry ${retryCount}`);
-              el.dataset.retryCount = (retryCount + 1).toString();
-              pendingPosts.add(post);
-            } else {
-              el.poster = '/images/error.png';
-              if (posterImg) posterImg.src = '/images/error.png';
-              if (wrapper) wrapper.classList.remove('playing');
-              el.classList.remove('lazy-media');
-            }
-          }, { once: true });
+          el.addEventListener(
+            'error',
+            () => {
+              const retryCount = parseInt(el.dataset.retryCount || '0', 10);
+              if (retryCount < 3) {
+                if (isDevEnv) console.warn(`Video error for ${el.id}, retry ${retryCount}`);
+                el.dataset.retryCount = (retryCount + 1).toString();
+                pendingPosts.add(post);
+              } else {
+                el.poster = '/images/error.png';
+                if (posterImg) posterImg.src = '/images/error.png';
+                if (wrapper) wrapper.classList.remove('playing');
+                el.classList.remove('lazy-media');
+              }
+            },
+            { once: true }
+          );
 
-          el.addEventListener('canplay', () => {
-            el.classList.remove('lazy-media');
-            // Keep overlay until play to indicate click-to-play affordance on mobile
-          }, { once: true });
+          el.addEventListener(
+            'canplay',
+            () => {
+              el.classList.remove('lazy-media');
+            },
+            { once: true }
+          );
         }
 
         // Extend the session for the proxied media (debounced)
@@ -289,7 +317,7 @@ async function processBatch() {
       pendingPosts.delete(post);
     });
   } catch (error) {
-    if (typeof isDevEnv !== 'undefined' && isDevEnv) console.error('Batch processing error:', error);
+    if (isDevEnv) console.error('Batch processing error:', error);
     batch.forEach((post) => {
       const batchRetryCount = parseInt(post.dataset.batchRetryCount || '0', 10);
       if (batchRetryCount < 3) {
@@ -312,36 +340,64 @@ async function processBatch() {
     });
   } finally {
     isProcessing = false;
-    if (typeof isDevEnv !== 'undefined' && isDevEnv) console.log(`Batch done, remaining: ${pendingPosts.size}`);
+    if (isDevEnv) console.log(`Batch done, remaining: ${pendingPosts.size}`);
     if (pendingPosts.size > 0) setTimeout(processBatch, batchThrottle);
   }
 }
 
 // Intersection Observer to trigger lazy loading
+// Enhanced intersection observer
 const observer = new IntersectionObserver(
   (entries) => {
     entries.forEach((entry) => {
-      if (typeof isDevEnv !== 'undefined' && isDevEnv) console.log(`Post ${entry.target.dataset.postId} intersecting: ${entry.isIntersecting}`);
-      if (entry.isIntersecting && !entry.target.dataset.processed) {
-        pendingPosts.add(entry.target);
-        entry.target.dataset.processed = 'true'; // Prevent re-adding
-        observer.unobserve(entry.target); // Unobserve after enqueuing
+      const element = entry.target;
+      let postId = element.dataset.postId || element.dataset.actualPostId;
+      
+      // Try to find postId from parent elements if missing
+      if (!postId) {
+        let parent = element.parentElement;
+        while (parent && !postId) {
+          postId = parent.dataset.postId || parent.dataset.actualPostId;
+          parent = parent.parentElement;
+        }
+      }
+      
+      // If still no postId, try to extract from element ID
+      if (!postId && element.id) {
+        const match = element.id.match(/media-post-(.+?)(-|$)/);
+        if (match) {
+          postId = match[1];
+          element.dataset.postId = postId; // Cache it
+        }
+      }
+      
+      if (isDevEnv) {
+        console.log(`Element ${element.className} [${postId || 'undefined'}] intersecting: ${entry.isIntersecting}`);
+      }
+      
+      if (entry.isIntersecting && postId && !element.dataset.processed) {
+        element.dataset.postId = postId; // Ensure it's set
+        pendingPosts.add(element);
+        element.dataset.processed = 'true';
+        observer.unobserve(element);
         processBatch();
+      } else if (entry.isIntersecting && !postId) {
+        console.warn('Element intersecting but no postId found:', element);
       }
     });
   },
   {
     root: null,
-    rootMargin: '0px 0px -100px 0px', // Trigger ~100px before entering from bottom
+    rootMargin: '0px 0px -100px 0px',
     threshold: 0.1,
   }
 );
 
-// Observe all post cards
-document.querySelectorAll('.post-card').forEach((post) => {
-  observer.observe(post);
+// Observe both post cards and media items
+document.querySelectorAll('.post-card, .media-item').forEach((element) => {
+  if (isDevEnv) console.log(`Observing element: ${element.className}, ID: ${element.dataset.postId}`);
+  observer.observe(element);
 });
-
   // Select all required elements
 const lightbox = document.getElementById('lightbox');
 const lbBackdrop = document.getElementById('lb-backdrop');
