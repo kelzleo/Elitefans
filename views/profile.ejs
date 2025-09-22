@@ -1295,7 +1295,7 @@ data-username="<%= user.username %>">
     <% mediaItems.forEach((media, index) => { %>
       <div class="carousel-item <%= index === 0 ? 'active' : '' %>" data-post-id="<%= post._id %>">
         <div class="video-wrapper" data-post-id="<%= post._id %>">
-          <video class="post-video lazy-media <%= showLocked ? 'blurred' : '' %>"
+          <video class="post-video lazy-media fullscreenable <%= showLocked ? 'blurred' : '' %>"
                  data-post-id="<%= post._id %>"
                  controlsList="nodownload"
                  disablePictureInPicture
