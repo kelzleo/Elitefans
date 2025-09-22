@@ -107,14 +107,16 @@ const extendSessionActivity = debounce(async (sessionId) => {
   }
 }, 5000); // Debounce to every 5 seconds
 
-// Process batch function with consistent use of pendingPosts and fetchSignedUrlSessions
+// Process batch function with postId validation and enhanced error handling
 async function processBatch() {
   const now = Date.now();
   if (isProcessing || pendingPosts.size === 0 || now - lastBatchTime < batchThrottle) {
     if (isDevEnv) console.log(`Batch skipped: isProcessing=${isProcessing}, pendingPosts=${pendingPosts.size}, timeSinceLast=${now - lastBatchTime}`);
     return;
   }
-  if (isDevEnv) console.log(`Starting batch, pendingPosts: ${Array.from(pendingPosts).map(el => `${el.className} [${el.dataset.postId}]`).join(', ')}`);
+  
+  if (isDevEnv) console.log(`Starting batch, pendingPosts: ${Array.from(pendingPosts).map(el => `${el.className} [${el.dataset.postId || 'undefined'}]`).join(', ')}`);
+  
   isProcessing = true;
   lastBatchTime = now;
 
@@ -122,19 +124,34 @@ async function processBatch() {
     const batch = Array.from(pendingPosts).slice(0, batchSize);
     const postData = batch
       .map((post) => {
-        const mediaEls = post.querySelectorAll('.lazy-media');
-        if (!mediaEls.length) {
-          if (isDevEnv) console.log(`No media for element ${post.className} [${post.dataset.postId}]`);
+        const postId = post.dataset.postId || post.dataset.actualPostId;
+        
+        // Skip elements without postId
+        if (!postId) {
+          console.warn(`Skipping element ${post.className} with undefined postId`);
           pendingPosts.delete(post);
           return null;
         }
+
+        const mediaEls = post.querySelectorAll('.lazy-media');
+        if (!mediaEls.length) {
+          if (isDevEnv) console.log(`No media for element ${post.className} [${postId}]`);
+          pendingPosts.delete(post);
+          return null;
+        }
+
         return {
-          postId: post.dataset.postId,
+          postId: postId,
           media: Array.from(mediaEls)
             .slice(0, 3) // Limit to 3 media items
             .map((el) => {
               const elementId = el.id || `media-${Math.random().toString(36).substr(2, 9)}`;
               el.id = elementId;
+              // Ensure media element also has postId for consistency
+              if (!el.dataset.postId) {
+                el.dataset.postId = postId;
+              }
+              
               const item = { originalUrl: el.dataset.originalUrl, elementId };
               if (el.dataset.originalPoster?.trim()) item.originalPoster = el.dataset.originalPoster;
               if (isDevEnv) console.log(`Processing media: ${el.tagName}, ID: ${elementId}, URL: ${el.dataset.originalUrl}`);
@@ -153,8 +170,9 @@ async function processBatch() {
     const sessions = await fetchSignedUrlSessions(postData);
 
     batch.forEach((post) => {
-      const postId = post.dataset.postId;
+      const postId = post.dataset.postId || post.dataset.actualPostId;
       const postSessions = sessions[postId] || [];
+      
       if (!postSessions.length) {
         if (isDevEnv) console.warn(`No sessions returned for ${post.className} [${postId}]`);
         post.querySelectorAll('.lazy-media').forEach((el) => {
@@ -344,7 +362,6 @@ async function processBatch() {
     if (pendingPosts.size > 0) setTimeout(processBatch, batchThrottle);
   }
 }
-
 // Intersection Observer to trigger lazy loading
 // Enhanced intersection observer
 const observer = new IntersectionObserver(
