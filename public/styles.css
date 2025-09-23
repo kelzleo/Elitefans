@@ -6263,55 +6263,7 @@ body.lightbox-open {
     color: #333;
   }
 
-  /* Add icons to menu items (matching the image) */
-  .profile-menu-links li a[href="/profile"]::before {
-    content: "\f007"; /* Font Awesome user icon */
-    font-family: "FontAwesome";
-  }
-  .profile-menu-links li a[href="/bookmarks"]::before {
-    content: "\f02e"; /* Font Awesome bookmark icon */
-    font-family: "FontAwesome";
-  }
-  .profile-menu-links li a[href="/profile/edit"]::before {
-    content: "\f044"; /* Font Awesome edit icon */
-    font-family: "FontAwesome";
-  }
-  .profile-menu-links li a[href="/request-creator"]::before {
-    content: "\f0c0"; /* Font Awesome users icon */
-    font-family: "FontAwesome";
-  }
-  .profile-menu-links li a[href="/purchased-content"]::before {
-    content: "\f07a"; /* Font Awesome shopping-cart icon */
-    font-family: "FontAwesome";
-  }
-  .profile-menu-links li a[href="/dashboard"]::before {
-    content: "\f0e4"; /* Font Awesome dashboard icon */
-    font-family: "FontAwesome";
-  }
-  .profile-menu-links li a[href="/subscriptions"]::before {
-    content: "\f3d1"; /* Font Awesome dollar-sign icon */
-    font-family: "FontAwesome";
-  }
-  .profile-menu-links li a[href="/help"]::before {
-    content: "\f059"; /* Font Awesome question-circle icon */
-    font-family: "FontAwesome";
-  }
-  .profile-menu-links li a[href="/purchase"]::before {
-    content: "\f07a"; /* Font Awesome shopping-cart icon */
-    font-family: "FontAwesome";
-  }
-  .profile-menu-links li a[href="/referrals"]::before {
-    content: "\f234"; /* Font Awesome user-plus icon */
-    font-family: "FontAwesome";
-  }
-  .profile-menu-links li a[href="/change-password"]::before {
-    content: "\f023"; /* Font Awesome lock icon */
-    font-family: "FontAwesome";
-  }
-  .profile-menu-links li a[href="/logout"]::before {
-    content: "\f2f5"; /* Font Awesome sign-out icon */
-    font-family: "FontAwesome";
-  }
+  
   .profile-menu-links li a[href="/users/login"]::before {
     content: "\f090"; /* Font Awesome sign-in icon */
     font-family: "FontAwesome";

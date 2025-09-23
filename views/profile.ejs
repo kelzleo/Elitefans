@@ -1244,160 +1244,194 @@ data-username="<%= user.username %>">
 
   <!-- Videos -->
   <div class="media-view" id="media-videos">
-    <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
-      <% 
-        // Filter posts with at least one video
-        const videoPosts = posts.filter(post => 
-          post.type !== 'text' && 
-          (post.mediaItems.some(media => media.type === 'video') || (post.contentUrl && post.type === 'video'))
-        );
-      %>
-      <% if (videoPosts.length > 0) { %>
-        <div class="media-content posts-list">
-          <% videoPosts.forEach(post => { %>
-            <% 
-            const isOwner = currentUser && currentUser._id.toString() === user._id.toString();
-            const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
-            const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
-              currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
-            const showLocked = post.special && !isAdminView && !isOwner && !hasPurchased;
-            const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
-              post.mediaItems : 
-              (post.contentUrl ? [{ type: post.type, url: post.contentUrl, contentType: post.contentType }] : []);
-          %>
-            <!-- Normal View -->
-            <div class="media-item normal-view" id="media-post-<%= post._id %>">
-              <div class="profile-post-header normal-view-only">
-                <div class="profile-creator-info">
-                  <a href="/profile/<%= user.username %>">
-                    <img src="<%= user.profilePicture || '/images/default-profile.png' %>" alt="<%= user.username %>'s profile picture" class="creator-profile-pic">
-                    <div class="profile-name-container">
-                      <span class="profile-creator-name">
-                        <%= user.profileName || user.username %>
-                        <% if (user.role === 'creator') { %>
-                          <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
-                        <% } %>
-                      </span>
-                      <span class="profile-username">@<%= user.username %></span>
-                    </div>
-                  </a>
-                </div>
-                <div class="post-menu">
-                  <button class="post-menu-button" data-post-id="<%= post._id %>" aria-label="Post options">
-                    <i class="fa-solid fa-ellipsis"></i>
-                  </button>
-                </div>
+  <% if (isSubscribed || (currentUser && currentUser._id.toString() === user._id.toString())) { %>
+    <% 
+      // Filter posts with at least one video
+      const videoPosts = posts.filter(post => 
+        post.type !== 'text' && 
+        (post.mediaItems.some(media => media.type === 'video') || (post.contentUrl && post.type === 'video'))
+      );
+    %>
+    <% if (videoPosts.length > 0) { %>
+      <div class="media-content posts-list">
+        <% videoPosts.forEach(post => { %>
+          <% 
+          const isOwner = currentUser && currentUser._id.toString() === user._id.toString();
+          const isAdminView = typeof adminView !== 'undefined' ? adminView : false;
+          const hasPurchased = currentUser && Array.isArray(currentUser.purchasedContent) && 
+            currentUser.purchasedContent.some(p => p.contentId.toString() === post._id.toString());
+          const showLocked = post.special && !isAdminView && !isOwner && !hasPurchased;
+          const mediaItems = post.mediaItems && post.mediaItems.length > 0 ? 
+            post.mediaItems.filter(item => item.type === 'video').map(item => ({
+              type: item.type,
+              originalUrl: item.originalUrl || item.url,
+              originalPosterUrl: item.originalPosterUrl || item.posterUrl,
+              contentType: item.contentType,
+              previewUrl: item.previewUrl,
+              posterUrl: item.posterUrl
+            })) : 
+            (post.originalContentUrl && post.type === 'video' ? [{
+              type: post.type,
+              originalUrl: post.originalContentUrl,
+              originalPosterUrl: post.originalPosterUrl,
+              contentType: post.contentType,
+              previewUrl: post.previewUrl,
+              posterUrl: post.posterUrl
+            }] : []);
+        %>
+          <!-- Normal View -->
+          <div class="media-item post-card normal-view" 
+               data-post-id="<%= post._id %>" 
+               data-actual-post-id="<%= post._id %>"
+               data-is-locked="<%= showLocked ? 'true' : 'false' %>" 
+               id="media-post-<%= post._id %>">
+            <div class="profile-post-header normal-view-only">
+              <div class="profile-creator-info">
+                <a href="/profile/<%= user.username %>">
+                  <img src="<%= user.profilePicture || '/images/default-profile.png' %>" alt="<%= user.username %>'s profile picture" class="creator-profile-pic">
+                  <div class="profile-name-container">
+                    <span class="profile-creator-name">
+                      <%= user.profileName || user.username %>
+                      <% if (user.role === 'creator') { %>
+                        <span class="verified-badge"><i class="fa fa-check-circle"></i></span>
+                      <% } %>
+                    </span>
+                    <span class="profile-username">@<%= user.username %></span>
+                  </div>
+                </a>
               </div>
-              <% if (mediaItems.length > 0) { %>
-               <!-- Fix the media carousel container -->
-<div class="media-carousel-container <%= showLocked ? 'locked' : '' %>" data-post-id="<%= post._id %>">
-  <div class="media-carousel" data-post-id="<%= post._id %>">
-    <% mediaItems.forEach((media, index) => { %>
-      <div class="carousel-item <%= index === 0 ? 'active' : '' %>" data-post-id="<%= post._id %>">
-        <div class="video-wrapper" data-post-id="<%= post._id %>">
-          <video class="post-video lazy-media fullscreenable <%= showLocked ? 'blurred' : '' %>"
-                 data-post-id="<%= post._id %>"
-                 controlsList="nodownload"
-                 disablePictureInPicture
-                 oncontextmenu="return false;"
-                 draggable="false"
-                 data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
-                 <% if (media.originalPosterUrl) { %>
-                   data-original-poster="<%= showLocked && media.previewUrl ? media.posterUrl : media.originalPosterUrl %>"
-                 <% } %>
-                 poster="">
-            <source type="<%= media.contentType || 'video/mp4' %>">
-            Your browser does not support the video tag.
-          </video>
-          <img class="video-poster-img" data-post-id="<%= post._id %>" alt="Video poster">
-          <div class="video-play-overlay" data-post-id="<%= post._id %>">▶</div>
-        </div>
-      </div>
-    <% }); %>
-  </div>
-</div>
-                  <% if (mediaItems.length > 1) { %>
-                    <div class="carousel-nav">
-                      <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
-                      <div class="carousel-indicators">
-                        <% mediaItems.forEach((_, index) => { %>
-                          <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
-                        <% }); %>
-                      </div>
-                      <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
-                    </div>
-                  <% } %>
-                </div>
-              <% } %>
-              <% if (showLocked) { %>
-                <div class="unlock-info">
-                  <i class="fa fa-lock"></i>
-                  <span>Unlock for ₦<%= post.unlockPrice %></span>
-                  <% if (!isAdminView) { %>
-                    <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
-                  <% } %>
-                </div>
-              <% } %>
-              <div class="normal-view-content">
-                <% if (!showLocked && post.writeUp) { %>
-                  <p class="post-writeUp"><%- post.renderedWriteUp %></p>
-                <% } %>
-                <% if (post.special) { %>
-                  <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
-                <% } %>
-                <span class="post-timestamp">
-                  <%= post.createdAt ? formatRelativeTime(post.createdAt) : 'Unknown time' %>
-                </span>
-                <div class="post-actions">
-                  <button class="like-button" data-post-id="<%= post._id %>">
-                    <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
-                    <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
-                  </button>
-                  <button class="comment-icon" data-post-id="<%= post._id %>">
-                    <i class="fa-solid fa-comment"></i>
-                    <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
-                  </button>
-                  <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
-                    <i class="fa-solid fa-gift"></i>
-                    Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
-                  </button>
-                  <button class="bookmark-button" data-post-id="<%= post._id %>">
-                    <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
-                  </button>
-                </div>
-                <div class="comments">
-                  <% if (post.comments && post.comments.length > 0) { %>
-                    <% post.comments.slice(0, 2).forEach(comment => { %>
-                      <div class="comment">
-                        <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
-                      </div>
-                    <% }); %>
-                    <% if (post.comments.length > 2) { %>
-                      <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
-                    <% } %>
-                  <% } %>
-                </div>
-                <div class="comment-form-container hidden">
-                  <form class="comment-form" data-post-id="<%= post._id %>">
-                    <input type="text" name="comment" placeholder="Write a comment...">
-                    <button type="submit">Post</button>
-                  </form>
-                </div>
-                <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
-                  <form action="/profile/delete-post/<%= post._id %>" method="POST"  class="delete-post-form">
-                    <button type="submit" class="delete-post-btn">Delete Post</button>
-                  </form>
-                <% } %>
-                <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
-                  <form action="/profile/admin-delete-post/<%= post._id %>" method="POST"  class="delete-post-form">
-                    <label for="reason-<%= post._id %>">Reason for deletion:</label>
-                    <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
-                    <button type="submit" class="delete-post-btn">Delete Post</button>
-                  </form>
-                <% } %>
+              <div class="post-menu">
+                <button class="post-menu-button" data-post-id="<%= post._id %>" aria-label="Post options">
+                  <i class="fa-solid fa-ellipsis"></i>
+                </button>
               </div>
             </div>
-          <!-- Compact View: Video -->
+            <% if (mediaItems.length > 0) { %>
+              <div class="media-carousel-container <%= showLocked ? 'locked' : '' %>">
+                <div class="media-carousel">
+                  <% mediaItems.forEach((media, index) => { %>
+                    <% if (media.type === 'video') { %>
+                      <div class="carousel-item <%= index === 0 ? 'active' : '' %>">
+                        <div class="video-wrapper">
+                          <!-- Centered play overlay -->
+                          <div class="video-play-overlay" aria-hidden="true">
+                            <div class="play-btn" role="button" aria-label="Play video">
+                              <svg viewBox="0 0 24 24" width="28" height="28" aria-hidden="true" focusable="false">
+                                <path d="M8 5v14l11-7z" fill="currentColor"></path>
+                              </svg>
+                            </div>
+                          </div>
+
+                          <!-- Hidden poster img (kept for reliability/debug, hidden by default) -->
+                          <img
+                            class="video-poster-img visually-hidden"
+                            alt="video poster"
+                            aria-hidden="true"
+                            data-original-poster="<%= media.originalPosterUrl || '' %>"
+                          />
+
+                          <video
+                            class="post-video fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
+                            controlsList="nodownload noremoteplayback"
+                            data-fullscreen-src=""
+                            data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
+                            data-original-poster="<%= showLocked && media.previewUrl ? media.posterUrl : media.originalPosterUrl %>"
+                            data-fallback-poster="<%= media.posterUrl || '' %>"
+                            disablePictureInPicture
+                            draggable="false"
+                            oncontextmenu="return false;"
+                            poster=""
+                          >
+                            <source src="" type="<%= media.contentType || 'video/mp4' %>">
+                            Your browser does not support the video tag.
+                          </video>
+                        </div>
+                      </div>
+                    <% } %>
+                  <% }); %>
+                </div>
+                <% if (mediaItems.length > 1) { %>
+                  <div class="carousel-nav">
+                    <button class="carousel-prev"><i class="fa-solid fa-chevron-left"></i></button>
+                    <div class="carousel-indicators">
+                      <% mediaItems.forEach((_, index) => { %>
+                        <span class="carousel-dot <%= index === 0 ? 'active' : '' %>" data-index="<%= index %>"></span>
+                      <% }); %>
+                    </div>
+                    <button class="carousel-next"><i class="fa-solid fa-chevron-right"></i></button>
+                  </div>
+                <% } %>
+              </div>
+            <% } %>
+            <% if (showLocked) { %>
+              <div class="unlock-info">
+                <i class="fa fa-lock"></i>
+                <span>Unlock for ₦<%= post.unlockPrice %></span>
+                <% if (!isAdminView) { %>
+                  <button class="unlock-button" data-content-id="<%= post._id %>" data-creator-id="<%= user._id %>">Unlock</button>
+                <% } %>
+              </div>
+            <% } %>
+            <div class="normal-view-content">
+              <% if (!showLocked && post.writeUp) { %>
+                <p class="post-writeUp"><%- post.renderedWriteUp %></p>
+              <% } %>
+              <% if (post.special) { %>
+                <p class="special-indicator">Special Content - Unlock Price: ₦<%= post.unlockPrice %></p>
+              <% } %>
+              <span class="post-timestamp">
+                <%= post.createdAt ? formatRelativeTime(post.createdAt) : 'Unknown time' %>
+              </span>
+              <div class="post-actions">
+                <button class="like-button" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-heart <%= post.likes.includes(currentUser._id) ? 'liked' : '' %>"></i>
+                  <span class="like-count"><%= post.likes ? post.likes.length : 0 %></span>
+                </button>
+                <button class="comment-icon" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-comment"></i>
+                  <span class="comment-count"><%= post.comments ? post.comments.length : 0 %></span>
+                </button>
+                <button class="tip-button" data-post-id="<%= post._id %>" data-creator-id="<%= user._id %>">
+                  <i class="fa-solid fa-gift"></i>
+                  Tip (<span class="tip-count"><%= post.totalTips || 0 %></span>)
+                </button>
+                <button class="bookmark-button" data-post-id="<%= post._id %>">
+                  <i class="fa-solid fa-bookmark <%= currentUser.bookmarks && currentUser.bookmarks.includes(post._id.toString()) ? 'bookmarked' : '' %>"></i>
+                </button>
+              </div>
+              <div class="comments">
+                <% if (post.comments && post.comments.length > 0) { %>
+                  <% post.comments.slice(0, 2).forEach(comment => { %>
+                    <div class="comment">
+                      <strong><%= comment.user ? comment.user.username : 'Deleted User' %>:</strong> <%= comment.text %>
+                    </div>
+                  <% }); %>
+                  <% if (post.comments.length > 2) { %>
+                    <a href="#" class="view-all-comments">View all <%= post.comments.length %> comments</a>
+                  <% } %>
+                <% } %>
+              </div>
+              <div class="comment-form-container hidden">
+                <form class="comment-form" data-post-id="<%= post._id %>">
+                  <input type="text" name="comment" placeholder="Write a comment...">
+                  <button type="submit">Post</button>
+                </form>
+              </div>
+              <% if (currentUser && currentUser._id.toString() === user._id.toString()) { %>
+                <form action="/profile/delete-post/<%= post._id %>" method="POST"  class="delete-post-form">
+                  <button type="submit" class="delete-post-btn">Delete Post</button>
+                </form>
+              <% } %>
+              <% if (currentUser && currentUser.role === 'admin' && adminView) { %>
+                <form action="/profile/admin-delete-post/<%= post._id %>" method="POST"  class="delete-post-form">
+                  <label for="reason-<%= post._id %>">Reason for deletion:</label>
+                  <input type="text" name="reason" id="reason-<%= post._id %>" required class="form-input">
+                  <button type="submit" class="delete-post-btn">Delete Post</button>
+                </form>
+              <% } %>
+            </div>
+          </div>
+        <!-- Compact View: Videos -->
 <% if (showLocked) { %>
   <div class="media-item post-card compact-view locked"
        id="media-post-<%= post._id %>-locked"
@@ -1406,70 +1440,103 @@ data-username="<%= user.username %>">
        data-is-locked="true">
     <% if (mediaItems.length > 0) { %>
       <% mediaItems.forEach((media, index) => { %>
-        <div class="preview-media">
-          <div class="video-wrapper">
-            <video   class="post-video lazy-media <%= showLocked ? 'blurred' : '' %>"
-                   controlsList="nodownload noremoteplayback"
-                   disablePictureInPicture
-                   oncontextmenu="return false"
-                   draggable="false"
-                   data-post-id="<%= post._id %>"
-                   data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
-                   <% if (media.originalPosterUrl) { %>
-                     data-original-poster="<%= showLocked && media.previewUrl ? media.posterUrl : media.originalPosterUrl %>"
-                   <% } %>
-                   poster="">
-              <source 
-                      type="<%= media.contentType || 'video/mp4' %>">
-              Your browser does not support the video tag.
-            </video>
-            <img class="video-poster-img"  alt="Video poster">
-            <div class="video-play-overlay">▶</div>
+        <% if (media.type === 'video') { %>
+          <div class="preview-media">
+            <div class="video-wrapper">
+              <!-- Centered play overlay -->
+              <div class="video-play-overlay" aria-hidden="true">
+                <div class="play-btn" role="button" aria-label="Play video">
+                  <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                    <path d="M8 5v14l11-7z" fill="currentColor"></path>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Hidden poster img -->
+              <img
+                class="video-poster-img visually-hidden"
+                alt="video poster"
+                aria-hidden="true"
+                data-original-poster="<%= media.originalPosterUrl || '' %>"
+              />
+
+              <video
+                class="post-video fullscreenable lazy-media <%= showLocked ? 'blurred' : '' %>"
+                controlsList="nodownload noremoteplayback"
+                data-fullscreen-src=""
+                data-original-url="<%= showLocked && media.previewUrl ? media.previewUrl : media.originalUrl %>"
+                data-original-poster="<%= showLocked && media.previewUrl ? media.posterUrl : media.originalPosterUrl %>"
+                data-fallback-poster="<%= media.posterUrl || '' %>"
+                disablePictureInPicture
+                draggable="false"
+                oncontextmenu="return false;"
+                poster=""
+              >
+                <source src="" type="<%= media.contentType || 'video/mp4' %>">
+                Your browser does not support the video tag.
+              </video>
+            </div>
           </div>
-        </div>
+        <% } %>
       <% }); %>
     <% } %>
   </div>
 <% } else if (mediaItems.length > 0) { %>
   <% mediaItems.forEach((media, index) => { %>
-    <div class="media-item post-card compact-view"
-         id="media-post-<%= post._id %>-item-<%= index %>"
-         data-post-id="<%= post._id %>"
-         data-actual-post-id="<%= post._id %>"
-         data-is-locked="false">
-      <div class="video-wrapper">
-        <video class="post-video lazy-media"
-               controlsList="nodownload noremoteplayback"
-               disablePictureInPicture
-               oncontextmenu="return false"
-               draggable="false"
-               data-post-id="<%= post._id %>"
-               data-original-url="<%= media.originalUrl %>"
-               <% if (media.originalPosterUrl) { %>
-                 data-original-poster="<%= media.originalPosterUrl %>"
-               <% } %>
-               poster="">
-          <source 
-                  type="<%= media.contentType || 'video/mp4' %>">
-          Your browser does not support the video tag.
-        </video>
-        <img class="video-poster-img"  alt="Video poster">
-        <div class="video-play-overlay">▶</div>
+    <% if (media.type === 'video') { %>
+      <div class="media-item post-card compact-view"
+           id="media-post-<%= post._id %>-item-<%= index %>"
+           data-post-id="<%= post._id %>"
+           data-actual-post-id="<%= post._id %>"
+           data-is-locked="false">
+        <div class="video-wrapper">
+          <!-- Centered play overlay -->
+          <div class="video-play-overlay" aria-hidden="true">
+            <div class="play-btn" role="button" aria-label="Play video">
+              <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+                <path d="M8 5v14l11-7z" fill="currentColor"></path>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Hidden poster img -->
+          <img
+            class="video-poster-img visually-hidden"
+            alt="video poster"
+            aria-hidden="true"
+            data-original-poster="<%= media.originalPosterUrl || '' %>"
+          />
+
+          <video
+            class="post-video fullscreenable lazy-media"
+            controlsList="nodownload noremoteplayback"
+            data-fullscreen-src=""
+            data-original-url="<%= media.originalUrl %>"
+            data-original-poster="<%= media.originalPosterUrl %>"
+            data-fallback-poster="<%= media.posterUrl || '' %>"
+            disablePictureInPicture
+            draggable="false"
+            oncontextmenu="return false;"
+            poster=""
+          >
+            <source src="" type="<%= media.contentType || 'video/mp4' %>">
+            Your browser does not support the video tag.
+          </video>
+        </div>
       </div>
-    </div>
+    <% } %>
   <% }); %>
 <% } %>
 
-
-          <% }); %>
-        </div>
-      <% } else { %>
-        <p class="no-media-message">No videos available yet.</p>
-      <% } %>
+        <% }); %>
+      </div>
     <% } else { %>
-      <p class="subscribe-prompt">Subscribe to see videos from <%= user.username %>.</p>
+      <p class="no-media-message">No videos available yet.</p>
     <% } %>
-  </div>
+  <% } else { %>
+    <p class="subscribe-prompt">Subscribe to see videos from <%= user.username %>.</p>
+  <% } %>
+</div>
 </div>
   <!-- Creator Actions -->
 
