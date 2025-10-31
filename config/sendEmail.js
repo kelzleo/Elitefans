@@ -13,7 +13,7 @@ apiInstance.setApiKey(Brevo.TransactionalEmailsApiApiKeys.apiKey, keys.brevo.api
 
 const sendEmail = async (to, subject, html) => {
   const sendSmtpEmail = new Brevo.SendSmtpEmail();
-  sendSmtpEmail.sender = { email: 'blessingf2925@gmail.com', name: 'Elitefans' };
+  sendSmtpEmail.sender = { email: 'no-reply@elitefansapp.com', name: 'Elitefans' }; // Updated sender
   sendSmtpEmail.to = [{ email: to }];
   sendSmtpEmail.subject = subject;
   sendSmtpEmail.htmlContent = html;

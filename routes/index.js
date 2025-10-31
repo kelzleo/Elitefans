@@ -14,6 +14,8 @@ const logger = require('../logs/logger');
 const { body, query, validationResult } = require('express-validator');
 const { invalidateUserSessions } = require('../utilis/cloudStorage');
 
+const BASE_URL = process.env.BASE_URL || 'https://elitefansapp.com';
+
 // MongoDB Store Configuration
 const mongoStore = new MongoStore({
   uri: process.env.MONGO_URI,
@@ -245,7 +247,7 @@ router.post('/signup', signupLimiter, [
     await newUser.save();
     delete req.session.referralId;
 
-    const verificationLink = `https://onlyaccess.onrender.com/verify/${verificationToken}${creatorParam ? `?creator=${encodeURIComponent(creatorParam)}` : ''}${ref ? `${creatorParam ? '&' : '?'}ref=${encodeURIComponent(ref)}` : ''}${fingerprint ? `${creatorParam || ref ? '&' : '?'}fingerprint=${encodeURIComponent(fingerprint)}` : ''}`;
+    const verificationLink = `${BASE_URL}/verify/${verificationToken}${creatorParam ? `?creator=${encodeURIComponent(creatorParam)}` : ''}${ref ? `${creatorParam ? '&' : '?'}ref=${encodeURIComponent(ref)}` : ''}${fingerprint ? `${creatorParam || ref ? '&' : '?'}fingerprint=${encodeURIComponent(fingerprint)}` : ''}`;
     await sendEmail(
       email,
       'Verify Your Email',
@@ -808,7 +810,7 @@ router.post('/forgot-password', forgotPasswordLimiter, [
     user.resetPasswordExpires = Date.now() + 3600000;
     await user.save();
 
-    const resetLink = `https://onlyaccess.onrender.com/reset-password/${resetToken}${fingerprint ? `?fingerprint=${encodeURIComponent(fingerprint)}` : ''}`;
+    const resetLink = `${BASE_URL}/reset-password/${resetToken}${fingerprint ? `?fingerprint=${encodeURIComponent(fingerprint)}` : ''}`;
     try {
       await sendEmail(
         email,
