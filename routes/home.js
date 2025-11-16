@@ -290,22 +290,29 @@ router.get('/', authCheck, PageLoadLimiter, [
         await processPostUrlForFeed(post, currentUser);
       }
 
-      const featuredCreators = await User.aggregate([
-        { $match: { role: 'creator' } },
-        {
-          $addFields: {
-            trendingScore: {
-              $add: [
-                { $multiply: ['$subscriberCount', 0.7] },
-                { $multiply: ['$totalLikes', 0.3] }
-              ]
-            }
-          }
-        },
-        { $sort: { trendingScore: -1 } },
-        { $limit: 5 }
-      ]);
+      // === EXCLUDE OFFICIAL ELITEFANS ACCOUNT ===
+const EXCLUDED_USERNAMES = ['elitefans', 'elite_fans', 'officialelitefans']; // Add more if needed
 
+const featuredCreators = await User.aggregate([
+  { 
+    $match: { 
+      role: 'creator',
+      username: { $nin: EXCLUDED_USERNAMES }  // ← EXCLUDES THEM HERE
+    } 
+  },
+  {
+    $addFields: {
+      trendingScore: {
+        $add: [
+          { $multiply: ['$subscriberCount', 0.7] },
+          { $multiply: ['$totalLikes', 0.3] }
+        ]
+      }
+    }
+  },
+  { $sort: { trendingScore: -1 } },
+  { $limit: 50 }
+]);
       for (const creator of featuredCreators) {
         const creatorDoc = await User.findById(creator._id);
         await creatorDoc.updateSubscriberCount();

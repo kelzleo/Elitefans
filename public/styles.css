@@ -5387,7 +5387,7 @@ html, body {
 
 /* Trending Creators Container */
 .trending-creators-container {
-  padding: 20px 0; /* Remove horizontal padding, keep vertical */
+  padding: 20px 12px; /* Remove horizontal padding, keep vertical */
   width: 100%;
   max-width: 500px; /* Slightly increased to ensure centering without cutoff */
   margin: 0 auto; /* Center the container */
